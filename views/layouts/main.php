@@ -62,7 +62,7 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                             <?= \yii\helpers\Html::decode($urgentAlert->content) // Usamos decode si guardas HTML básico ?>
                         </div>
                     </div>
-                    </div>
+                </div>
             </div>
         <?php endif; ?>
 
