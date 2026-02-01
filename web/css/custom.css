@@ -1,0 +1,25 @@
+.marquee-container{
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+.marquee-container .marquee-wrapper{
+  aspect-ratio: 3027 / 1754;
+  width: 500%;
+  position: absolute;
+  top: 50%;
+  left: -5%;
+  transform: translate(-50%, -50%);
+}
+.marquee-container .marquee-wrapper .marquee-animation{
+  width: 500%;
+  height: 100%;
+  display: flex;
+}
+.marquee-container .marquee-wrapper .marquee-animation svg{
+  filter:opacity(0.15);
+  margin-right:0;
+}
