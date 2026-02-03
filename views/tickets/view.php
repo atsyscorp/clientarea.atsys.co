@@ -256,7 +256,7 @@ $currentPriority = $priorityLabels[$pr] ?? ['text' => ucfirst($pr), 'color' => '
                             <tr>
                                 <th class="text-base-content/60 font-normal pl-0">Creado:</th>
                                 <td class="text-right pr-0 text-sm">
-                                    <?= Yii::$app->formatter->asDate($model->created_at, 'short') ?>
+                                    <?= Yii::$app->formatter->asDatetime($model->created_at, 'medium') ?>
                                 </td>
                             </tr>
 
