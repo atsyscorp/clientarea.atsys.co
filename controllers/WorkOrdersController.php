@@ -505,4 +505,37 @@ class WorkOrdersController extends Controller
         }
     }
 
+    public function actionClose($id)
+    {
+        $model = $this->findModel($id);
+        
+        // Verificamos que sea POST y que la orden esté en estado correcto
+        if ($this->request->isPost && $model->status === WorkOrders::STATUS_APPROVED) {
+
+            $model->status = WorkOrders::STATUS_COMPLETED;
+            $model->completed_at = date('Y-m-d H:i:s');
+
+            if ($model->save()) {
+                
+                // Lógica de Notificación
+                if ($this->request->post('notify_client')) {
+                    Yii::$app->mailer->compose(['html' => 'workOrderClosed-html'], ['model' => $model])
+                        ->setFrom([Yii::$app->params['adminEmail'] => Yii::$app->name])
+                        ->setTo($model->customer->email)
+                        ->setBcc(Yii::$app->params['adminEmail'])
+                        ->setSubject('¡Trabajo Finalizado! Orden #' . $model->code)
+                        ->send();
+                        
+                    Yii::$app->session->setFlash('success', 'Orden cerrada y notificación enviada.');
+                } else {
+                    Yii::$app->session->setFlash('success', 'Orden cerrada correctamente (sin notificación).');
+                }
+            } else {
+                Yii::$app->session->setFlash('error', 'No se pudo cerrar la orden.');
+            }
+        }
+
+        return $this->redirect(['view', 'id' => $model->id]);
+    }
+
 }

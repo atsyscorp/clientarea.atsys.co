@@ -16,8 +16,4 @@ $headerColor = isset($color) ? $color : '#134C42';
     <div style="font-size: 14px; line-height: 1.6; color: #333; background-color: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
         <?= $content ?>
     </div>
-
-    <p style="font-size: 12px; color: #999; margin-top: 20px;">
-        Este es un mensaje automático del área de clientes de ATSYS.
-    </p>
 </div>

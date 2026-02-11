@@ -240,4 +240,34 @@ $newUpdate = new \app\models\WorkOrderUpdates();
     
     </div>
     <?php endif; ?>
+
+    <?php if ($model->status === \app\models\WorkOrders::STATUS_APPROVED && $isAdmin): ?>
+    <div class="card bg-base-100 shadow-xl border border-success/30 mt-8">
+        <div class="card-body">
+            <h3 class="card-title text-success flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Finalizar Orden de Trabajo
+            </h3>
+            <p class="text-base-content/70">
+                Si el trabajo técnico ha concluido, puedes cerrar esta orden. Esto cambiará el estado a "Finalizado".
+            </p>
+
+            <?= Html::beginForm(['close', 'id' => $model->id], 'post', ['class' => 'mt-4']) ?>
+                
+                <div class="form-control mb-4">
+                    <label class="cursor-pointer label justify-start gap-4">
+                        <input type="checkbox" name="notify_client" value="1" checked class="checkbox checkbox-success" />
+                        <span class="label-text font-medium">Enviar notificación por correo al cliente ("Trabajo Terminado")</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-success text-white w-full md:w-auto gap-2" onclick="return confirm('¿Confirmas que el trabajo está terminado?');">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" /></svg>
+                    Cerrar Orden y Finalizar
+                </button>
+
+            <?= Html::endForm() ?>
+        </div>
+    </div>
+<?php endif; ?>
 </div>

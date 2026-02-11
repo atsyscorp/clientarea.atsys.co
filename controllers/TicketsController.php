@@ -28,7 +28,7 @@ class TicketsController extends \yii\web\Controller
                     'rules' => [
                         // REGLA 1: Usuarios autenticados pueden ver, crear y cerrar SUS tickets
                         [
-                            'actions' => ['index', 'view', 'create', 'reply', 'close'],
+                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk'],
                             'allow' => true,
                             'roles' => ['@'],
                         ],
@@ -152,13 +152,21 @@ class TicketsController extends \yii\web\Controller
                     $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
 
                     try {
-                        Yii::$app->mailer->compose('ticket_reply', [
+                        $mailer = Yii::$app->mailer->compose('ticket_reply', [
                             'reply' => $reply
                         ])
                         ->setFrom(['soporte@atsys.co' => 'Soporte ATSYS'])
                         ->setTo((Yii::$app->user->identity->isAdmin) ? $ticket->email : $adminEmail)
                         ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject)
-                        ->send();
+                        ->setBcc($adminEmail);
+
+                        if($reply->attachment) {
+                            $mailer->attach(Yii::getAlias('@webroot/') . $reply->attachment, [
+                                'fileName' => basename(Yii::getAlias('@webroot/') . $reply->attachment),
+                            ]);
+                        }
+
+                        $mailer->send();
 
                         Yii::$app->session->setFlash('success', (Yii::$app->user->identity->isAdmin) ? 'Respuesta enviada y notificada al cliente.' : 'Respuesta agregada');
                     } catch (\Exception $e) {
@@ -338,6 +346,44 @@ class TicketsController extends \yii\web\Controller
         $this->findModel($id)->delete();
 
         Yii::$app->session->setFlash('success', 'Ticket eliminado correctamente.');
+        return $this->redirect(['index']);
+    }
+
+    public function actionBulk()
+    {
+        // Solo permitimos peticiones POST por seguridad
+        if ($this->request->isPost) {
+            $ids = $this->request->post('ids'); // Array de IDs seleccionados
+            $action = $this->request->post('action'); // 'close' o 'delete'
+
+            if (empty($ids)) {
+                Yii::$app->session->setFlash('warning', 'No has seleccionado ningún ticket.');
+                return $this->redirect(['index']);
+            }
+
+            $count = 0;
+            
+            foreach ($ids as $id) {
+                $model = $this->findModel($id); // Asegúrate de tener findModel disponible o usa Tickets::findOne($id)
+                
+                if ($model) {
+                    if ($action === 'close' && $model->status !== 'closed') {
+                        $model->status = 'closed';
+                        if ($model->save()) $count++;
+                    } 
+                    elseif ($action === 'delete') {
+                        if ($model->delete()) $count++;
+                    }
+                }
+            }
+
+            $message = $action === 'delete' 
+                ? "Se eliminaron $count tickets correctamente." 
+                : "Se cerraron $count tickets correctamente.";
+
+            Yii::$app->session->setFlash('success', $message);
+        }
+
         return $this->redirect(['index']);
     }
 

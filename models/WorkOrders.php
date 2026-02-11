@@ -35,7 +35,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             [['customer_id', 'status'], 'integer'],
             [['requirements', 'notes'], 'string'],
             [['total_cost'], 'number'],
-            [['down_payment_sent_at', 'created_at', 'updated_at'], 'safe'],
+            [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'safe'],
             
             // Validaciones de longitud
             [['code'], 'string', 'max' => 50],
