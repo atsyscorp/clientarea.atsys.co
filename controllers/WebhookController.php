@@ -128,7 +128,7 @@ class WebhookController extends Controller
                 $model->message = $data['body']; 
                 
                 // Departamento
-                if (isset($data['target_email']) && strpos($data['target_email'], 'ventas') !== false) {
+                if (isset($data['target_email']) && strpos($data['target_email'], 'hola') !== false) {
                     $model->department = Tickets::DEPT_COMMERCIAL;
                 } else {
                     $model->department = Tickets::DEPT_SUPPORT;

@@ -175,7 +175,8 @@ class TicketsController extends \yii\web\Controller
                     try {
                         $department = $ticket->getDepartmentEmail(); 
                         $mailer = Yii::$app->mailer->compose('ticket_reply', ['reply' => $reply])
-                            ->setFrom($department)
+                            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                            ->setReplyTo(Yii::$app->params['departmentEmail'][$ticket->department])
                             ->setTo($isAdmin ? $ticket->email : $adminEmail)
                             ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject)
                             ->setBcc($adminEmail);
@@ -315,7 +316,7 @@ class TicketsController extends \yii\web\Controller
                         // Disparar a admin solo cuando se haya creado por el usuario cliente
                         if (!$isAdmin) {
                             $this->triggerN8nNotification(
-                                "Nueva respuesta en ticket: " . $model->ticket_code . " enviado por: " . $model->customer->business_name,
+                                "Nuevo ticket: " . $model->ticket_code . " enviado por: " . $model->customer->business_name,
                                 "Mensaje: " . substr(strip_tags($reply->message), 0, 50) . "...",
                                 $model->id
                             );
