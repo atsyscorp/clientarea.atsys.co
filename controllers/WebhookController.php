@@ -95,11 +95,11 @@ class WebhookController extends Controller
                 
                 if (!$reply->save()) throw new \Exception('Error guardando respuesta.');
 
-                $notifTitle = "💬 Respuesta: " . $existingTicket->ticket_code;
+                $notifTitle = "💬 Respuesta a ticket: " . $existingTicket->ticket_code;
                 
                 // Usamos un operador ternario seguro por si el asunto limpio quedó vacío
                 $asuntoMostrar = !empty($cleanIncomingSubject) ? $cleanIncomingSubject : $incomingSubject;
-                $notifBody = $customerName . ": " . $asuntoMostrar;
+                $notifBody = $customerName . ": " . substr(strip_tags($reply->message), 0, 50) . "...";
                 
                 $finalTicketId = $existingTicket->id;
                 $finalTicketCode = $existingTicket->ticket_code;

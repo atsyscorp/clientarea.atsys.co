@@ -162,8 +162,8 @@ class TicketsController extends \yii\web\Controller
                     // ========================================================
                     if (!$isAdmin) {
                         $this->triggerN8nNotification(
-                            "💬 Respuesta Web: " . $ticket->ticket_code,
-                            "Cliente: " . substr(strip_tags($reply->message), 0, 50) . "...",
+                            "💬 Respuesta a ticket " . $ticket->ticket_code,
+                            "Mensaje: " . substr(strip_tags($reply->message), 0, 50) . "...",
                             $ticket->id
                         );
                     }
