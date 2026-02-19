@@ -170,6 +170,7 @@ class CustomerServicesController extends \yii\web\Controller
         Yii::$app->mailer->compose(['html' => 'new_service-html'], ['service' => $service])
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
             ->setTo($clientEmail)
+            ->setBcc(Yii::$app->params['adminEmail'])
             ->setSubject('¡Nuevo Servicio Activado! - ' . $service->product->name)
             ->send();
     }

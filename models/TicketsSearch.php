@@ -41,7 +41,7 @@ class TicketsSearch extends Tickets
         $query->andFilterWhere([
             'id' => $this->id,
             'status' => $this->status,
-            'customer_id' => $this->customer_id, // CORREGIDO AQUÍ TAMBIÉN
+            'customer_id' => $this->customer_id,
         ]);
 
         $query->andFilterWhere(['like', 'ticket_code', $this->ticket_code])

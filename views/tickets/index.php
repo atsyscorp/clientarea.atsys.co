@@ -64,7 +64,15 @@ $bulkUrl = Url::to(['bulk']);
                 ],
                 'subject',
                 [
-                    'attribute' => 'email:email',
+                    'attribute' => 'department',
+                    'format' => 'raw',
+                    'value' => function($model) {
+                        return $model->getDepartmentLabelShort();
+                    },
+                    'filter' => \app\models\Tickets::getDepartmentListShort(), // Para que puedas filtrar por depto
+                ],
+                [
+                    'attribute' => 'email',
                     'visible' => Yii::$app->user->identity->isAdmin,
                     'label' => 'E-mail',
                 ],
@@ -225,17 +233,17 @@ function applyBulkAction(actionType) {
         body: formData,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(response => {
-        if (response.ok) {
-            window.location.reload();
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload(); 
         } else {
-            console.error('Error status:', response.status);
-            alert('Error al procesar (Código ' + response.status + '). Revisa la consola.');
+            alert('Error: ' + (data.message || 'Ocurrió un error desconocido'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error de conexión.');
+        alert('Error de conexión o respuesta inesperada del servidor.');
     });
 }
 </script>

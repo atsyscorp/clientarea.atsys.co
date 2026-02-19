@@ -289,4 +289,28 @@ class SiteController extends Controller
             'customer' => $customer,
         ]);
     }
+
+    public function actionSavePushToken()
+    {
+        // Solo permitimos esto a usuarios logueados y administradores
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            return; 
+        }
+
+        $token = Yii::$app->request->post('token');
+        
+        if ($token) {
+            // Evitamos duplicados: Si ya existe este token, no hacemos nada
+            $exists = \app\models\AdminTokens::find()->where(['token' => $token])->exists();
+            
+            if (!$exists) {
+                $model = new \app\models\AdminTokens();
+                $model->user_id = Yii::$app->user->id;
+                $model->token = $token;
+                $model->device_info = Yii::$app->request->userAgent; // Guardamos qué navegador es
+                $model->created_at = date('Y-m-d H:i:s');
+                $model->save();
+            }
+        }
+    }
 }

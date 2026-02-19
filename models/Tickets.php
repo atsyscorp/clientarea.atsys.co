@@ -39,6 +39,10 @@ class Tickets extends \yii\db\ActiveRecord
     const SOURCE_EMAIL = 'email';
     const SOURCE_WHATSAPP = 'whatsapp';
 
+    const DEPT_SUPPORT = 'support';
+    const DEPT_COMMERCIAL = 'commercial';
+    const DEPT_BILLING = 'billing';
+
     // Propiedad virtual para capturar el mensaje del formulario
     public $message;
 
@@ -137,6 +141,11 @@ class Tickets extends \yii\db\ActiveRecord
                 'maxSize' => 1024 * 1024 * 10, // 10MB
                 'checkExtensionByMimeType' => false,
             ],
+
+            // Departamento
+            [['department'], 'string'],
+            [['department'], 'default', 'value' => self::DEPT_SUPPORT],
+            [['department'], 'in', 'range' => [self::DEPT_SUPPORT, self::DEPT_COMMERCIAL, self::DEPT_BILLING]],
         ];
     }
 
@@ -153,6 +162,7 @@ class Tickets extends \yii\db\ActiveRecord
             'status' => 'Estado',
             'priority' => 'Prioridad',
             'source' => 'Fuente',
+            'department' => 'Departamento',
             'created_at' => 'Creado',
             'updated_at' => 'Últ. Actualización',
         ];
@@ -395,6 +405,66 @@ class Tickets extends \yii\db\ActiveRecord
             self::STATUS_CLOSED => 'Cerrado',
         ];
         return $statusLabels[$this->status] ?? 'Desconocido';
+    }
+
+    public static function getDepartmentList()
+    {
+        return [
+            self::DEPT_SUPPORT => 'Soporte Técnico',
+            self::DEPT_COMMERCIAL => 'Comercial / Ventas',
+            self::DEPT_BILLING => 'Facturación y Pagos',
+        ];
+    }
+
+    public static function getDepartmentListShort()
+    {
+        return [
+            self::DEPT_SUPPORT => 'Soporte',
+            self::DEPT_COMMERCIAL => 'Comercial',
+            self::DEPT_BILLING => 'Facturación',
+        ];
+    }
+
+    public function getDepartmentLabel()
+    {
+        $colors = [
+            self::DEPT_SUPPORT => 'badge-info',
+            self::DEPT_COMMERCIAL => 'badge-secondary',
+            self::DEPT_BILLING => 'badge-accent',
+        ];
+        
+        $list = self::getDepartmentList();
+        $label = $list[$this->department] ?? $this->department;
+        $color = $colors[$this->department] ?? 'badge-ghost';
+        
+        return "<span class='badge {$color} badge-outline gap-1'>{$label}</span>";
+    }
+
+    public function getDepartmentLabelShort()
+    {
+        $colors = [
+            self::DEPT_SUPPORT => 'badge-info',
+            self::DEPT_COMMERCIAL => 'badge-secondary',
+            self::DEPT_BILLING => 'badge-accent',
+        ];
+        
+        $list = self::getDepartmentListShort();
+        $label = $list[$this->department] ?? $this->department;
+        $color = $colors[$this->department] ?? 'badge-ghost';
+        
+        return "<span class='badge {$color} badge-outline gap-1'>{$label}</span>";
+    }
+    
+    public function getDepartmentEmail() 
+    {
+        $departmentsAddresses = [
+            self::DEPT_SUPPORT => ['soporte@atsys.co' => 'Soporte ATSYS'],
+            self::DEPT_COMMERCIAL => ['hola@atsys.co' => 'Info ATSYS'],
+            self::DEPT_BILLING => ['facturacion@atsys.co' => 'Facturación ATSYS']
+        ];
+        return $departmentsAddresses[$this->department] ?? $departmentsAddresses[self::DEPT_SUPPORT];
+
+
     }
 
 }

@@ -251,7 +251,7 @@ class OrdersController extends Controller {
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
             ->setTo($customer->email)
             ->setSubject($subject)
-            ->setBcc(['soporteatsys@gmail.com','hola@atsys.co'])
+            ->setBcc(Yii::$app->params['adminEmail'])
             ->send();
                 
         } catch (\Exception $e) {
@@ -289,6 +289,7 @@ class OrdersController extends Controller {
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
             ->setTo($customer->email)
             ->setSubject($subject)
+            ->setBcc(Yii::$app->params['adminEmail'])
             ->send();
         } catch (\Exception $e) {
             Yii::error("Error enviando recibo pago: " . $e->getMessage());

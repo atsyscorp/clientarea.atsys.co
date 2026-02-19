@@ -19,6 +19,9 @@ $config = [
         'request' => [
             // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
             'cookieValidationKey' => 'vPb_geIlTPAEC4eeCFvViGPCqeIpbkh-',
+            'parsers' => [
+                'application/json' => 'yii\web\JsonParser',
+            ]
         ],
         'cache' => [
             'class' => 'yii\caching\FileCache',
@@ -82,10 +85,12 @@ $config = [
                     'css' => [],
                     'js' => [],
                 ],
-                'yii\bootstrap5\BootstrapPluginAsset' => [
+                'yii\bootstrap\BootstrapPluginAsset' => [
                     'js' => [],
+                    'css' => [],
+                    'depends' => [],
                 ],
-            ],
+            ]
         ],
         'formatter' => [
             'class' => 'yii\i18n\Formatter',

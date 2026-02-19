@@ -89,8 +89,8 @@ class WorkOrdersController extends Controller
                         'content' => $htmlContent,
                         'color' => '#10b981' // Verde Éxito
                     ])
-                    ->setFrom([Yii::$app->params['senderEmail'] => 'Sistema ATSYS'])
-                    ->setTo('hola@atsys.co')
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                    ->setTo(Yii::$app->params['adminEmail'])
                     ->setSubject("✅ APROBADA: Orden " . $model->code . " - " . $model->customer->business_name)
                     ->send();
                 } catch (\Exception $e) {
@@ -139,8 +139,8 @@ class WorkOrdersController extends Controller
                         'content' => $htmlContent,
                         'color' => '#ef4444' // Rojo Error
                     ])
-                    ->setFrom([Yii::$app->params['senderEmail'] => 'Sistema ATSYS'])
-                    ->setTo('hola@atsys.co')
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                    ->setTo(Yii::$app->params['adminEmail'])
                     ->setSubject("❌ RECHAZADA: Orden " . $model->code . " - " . $model->customer->business_name)
                     ->send();
                 } catch (\Exception $e) {
@@ -250,8 +250,9 @@ class WorkOrdersController extends Controller
         // 2. Enviar el correo con adjunto
         try {
             Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], ['model' => $model])
-                ->setFrom([Yii::$app->params['senderEmail'] => 'Proyectos ATSYS'])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                 ->setTo($clientEmail)
+                ->setBcc(Yii::$app->params['adminEmail'])
                 ->setSubject("Nueva Orden de Trabajo: " . $model->title)
                 ->attachContent($pdfContent, [
                     'fileName' => $model->code . '.pdf', 
@@ -296,8 +297,9 @@ class WorkOrdersController extends Controller
 
                     // 2. Enviar Correo
                     Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], ['model' => $model])
-                        ->setFrom([Yii::$app->params['senderEmail'] => 'Proyectos ATSYS'])
+                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                         ->setTo($model->customer->email)
+                        ->setBcc(Yii::$app->params['adminEmail'])
                         ->setSubject("Nueva Orden de Trabajo: " . $model->title)
                         ->attachContent($pdfContent, [
                             'fileName' => $model->code . '.pdf', 
@@ -388,7 +390,7 @@ class WorkOrdersController extends Controller
                                           <p><a href='https://clientarea.atsys.co/work-orders/view?id={$workOrder->id}'>Ver en el portal</a></p>",
                             'color' => '#134C42'
                         ])
-                        ->setFrom([Yii::$app->params['senderEmail'] => 'Proyectos ATSYS'])
+                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                         ->setTo($workOrder->customer->email)
                         ->setBcc(Yii::$app->params['adminEmail'])
                         ->setSubject("Avance: " . $workOrder->title)
@@ -496,8 +498,9 @@ class WorkOrdersController extends Controller
                 'order_total' => Yii::$app->formatter->asCurrency($order->total),
                 'paymentLink' => $paymentLink
             ])
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
             ->setTo($customer->email)
+            ->setBcc(Yii::$app->params['adminEmail'])
             ->setSubject($subject)
             ->send();
         } catch (\Exception $e) {

@@ -18,6 +18,8 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
 <head>
     <meta charset="<?= Yii::$app->charset ?>">
     <title><?= Html::encode($this->title) ?></title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#134C42">
     <?php $this->head() ?>
 </head>
 <body>
@@ -227,6 +229,83 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
         </ul>
     </div>
 </div>
+
+<?php if (!Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin): ?>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBDs6Nnkad5JaCPLh7_b_FPEyRFUGHUTTg",
+    authDomain: "atsys-client-area.firebaseapp.com",
+    projectId: "atsys-client-area",
+    storageBucket: "atsys-client-area.firebasestorage.app",
+    messagingSenderId: "171390167252",
+    appId: "1:171390167252:web:9036a477a8e6bd4942b341",
+    measurementId: "G-FGSGR9B5MT"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const messaging = getMessaging(app);
+
+  // Solicitar permiso al cargar la página
+  Notification.requestPermission().then((permission) => {
+    if (permission === 'granted') {
+      console.log('Permiso de notificación concedido.');
+      
+      // Obtener el Token
+      getToken(messaging, { vapidKey: 'BMkkCkbfEgkmxKZ2s7-ygaV2MDlnqcNn6bvWrlzDmsa-o7TTpdMrn9DaHYaRsx8S814sNPF7nvuUFtpLWM71ET8' }).then((currentToken) => {
+        if (currentToken) {
+          // ENVIAR TOKEN A TU SERVIDOR YII2
+          saveTokenToDatabase(currentToken);
+        } else {
+          console.log('No se pudo obtener el token.');
+        }
+      }).catch((err) => {
+        console.log('Error al obtener token: ', err);
+      });
+    }
+  });
+
+  // Función para guardar en BD vía AJAX
+  function saveTokenToDatabase(token) {
+      const formData = new FormData();
+      formData.append('token', token);
+      formData.append('<?= Yii::$app->request->csrfParam ?>', '<?= Yii::$app->request->csrfToken ?>');
+
+      fetch('<?= \yii\helpers\Url::to(['/site/save-push-token']) ?>', {
+          method: 'POST',
+          body: formData
+      });
+  }
+
+  onMessage(messaging, (payload) => {
+    // Verificamos si el navegador tiene permiso
+    if (Notification.permission === 'granted') {
+        navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification(payload.notification.title, {
+                body: payload.notification.body,
+                icon: '/images/icon-192.png',
+                requireInteraction: true // Hace que la notificación no desaparezca sola rápido
+            });
+        });
+
+        // Si usas SweetAlert2
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: payload.notification.title,
+                text: payload.notification.body,
+                icon: 'info',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 5000
+            });
+        }
+    }
+});
+</script>
+<?php endif; ?>
 
 <?php $this->endBody() ?>
 </body>

@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'adminEmail' => 'hola@atsys.co',
+    'adminEmail' => 'gerencia@atsys.co',
     'senderEmail' => 'noreply@atsys.co',
     'senderName' => 'Área de clientes ATSYS',
     'user.passwordResetTokenExpire' => 3600,
@@ -18,6 +18,11 @@ return [
         	'class' => 'page-link'
         ]
     ],
+    'departmentEmails' => [
+        'support' => 'soporte@atsys.co',
+        'commercial' => 'hola@atsys.co'
+    ],
     'wmpi_pubKey' => 'pub_prod_UbGVrJOt3EZ6xBKQaPy8lah9pFQchr0T',
-    'wmpi_integrity' => 'prod_integrity_qGF2hvg6bUCrUAY2qEK7yefE5soM5JZ0'
+    'wmpi_integrity' => 'prod_integrity_qGF2hvg6bUCrUAY2qEK7yefE5soM5JZ0',
+    'fbase_senderId' => '171390167252',
 ];

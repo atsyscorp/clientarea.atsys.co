@@ -7,6 +7,37 @@ use yii\helpers\ArrayHelper;
 /* @var $this yii\web\View */
 /* @var $model app\models\WorkOrders */
 /* @var $form yii\widgets\ActiveForm */
+
+// A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
+    'position' => \yii\web\View::POS_HEAD
+]);
+
+// B. Inicializamos el editor sobre el ID 'ticket-message-editor'
+$js = <<<JS
+document.addEventListener("DOMContentLoaded", function() {
+    tinymce.remove('#ticket-message-editor'); // Limpieza preventiva por si usas Pjax
+    tinymce.init({
+        selector: '#ticket-message-editor', // Debe coincidir con el ID de arriba
+        height: 300,
+        menubar: false, // Sin menú superior (Archivo, Editar...)
+        statusbar: false, // Sin barra inferior
+        language: 'es', // Intenta cargar español, si falla usará inglés
+        plugins: 'lists link autolink', // Plugins básicos
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat', // Herramientas limpias
+        skin: 'oxide', // Tema claro estándar
+        content_css: 'default',
+        branding: false, // Quitar marca "Powered by TinyMCE"
+        setup: function (editor) {
+            // Esto asegura que el valor se guarde en el textarea al enviar el formulario
+            editor.on('change', function () {
+                editor.save();
+            });
+        }
+    });
+});
+JS;
+$this->registerJs($js, \yii\web\View::POS_END);
 ?>
 
 <div class="card bg-base-100 shadow-xl border border-base-200">
@@ -49,7 +80,9 @@ use yii\helpers\ArrayHelper;
                     <span class="label-text font-bold">Detalle de Requerimientos y Alcance</span>
                     <span class="label-text-alt opacity-70">Sé lo más específico posible</span>
                 </label>
-                <?= $form->field($model, 'requirements', ['template' => '{input}{error}'])->textarea([
+                <?= $form->field($model, 'requirements', ['template' => '{input}{error}'])
+                
+                ->textarea([
                     'rows' => 10, 
                     'class' => 'textarea textarea-bordered w-full h-64 font-mono text-sm leading-relaxed',
                     'placeholder' => "1. Desarrollo de Login...\n2. Panel administrativo...\n3. Integración con pasarela..."

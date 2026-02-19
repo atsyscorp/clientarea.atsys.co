@@ -57,7 +57,7 @@ class PasswordResetRequestForm extends Model
         return Yii::$app->mailer->compose(['html' => 'passwordResetToken-html'], ['user' => $user, 'link' => $resetLink])
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
             ->setTo($this->email)
-            // ->setBcc('soporte@atsys.co') // Descomenta si necesitas copia oculta
+            ->setBcc(Yii::$app->params['adminEmail'])
             ->setSubject('Restablecer contraseña - ' . Yii::$app->name)
             ->send();
     }

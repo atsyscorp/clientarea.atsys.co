@@ -73,7 +73,7 @@ class CronController extends Controller
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
             ->setTo($customer->email)
             ->setSubject($subject)
-            ->setBcc('soporteatsys@gmail.com')
+            ->setBcc(Yii::$app->params['adminEmail'])
             ->send();
                 
         } catch (\Exception $e) {
@@ -196,7 +196,7 @@ class CronController extends Controller
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
             ->setTo($customer->email)
             ->setSubject($subject)
-            ->setBcc('soporteatsys@gmail.com')
+            ->setBcc(Yii::$app->params['adminEmail'])
             ->send();
 
         } catch (\Exception $e) {

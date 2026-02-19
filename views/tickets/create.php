@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
+use dosamigos\tinymce\TinyMce;
 
 /** @var yii\web\View $this */
 /** @var app\models\Tickets $model */
@@ -11,6 +12,37 @@ $this->title = 'Abrir Nuevo Ticket';
 
 // Verificamos si es admin
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+
+// A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
+    'position' => \yii\web\View::POS_HEAD
+]);
+
+// B. Inicializamos el editor sobre el ID 'tickets-message'
+$js = <<<JS
+document.addEventListener("DOMContentLoaded", function() {
+    tinymce.remove('#tickets-message'); // Limpieza preventiva por si usas Pjax
+    tinymce.init({
+        selector: '#tickets-message', // Debe coincidir con el ID de arriba
+        height: 300,
+        menubar: false, // Sin menú superior (Archivo, Editar...)
+        statusbar: false, // Sin barra inferior
+        language: 'es', // Intenta cargar español, si falla usará inglés
+        plugins: 'lists link autolink', // Plugins básicos
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat', // Herramientas limpias
+        skin: 'oxide', // Tema claro estándar
+        content_css: 'default',
+        branding: false, // Quitar marca "Powered by TinyMCE"
+        setup: function (editor) {
+            // Esto asegura que el valor se guarde en el textarea al enviar el formulario
+            editor.on('change', function () {
+                editor.save();
+            });
+        }
+    });
+});
+JS;
+$this->registerJs($js, \yii\web\View::POS_END);
 ?>
 
 <div class="flex justify-center items-start min-h-[calc(100vh-10rem)] py-6">
@@ -25,7 +57,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     </svg>
                 </div>
                 <div>
-                    <h1 class="card-title text-2xl font-bold">Nuevo Ticket de Soporte</h1>
+                    <h1 class="card-title text-2xl font-bold">Nuevo Ticket</h1>
                     <p class="text-base-content/60 text-sm">Describe tu solicitud y te responderemos a la brevedad.</p>
                 </div>
             </div>
@@ -67,6 +99,19 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
             <?php endif; ?>
 
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-bold">¿A qué área va dirigida tu solicitud?</span>
+                </label>
+                <?= $form->field($model, 'department')->dropDownList(
+                    \app\models\Tickets::getDepartmentList(), 
+                    [
+                        'class' => 'select select-bordered w-full',
+                        'prompt' => 'Seleccione un departamento...'
+                    ]
+                )->label(false) ?>
+            </div>
+
             <?= $form->field($model, 'priority')->dropDownList([
                 'medium' => 'Medio', 
                 'high' => 'Alto', 
@@ -89,7 +134,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     'class' => 'textarea textarea-bordered w-full h-32 focus:textarea-primary text-base', 
                     'placeholder' => 'Por favor detalla lo que sucede...'
                 ],
-            ])->textarea()->label('Descripción Detallada') ?>
+            ])->label('Descripción Detallada') ?>
 
             <div class="form-control w-full md:w-auto mb-4">
                 <label class="btn btn-outline btn-primary gap-2 w-full md:w-auto cursor-pointer">

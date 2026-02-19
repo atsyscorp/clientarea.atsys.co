@@ -1,5 +1,6 @@
 <?php
 use yii\helpers\Html;
+use yii\helpers\HtmlPurifier;
 
 /* @var $this yii\web\View */
 /* @var $ticket app\models\Tickets */
@@ -51,5 +52,5 @@ $linkRegistro = Yii::$app->urlManager->createAbsoluteUrl(['signup']);
     <?php } ?>
     
     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-    <p style="font-size: 12px; color: #777;">Detalle de tu mensaje:<br><em><?= nl2br(Html::encode($message)) ?></em></p>
+    <p style="font-size: 12px; color: #777;">Detalle de tu mensaje:<br><em><?= HtmlPurifier::process($message) ?></em></p>
 </div>

@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
+use yii\helpers\HtmlPurifier;
 
 /** @var yii\web\View $this */
 /** @var app\models\Tickets $model */
@@ -12,14 +13,29 @@ $this->title = $model->ticket_code . ' - ' . $model->subject;
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
 // Helper para links
-function formatMessage($text, $dark=false) {
-    $text = Html::encode($text);
-    $text = preg_replace(
-        '/(https?:\/\/[^\s]+)/', 
-        '<a href="$1" target="_blank" class="link link-'.(($dark) ? 'white' : 'primary').' underline break-all">$1</a>', 
-        $text
-    );
-    return nl2br($text);
+function formatMessage($text, $dark = false) {
+
+    if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
+        $text = nl2br($text);
+    }
+
+    // 1. Configuramos Purifier para convertir URLs en enlaces y párrafos
+    $config = function ($conf) {
+        $conf->set('HTML.TargetBlank', true);
+        $conf->set('AutoFormat.Linkify', true);
+        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+    };
+
+    // 2. Limpiamos el HTML (Aquí ya es seguro)
+    $cleanHtml = HtmlPurifier::process($text, $config);
+
+    // 3. Definimos tus clases (DaisyUI / Tailwind)
+    $cssClass = $dark ? 'link link-white underline' : 'link link-primary underline';
+
+    // 4. INYECCIÓN: Reemplazamos <a por <a class="..."
+    // Como el HTML ya está purificado, es seguro manipularlo
+    return str_replace('<a ', '<a class="' . $cssClass . '" ', $cleanHtml);
+
 }
 
 // --- LOGICA DE VISUALIZACIÓN (Mapeos) ---
@@ -43,6 +59,36 @@ $priorityLabels = [
 $pr = strtolower($model->priority);
 $currentPriority = $priorityLabels[$pr] ?? ['text' => ucfirst($pr), 'color' => 'bg-ghost'];
 
+// A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
+    'position' => \yii\web\View::POS_HEAD
+]);
+
+// B. Inicializamos el editor sobre el ID 'ticket-message-editor'
+$js = <<<JS
+document.addEventListener("DOMContentLoaded", function() {
+    tinymce.remove('#ticket-message-editor'); // Limpieza preventiva por si usas Pjax
+    tinymce.init({
+        selector: '#ticket-message-editor', // Debe coincidir con el ID de arriba
+        height: 300,
+        menubar: false, // Sin menú superior (Archivo, Editar...)
+        statusbar: false, // Sin barra inferior
+        language: 'es', // Intenta cargar español, si falla usará inglés
+        plugins: 'lists link autolink', // Plugins básicos
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat', // Herramientas limpias
+        skin: 'oxide', // Tema claro estándar
+        content_css: 'default',
+        branding: false, // Quitar marca "Powered by TinyMCE"
+        setup: function (editor) {
+            // Esto asegura que el valor se guarde en el textarea al enviar el formulario
+            editor.on('change', function () {
+                editor.save();
+            });
+        }
+    });
+});
+JS;
+$this->registerJs($js, \yii\web\View::POS_END);
 ?>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -146,6 +192,7 @@ $currentPriority = $priorityLabels[$pr] ?? ['text' => ucfirst($pr), 'color' => '
                         <?= Html::textarea('TicketReplies[message]', '', [
                             'class' => 'textarea textarea-bordered h-24 w-full focus:textarea-primary text-base',
                             'placeholder' => 'Escribe tu respuesta aquí...',
+                            'id' => 'ticket-message-editor',
                             'required' => true
                         ]) ?>
                     </div>

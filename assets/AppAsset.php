@@ -25,6 +25,7 @@ class AppAsset extends AssetBundle
     ];
     public $js = [
         'js/app.js',
+        'https://cdn.jsdelivr.net/npm/sweetalert2@11',
     ];
     public $depends = [
         'yii\web\YiiAsset',

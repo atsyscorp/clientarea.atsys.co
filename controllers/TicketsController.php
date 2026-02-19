@@ -11,6 +11,7 @@ use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use yii\web\NotFoundHttpException;
 use yii\web\UploadedFile;
+use yii\web\Response;
 
 class TicketsController extends \yii\web\Controller
 {
@@ -118,47 +119,66 @@ class TicketsController extends \yii\web\Controller
     public function actionReply($id)
     {
         $ticket = $this->findModel($id);
-        $reply = new TicketReplies();
+        $reply = new TicketReplies(); // Asegúrate de tener el use app\models\TicketReplies;
 
         if ($this->request->isPost) {
+            // Cargamos los datos del formulario (mensaje, etc.)
             if ($reply->load($this->request->post())) {
+                
                 $reply->ticket_id = $ticket->id;
-                $reply->sender_type = (Yii::$app->user->identity->isAdmin) ? 'admin' : 'customer'; // Porque esto se hace desde el panel
-                $reply->user_id = Yii::$app->user->identity->id; // Descomenta si tienes login de usuarios configurado
-                $reply->attachmentFile = UploadedFile::getInstance($reply, 'attachmentFile');
+                
+                // Determinamos quién responde
+                $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+                $reply->sender_type = $isAdmin ? 'admin' : 'customer'; 
+                $reply->user_id = Yii::$app->user->id; 
 
+                // Lógica de Archivos Adjuntos
+                $reply->attachmentFile = UploadedFile::getInstance($reply, 'attachmentFile');
                 if ($reply->attachmentFile) {
                     $folderPath = Yii::getAlias('@webroot/uploads/tickets/' . $ticket->id . '/');
-                    
-                    // 2. Crear carpeta si no existe
                     if (!file_exists($folderPath)) {
                         mkdir($folderPath, 0777, true);
                     }
-
                     $fileName = time() . '_' . $reply->attachmentFile->baseName . '.' . $reply->attachmentFile->extension;
                     $filePath = $folderPath . $fileName;
-
                     if ($reply->attachmentFile->saveAs($filePath)) {
                         $reply->attachment = 'uploads/tickets/' . $ticket->id . '/' . $fileName;
                     }
                 }
 
+                // Guardamos la respuesta
                 if ($reply->save()) {
-                    // Actualizamos el estado del ticket
-                    $ticket->status = 'answered';
-                    $ticket->updated_at = date('Y-m-d H:i:s');
-                    $ticket->save();
                     
+                    // Actualizamos el ticket padre
+                    // Si responde el cliente, el estado pasa a 'open' o 'customer_reply' para que lo veas
+                    // Si responde el admin, pasa a 'answered'
+                    $ticket->status = $isAdmin ? 'answered' : 'open'; 
+                    $ticket->updated_at = date('Y-m-d H:i:s');
+                    $ticket->save(false); // false para saltar validaciones estrictas del ticket si solo actualizamos fecha
+
+                    // ========================================================
+                    // 🔔 NUEVO: DISPARADOR DE NOTIFICACIONES PUSH A N8N
+                    // Solo si responde el CLIENTE, avisamos a los ADMINS
+                    // ========================================================
+                    if (!$isAdmin) {
+                        $this->triggerN8nNotification(
+                            "💬 Respuesta Web: " . $ticket->ticket_code,
+                            "Cliente: " . substr(strip_tags($reply->message), 0, 50) . "...",
+                            $ticket->id
+                        );
+                    }
+                    // ========================================================
+
+                    // Lógica de Email (Tu código original)
                     $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
 
                     try {
-                        $mailer = Yii::$app->mailer->compose('ticket_reply', [
-                            'reply' => $reply
-                        ])
-                        ->setFrom(['soporte@atsys.co' => 'Soporte ATSYS'])
-                        ->setTo((Yii::$app->user->identity->isAdmin) ? $ticket->email : $adminEmail)
-                        ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject)
-                        ->setBcc($adminEmail);
+                        $department = $ticket->getDepartmentEmail(); 
+                        $mailer = Yii::$app->mailer->compose('ticket_reply', ['reply' => $reply])
+                            ->setFrom($department)
+                            ->setTo($isAdmin ? $ticket->email : $adminEmail)
+                            ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject)
+                            ->setBcc($adminEmail);
 
                         if($reply->attachment) {
                             $mailer->attach(Yii::getAlias('@webroot/') . $reply->attachment, [
@@ -167,14 +187,14 @@ class TicketsController extends \yii\web\Controller
                         }
 
                         $mailer->send();
-
-                        Yii::$app->session->setFlash('success', (Yii::$app->user->identity->isAdmin) ? 'Respuesta enviada y notificada al cliente.' : 'Respuesta agregada');
+                        Yii::$app->session->setFlash('success', $isAdmin ? 'Respuesta enviada.' : 'Respuesta agregada correctamente.');
                     } catch (\Exception $e) {
-                        // Si falla el correo, guardamos la respuesta pero avisamos del error
                         Yii::$app->session->setFlash('warning', 'Respuesta guardada, pero falló el envío del correo: ' . $e->getMessage());
                     }
+
                 } else {
-                    echo implode(',', $reply->getSummaryError(true)); die;
+                    // Manejo de errores de validación del modelo Reply
+                    Yii::$app->session->setFlash('error', 'Error guardando respuesta: ' . implode(',', $reply->getFirstErrors()));
                 }
             }
         }
@@ -183,13 +203,52 @@ class TicketsController extends \yii\web\Controller
     }
 
     /**
+     * Envía una señal a N8N para procesar la notificación Push a los Administradores
+     */
+    protected function triggerN8nNotification($title, $body, $ticketId)
+    {
+        $tokens = \app\models\AdminTokens::find()->select('token')->column();
+
+        if (empty($tokens)) {
+            return; // No hay nadie a quien notificar
+        }
+
+        // 2. Preparar el payload
+        $payload = [
+            'tokens' => $tokens, // Array de tokens
+            'title'  => $title,
+            'body'   => $body,
+            'link'   => "https://clientarea.atsys.co/tickets/view?id=" . $ticketId
+        ];
+
+        // 3. Configurar la petición a N8N
+        $n8nUrl = 'https://n8n.atsys.co/webhook/send-admin-push'; 
+
+        try {
+            $ch = curl_init($n8nUrl);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // Timeout muy bajo (500ms) para que PHP no se quede esperando a N8N
+            // Queremos que la web sea rápida para el usuario ("Fire and Forget")
+            curl_setopt($ch, CURLOPT_TIMEOUT_MS, 500);
+            curl_exec($ch);
+            curl_close($ch);
+        } catch (\Exception $e) {
+            // Silenciamos el error para no interrumpir el flujo del usuario
+            Yii::error("Error enviando push a N8N: " . $e->getMessage(), 'n8n_push');
+        }
+    }
+
+    /**
      * Crear Ticket (Automático: Asigna usuario y estado abierto)
      */
     public function actionCreate()
     {
         $model = new Tickets(['scenario' => 'create']);
-        
         $user = Yii::$app->user->identity;
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
         if(Yii::$app->user->identity->isAdmin) {
             $model->customer_id = Yii::$app->user->identity->customer;
@@ -253,6 +312,15 @@ class TicketsController extends \yii\web\Controller
 
                         $this->sendNewTicketEmails($model, $model->message, $user);
 
+                        // Disparar a admin solo cuando se haya creado por el usuario cliente
+                        if (!$isAdmin) {
+                            $this->triggerN8nNotification(
+                                "Nueva respuesta en ticket: " . $model->ticket_code . " enviado por: " . $model->customer->business_name,
+                                "Mensaje: " . substr(strip_tags($reply->message), 0, 50) . "...",
+                                $model->id
+                            );
+                        }
+
                         Yii::$app->session->setFlash('success', '¡Ticket creado exitosamente! Te hemos enviado un correo de confirmación.');
                         return $this->redirect(['view', 'id' => $model->id]);
                     } else {
@@ -292,15 +360,16 @@ class TicketsController extends \yii\web\Controller
      */
     protected function sendNewTicketEmails($ticket, $messageContent, $user)
     {
-        $adminEmail = Yii::$app->params['adminEmail'] ?? 'hola@atsys.co';
+        $adminEmail = Yii::$app->params['adminEmail'];
 
         Yii::$app->mailer->compose(
             ['html' => 'newTicket-html'],
             ['ticket' => $ticket, 'message' => $messageContent]
         )
-        ->setFrom([Yii::$app->params['senderEmail'] => 'Soporte ATSYS'])
-        ->setTo($ticket->email) // O $user->email
+        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+        ->setTo($ticket->email)
         ->setBcc($adminEmail)
+        ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
         ->setSubject('[#'.$ticket->ticket_code.'] '. $ticket->subject)
         ->send();
 
@@ -308,7 +377,8 @@ class TicketsController extends \yii\web\Controller
             ['html' => 'adminNewTicket-html'],
             ['ticket' => $ticket, 'message' => $messageContent, 'user' => $user]
         )
-        ->setFrom([Yii::$app->params['senderEmail'] => 'ATSYS Client Area'])
+        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+        ->setTo($adminEmail)
         ->setSubject('Nuevo Ticket [' . $ticket->ticket_code . '] - ' . $ticket->subject)
         ->send();
     }
@@ -351,20 +421,21 @@ class TicketsController extends \yii\web\Controller
 
     public function actionBulk()
     {
-        // Solo permitimos peticiones POST por seguridad
+        // 1. Forzamos respuesta JSON
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
         if ($this->request->isPost) {
-            $ids = $this->request->post('ids'); // Array de IDs seleccionados
+            $ids = $this->request->post('ids');
             $action = $this->request->post('action'); // 'close' o 'delete'
 
             if (empty($ids)) {
-                Yii::$app->session->setFlash('warning', 'No has seleccionado ningún ticket.');
-                return $this->redirect(['index']);
+                return ['success' => false, 'message' => 'No has seleccionado ningún ticket.'];
             }
 
             $count = 0;
             
             foreach ($ids as $id) {
-                $model = $this->findModel($id); // Asegúrate de tener findModel disponible o usa Tickets::findOne($id)
+                $model = $this->findModel($id); 
                 
                 if ($model) {
                     if ($action === 'close' && $model->status !== 'closed') {
@@ -372,6 +443,7 @@ class TicketsController extends \yii\web\Controller
                         if ($model->save()) $count++;
                     } 
                     elseif ($action === 'delete') {
+                        // Verificar permisos extra si es necesario
                         if ($model->delete()) $count++;
                     }
                 }
@@ -381,10 +453,18 @@ class TicketsController extends \yii\web\Controller
                 ? "Se eliminaron $count tickets correctamente." 
                 : "Se cerraron $count tickets correctamente.";
 
+            // Guardamos el mensaje en sesión para que se vea al recargar
             Yii::$app->session->setFlash('success', $message);
+
+            // 2. Retornamos JSON en lugar de redirect
+            return [
+                'success' => true,
+                'message' => $message,
+                'count' => $count
+            ];
         }
 
-        return $this->redirect(['index']);
+        return ['success' => false, 'message' => 'Petición inválida.'];
     }
 
 }
