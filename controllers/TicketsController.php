@@ -176,7 +176,7 @@ class TicketsController extends \yii\web\Controller
                         $department = $ticket->getDepartmentEmail(); 
                         $mailer = Yii::$app->mailer->compose('ticket_reply', ['reply' => $reply])
                             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                            ->setReplyTo(Yii::$app->params['departmentEmail'][$ticket->department])
+                            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
                             ->setTo($isAdmin ? $ticket->email : $adminEmail)
                             ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject)
                             ->setBcc($adminEmail);

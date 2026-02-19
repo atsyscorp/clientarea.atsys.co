@@ -13,12 +13,12 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
     'position' => \yii\web\View::POS_HEAD
 ]);
 
-// B. Inicializamos el editor sobre el ID 'ticket-message-editor'
+// B. Inicializamos el editor sobre el ID 'workorders-requirements'
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
-    tinymce.remove('#ticket-message-editor'); // Limpieza preventiva por si usas Pjax
+    tinymce.remove('#workorders-requirements'); // Limpieza preventiva por si usas Pjax
     tinymce.init({
-        selector: '#ticket-message-editor', // Debe coincidir con el ID de arriba
+        selector: '#workorders-requirements', // Debe coincidir con el ID de arriba
         height: 300,
         menubar: false, // Sin menú superior (Archivo, Editar...)
         statusbar: false, // Sin barra inferior

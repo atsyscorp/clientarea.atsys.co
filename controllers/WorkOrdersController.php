@@ -194,6 +194,11 @@ class WorkOrdersController extends Controller
             .footer { position: fixed; bottom: 0px; left: 0px; right: 0px; height: 30px; border-top: 1px solid #eee; text-align: center; font-size: 9px; color: #aaa; padding-top: 10px; }
             .stamp-approved { display: inline-block; border: 3px solid #10b981; color: #10b981; padding: 10px 20px; font-weight: bold; font-size: 16px; border-radius: 8px; transform: rotate(-3deg); opacity: 0.8; }
             .kv-heading-1{font-size:18px}
+            
+            table { width: 100% !important; max-width: 100%; border-collapse: collapse; page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            td, th { border: 1px solid #333; padding: 5px; word-wrap: break-word; }
+            p { margin-top: 0; margin-bottom: 10px; }
         ";
     }
 

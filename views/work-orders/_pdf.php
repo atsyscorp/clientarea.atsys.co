@@ -1,5 +1,22 @@
 <?php
 /* @var $model app\models\WorkOrders */
+use yii\helpers\HtmlPurifier;
+// 1. Obtenemos el texto
+$requirements = $model->requirements;
+
+// 2. DETECCIÓN HÍBRIDA (Igual que en los tickets)
+// Si es una orden de trabajo antigua (texto plano), le aplicamos nl2br.
+// Si es nueva (TinyMCE), dejamos que HtmlPurifier haga su trabajo.
+if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === false && strpos($requirements, '<ul') === false) {
+    // Escapamos por seguridad y convertimos saltos de línea
+    $requirements = nl2br(\yii\helpers\Html::encode($requirements));
+} else {
+    // Es HTML de TinyMCE: lo purificamos para el PDF
+    $requirements = HtmlPurifier::process($requirements, function ($config) {
+        // Permitimos etiquetas estructurales Y atributos como 'style', 'width' y 'border' (vitales para tablas de TinyMCE)
+        $config->set('HTML.Allowed', 'p[style],span[style],b,strong,i,em,u,ul,ol,li,br,h1[style],h2[style],h3,h4,h5,h6,table[border|width|style],tr,td[style|colspan|rowspan],th[style|colspan|rowspan],tbody,thead');
+    });
+}
 ?>
 
 <table class="header-table">
@@ -78,7 +95,7 @@
 </div>
 
 <div class="requirements-text">
-    <?= Yii::$app->formatter->asNtext($model->requirements) ?>
+    <?= $requirements; ?>
 </div>
 
 <?php if (!empty($model->notes)): ?>
