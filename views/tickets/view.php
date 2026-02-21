@@ -138,7 +138,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                             <div class="chat-header text-xs opacity-50 mb-1">
                                 <?= $name ?>
                                 <time class="text-xs opacity-50 ml-1">
-                                    <?= Yii::$app->formatter->asRelativeTime($reply->created_at ?? date('Y-m-d H:i:s')) ?>
+                                    <?= Yii::$app->formatter->asRelativeTime($reply->created_at) ?>
                                 </time>
                             </div>
                             <div class="chat-image avatar placeholder">
