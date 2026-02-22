@@ -11,9 +11,8 @@ class TicketsSearch extends Tickets
     public function rules()
     {
         return [
-            // AQUÍ ESTABA EL ERROR: Cambiado user_id por customer_id
-            [['id', 'status', 'customer_id'], 'integer'],
-            [['ticket_code', 'subject', 'email', 'source', 'created_at'], 'safe'],
+            [['customer_id'], 'integer'],
+            [['ticket_code', 'department', 'priority', 'subject', 'email', 'source', 'status', 'updated_at'], 'safe'],
         ];
     }
 
@@ -38,10 +37,12 @@ class TicketsSearch extends Tickets
             return $dataProvider;
         }
 
+        // Filtro parcial (Búsqueda de texto)
+        $query->andFilterWhere(['like', 'ticket_code', $this->ticket_code]);
         $query->andFilterWhere([
-            'id' => $this->id,
             'status' => $this->status,
             'customer_id' => $this->customer_id,
+            'department' => $this->department,
         ]);
 
         $query->andFilterWhere(['like', 'ticket_code', $this->ticket_code])

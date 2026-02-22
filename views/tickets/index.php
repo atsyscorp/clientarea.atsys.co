@@ -4,6 +4,10 @@ use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\helpers\Url;
 
+use yii\helpers\ArrayHelper;
+use app\models\Customers;
+use app\models\Tickets;
+
 /* @var $this yii\web\View */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
@@ -14,6 +18,16 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 // URL para la acción masiva
 $bulkUrl = Url::to(['bulk']);
 
+// Preparamos el array de clientes para el selector
+$clientesList = ArrayHelper::map(Customers::find()->orderBy('business_name')->all(), 'id', 'business_name');
+
+// Preparamos el array de estados (Ajústalo a los textos exactos que manejes)
+$estadosList = [
+    'open' => 'Abierto',
+    'answered' => 'Respondido',
+    'customer_reply' => 'Respuesta del cliente',
+    'closed' => 'Cerrado',
+];
 ?>
 <div class="tickets-index relative min-h-screen">
     <div class="flex justify-between items-center mb-6">
@@ -25,6 +39,8 @@ $bulkUrl = Url::to(['bulk']);
             ['class' => 'btn btn-primary text-white shadow-lg']
         ) ?>
     </div>
+
+    <?= $this->render('_search', ['model' => $searchModel, 'isAdmin' => $isAdmin]) ?>
 
     <div class="overflow-x-auto w-full bg-base-100 shadow-xl rounded-box border border-base-200 mb-20">
         <?= GridView::widget([
@@ -60,7 +76,7 @@ $bulkUrl = Url::to(['bulk']);
                 [
                     'attribute' => 'customer.business_name',
                     'visible' => Yii::$app->user->identity->isAdmin,
-                    'label' => 'Cliente',
+                    'label' => 'Cliente'
                 ],
                 'subject',
                 [
@@ -68,8 +84,7 @@ $bulkUrl = Url::to(['bulk']);
                     'format' => 'raw',
                     'value' => function($model) {
                         return $model->getDepartmentLabelShort();
-                    },
-                    'filter' => \app\models\Tickets::getDepartmentListShort(), // Para que puedas filtrar por depto
+                    }
                 ],
                 [
                     'attribute' => 'email',
@@ -79,7 +94,6 @@ $bulkUrl = Url::to(['bulk']);
                 [
                     'attribute' => 'status',
                     'format' => 'raw',
-                    'filter' => ['open'=>'Open', 'answered'=>'Answered', 'closed'=>'Closed'],
                     'value' => function ($model) {
                         // Mapeo de colores según estado
                         $colors = [
@@ -96,12 +110,12 @@ $bulkUrl = Url::to(['bulk']);
                                     {$model->getStatusText()}
                                 </span>";
                     },
-                    'contentOptions' => ['class' => 'text-center'], // Centrar la columna
+                    'contentOptions' => ['class' => 'text-center'],
                 ],
                 
                 'priority',
                 'source',
-                'created_at',
+                'updated_at',
                 [
                     'class' => 'yii\grid\ActionColumn',
                     'header' => 'Acciones',

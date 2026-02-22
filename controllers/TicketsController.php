@@ -74,16 +74,13 @@ class TicketsController extends \yii\web\Controller
     public function actionIndex()
     {
         $searchModel = new TicketsSearch();
-        $queryParams = $this->request->queryParams;
-
-        $dataProvider = $searchModel->search($queryParams);
+        $dataProvider = $searchModel->search($this->request->queryParams);
 
         if (!Yii::$app->user->identity->isAdmin) {
             $myCustomer = \app\models\Customers::findOne(['user_id' => Yii::$app->user->id]);
             $realCustomerId = $myCustomer ? $myCustomer->id : -1;
             $dataProvider->query->andWhere(['customer_id' => $realCustomerId]);
         }
-        // ---------------------------
 
         return $this->render('index', [
             'searchModel' => $searchModel,
@@ -152,7 +149,7 @@ class TicketsController extends \yii\web\Controller
                     // Actualizamos el ticket padre
                     // Si responde el cliente, el estado pasa a 'open' o 'customer_reply' para que lo veas
                     // Si responde el admin, pasa a 'answered'
-                    $ticket->status = $isAdmin ? 'answered' : 'open'; 
+                    $ticket->status = ($isAdmin) ? 'answered' : 'customer_reply';
                     $ticket->updated_at = date('Y-m-d H:i:s');
                     $ticket->save(false); // false para saltar validaciones estrictas del ticket si solo actualizamos fecha
 
