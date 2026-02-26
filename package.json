@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tailwindcss -i ./web/css/site_src.css -o ./web/css/site.css"
+    "build": "tailwindcss -i ./web/css/site_src.css -o ./web/css/site.css -c ./tailwind.config.js"
   },
   "keywords": [],
   "author": "",

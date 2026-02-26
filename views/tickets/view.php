@@ -12,34 +12,25 @@ $this->title = $model->ticket_code . ' - ' . $model->subject;
 // Verificamos si es admin
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
-// Helper para links
-function formatMessage($text, $dark = false) {
-
+// Helper para links (CORREGIDO: Ahora es una función anónima para evitar errores fatales de PHP)
+$formatMessage = function($text, $dark = false) {
     if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
         $text = nl2br($text);
     }
 
-    // 1. Configuramos Purifier para convertir URLs en enlaces y párrafos
     $config = function ($conf) {
         $conf->set('HTML.TargetBlank', true);
         $conf->set('AutoFormat.Linkify', true);
         $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
     };
 
-    // 2. Limpiamos el HTML (Aquí ya es seguro)
-    //$cleanHtml = HtmlPurifier::process($text, $config);
-    $cleanHtml = HtmlPurifier::process($text);
-
-    // 3. Definimos tus clases (DaisyUI / Tailwind)
+    $cleanHtml = HtmlPurifier::process($text, $config);
     $cssClass = $dark ? 'link link-white underline' : 'link link-primary underline';
 
-    // 4. INYECCIÓN: Reemplazamos <a por <a class="..."
-    // Como el HTML ya está purificado, es seguro manipularlo
     return str_replace('<a ', '<a class="' . $cssClass . '" ', $cleanHtml);
+};
 
-}
-
-// --- LOGICA DE VISUALIZACIÓN (Mapeos) ---
+// --- LOGICA DE VISUALIZACIÓN ---
 
 // 1. Estados
 $statusLabels = [
@@ -50,9 +41,8 @@ $statusLabels = [
 $st = strtolower($model->status);
 $currentStatus = $statusLabels[$st] ?? ['text' => strtoupper($st), 'color' => 'bg-ghost'];
 
-// 2. Prioridades (Tus colores personalizados intactos)
+// 2. Prioridades
 $priorityLabels = [
-    //'low' => ['text' => 'Baja', 'color' => 'badge-ghost'],
     'medium' => ['text' => 'Media', 'color' => 'badge-success text-white'],
     'high' => ['text' => 'Alta', 'color' => 'badge-warning'],
     'critical' => ['text' => 'Urgente', 'color' => 'badge-error text-white'],
@@ -60,28 +50,27 @@ $priorityLabels = [
 $pr = strtolower($model->priority);
 $currentPriority = $priorityLabels[$pr] ?? ['text' => ucfirst($pr), 'color' => 'bg-ghost'];
 
-// A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
+// A. Cargamos TinyMCE
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
     'position' => \yii\web\View::POS_HEAD
 ]);
 
-// B. Inicializamos el editor sobre el ID 'ticket-message-editor'
+// B. Inicializamos el editor
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
-    tinymce.remove('#ticket-message-editor'); // Limpieza preventiva por si usas Pjax
+    tinymce.remove('#ticket-message-editor'); 
     tinymce.init({
-        selector: '#ticket-message-editor', // Debe coincidir con el ID de arriba
+        selector: '#ticket-message-editor',
         height: 300,
-        menubar: false, // Sin menú superior (Archivo, Editar...)
-        statusbar: false, // Sin barra inferior
-        language: 'es', // Intenta cargar español, si falla usará inglés
-        plugins: 'lists link autolink fullscreen', // Plugins básicos
-        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', // Herramientas limpias
-        skin: 'oxide', // Tema claro estándar
+        menubar: false,
+        statusbar: false,
+        language: 'es',
+        plugins: 'lists link autolink fullscreen',
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen',
+        skin: 'oxide',
         content_css: 'default',
-        branding: false, // Quitar marca "Powered by TinyMCE"
+        branding: false,
         setup: function (editor) {
-            // Esto asegura que el valor se guarde en el textarea al enviar el formulario
             editor.on('change', function () {
                 editor.save();
             });
@@ -115,14 +104,62 @@ $this->registerJs($js, \yii\web\View::POS_END);
 
             <div class="card-body bg-base-200/30 max-h-[600px] overflow-y-auto p-4 space-y-6">
                 
-                <?php if (empty($model->ticketReplies)): ?>
+                <?php 
+                // Clonamos el arreglo de respuestas para no afectar el modelo original
+                $replies = $model->ticketReplies; 
+                ?>
+
+                <?php if (empty($replies)): ?>
                     <div class="alert alert-info shadow-sm bg-blue-50 text-blue-900 border-blue-100">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span>Este es el inicio de la conversación.</span>
+                        <span>Este es el inicio de la conversación. Aún no hay mensajes registrados.</span>
                     </div>
                 <?php else: ?>
                     
-                    <?php foreach ($model->ticketReplies as $reply): ?>
+                    <?php 
+                    // EXTRAEMOS EL PRIMER MENSAJE (El requerimiento original)
+                    $firstReply = array_shift($replies); 
+                    
+                    // Calculamos los estilos para el primer mensaje
+                    $isSupportFirst = ($firstReply->sender_type === 'admin'); 
+                    $alignmentFirst = $isSupportFirst ? 'chat-end' : 'chat-start';
+                    $darkLinkFirst = $isSupportFirst ? true : false;
+                    $bubbleColorFirst = $isSupportFirst ? 'chat-bubble-primary text-primary-content' : 'bg-white text-base-content border border-base-300';
+                    $nameFirst = $isSupportFirst ? 'Soporte ATSYS' : ($model->customer ? ($model->customer->contact_name . ' ('.$model->customer->business_name.')') : $model->email);
+                    $avatarFirst = $isSupportFirst ? '🛡️' : '👤';
+                    ?>
+
+                    <div class="chat <?= $alignmentFirst ?>">
+                        <div class="chat-header text-xs opacity-50 mb-1">
+                            <?= Html::encode($nameFirst) ?>
+                            <time class="text-xs opacity-50 ml-1">
+                                <?= Yii::$app->formatter->asRelativeTime($firstReply->created_at) ?>
+                            </time>
+                        </div>
+                        <div class="chat-image avatar placeholder">
+                            <div class="w-8 rounded-full bg-base-300 text-center flex items-center justify-center text-xs cursor-default select-none">
+                                <span><?= $avatarFirst ?></span>
+                            </div>
+                        </div>
+                        <div class="chat-bubble <?= $bubbleColorFirst ?> shadow-sm">
+                            <?= $formatMessage($firstReply->message, $darkLinkFirst) ?>
+
+                            <?php if (!empty($firstReply->attachment)): ?>
+                                <div class="mt-3 pt-4 border-t border-white/10">
+                                    <a href="<?= Yii::getAlias('@web') . '/' . $firstReply->attachment ?>" target="_blank" class="btn btn-xs btn-outline gap-2 bg-base-100 text-base-content border-0 shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                                        Ver Archivo Adjunto
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <?php if (!empty($replies)): ?>
+                        <div class="divider text-xs opacity-30 my-2">Respuestas</div>
+                    <?php endif; ?>
+
+                    <?php foreach ($replies as $reply): ?>
                         <?php 
                             $isSupport = ($reply->sender_type === 'admin'); 
                             $alignment = $isSupport ? 'chat-end' : 'chat-start';
@@ -137,7 +174,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
 
                         <div class="chat <?= $alignment ?>">
                             <div class="chat-header text-xs opacity-50 mb-1">
-                                <?= $name ?>
+                                <?= Html::encode($name) ?>
                                 <time class="text-xs opacity-50 ml-1">
                                     <?= Yii::$app->formatter->asRelativeTime($reply->created_at) ?>
                                 </time>
@@ -149,7 +186,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                             </div>
                             
                             <div class="chat-bubble <?= $bubbleColor ?> shadow-sm">
-                                <?= formatMessage($reply->message, $darkLink) ?>
+                                <?= $formatMessage($reply->message, $darkLink) ?>
 
                                 <?php if (!empty($reply->attachment)): ?>
                                     <div class="mt-3 pt-4 border-t border-white/10">
@@ -161,7 +198,6 @@ $this->registerJs($js, \yii\web\View::POS_END);
                                 <?php endif; ?>
                             </div>
                         </div>
-
                     <?php endforeach; ?>
 
                 <?php endif; ?>

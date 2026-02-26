@@ -1,8 +1,36 @@
 <?php
+
 use yii\helpers\Html;
+use yii\helpers\HtmlPurifier;
 
 /* @var $this yii\web\View */
 /* @var $model app\models\WorkOrders */
+
+function formatMessage($text, $dark = false) {
+
+    if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
+        $text = nl2br($text);
+    }
+
+    // 1. Configuramos Purifier para convertir URLs en enlaces y párrafos
+    $config = function ($conf) {
+        $conf->set('HTML.TargetBlank', true);
+        $conf->set('AutoFormat.Linkify', true);
+        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+    };
+
+    // 2. Limpiamos el HTML (Aquí ya es seguro)
+    //$cleanHtml = HtmlPurifier::process($text, $config);
+    $cleanHtml = HtmlPurifier::process($text);
+
+    // 3. Definimos tus clases (DaisyUI / Tailwind)
+    $cssClass = $dark ? 'link link-white underline' : 'link link-primary underline';
+
+    // 4. INYECCIÓN: Reemplazamos <a por <a class="..."
+    // Como el HTML ya está purificado, es seguro manipularlo
+    return str_replace('<a ', '<a class="' . $cssClass . '" ', $cleanHtml);
+
+}
 
 $this->title = $model->code . ' - ' . $model->title;
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
@@ -68,7 +96,7 @@ $newUpdate = new \app\models\WorkOrderUpdates();
             <h3 class="font-bold text-sm uppercase opacity-50 mb-4 border-b border-base-300 pb-2">Alcance y Requerimientos</h3>
             
             <div class="prose max-w-none text-justify">
-                <?= Yii::$app->formatter->asNtext($model->requirements) ?>
+                <?= formatMessage($model->requirements) ?>
             </div>
         </div>
 
