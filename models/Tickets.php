@@ -188,7 +188,6 @@ class Tickets extends \yii\db\ActiveRecord
         return $this->hasMany(TicketReplies::class, ['ticket_id' => 'id']);
     }
 
-
     /**
      * column status ENUM value labels
      * @return string[]

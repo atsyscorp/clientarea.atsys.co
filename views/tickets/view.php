@@ -23,11 +23,12 @@ function formatMessage($text, $dark = false) {
     $config = function ($conf) {
         $conf->set('HTML.TargetBlank', true);
         $conf->set('AutoFormat.Linkify', true);
-        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
     };
 
     // 2. Limpiamos el HTML (Aquí ya es seguro)
-    $cleanHtml = HtmlPurifier::process($text, $config);
+    //$cleanHtml = HtmlPurifier::process($text, $config);
+    $cleanHtml = HtmlPurifier::process($text);
 
     // 3. Definimos tus clases (DaisyUI / Tailwind)
     $cssClass = $dark ? 'link link-white underline' : 'link link-primary underline';
@@ -74,8 +75,8 @@ document.addEventListener("DOMContentLoaded", function() {
         menubar: false, // Sin menú superior (Archivo, Editar...)
         statusbar: false, // Sin barra inferior
         language: 'es', // Intenta cargar español, si falla usará inglés
-        plugins: 'lists link autolink', // Plugins básicos
-        toolbar: 'bold italic underline | bullist numlist | link | removeformat', // Herramientas limpias
+        plugins: 'lists link autolink fullscreen', // Plugins básicos
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', // Herramientas limpias
         skin: 'oxide', // Tema claro estándar
         content_css: 'default',
         branding: false, // Quitar marca "Powered by TinyMCE"

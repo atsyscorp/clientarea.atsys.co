@@ -65,8 +65,7 @@ class OrdersController extends Controller {
         }
 
         // 2. Consultar a Wompi el estado REAL de la transacción
-        // OJO: Si pasas a producción, cambia esta URL a https://production.wompi.co/v1/transactions/
-        $url = "https://sandbox.wompi.co/v1/transactions/" . $id;
+        $url = "https://production.wompi.co/v1/transactions/" . $id;
 
         try {
             // Hacemos la petición GET a Wompi

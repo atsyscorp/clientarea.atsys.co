@@ -16,6 +16,14 @@ class CustomerServicesController extends \yii\web\Controller
 
     public function actionIndex()
     {
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+        if(!$isAdmin) {
+            $user = Yii::$app->user->identity;
+            if ($user->role === \app\models\User::ROLE_CLIENT && !$user->customer) {
+                return $this->redirect('/customers/create');
+            }
+        }
+        
         $searchModel = new \app\models\CustomerServicesSearch();
         $dataProvider = $searchModel->search($this->request->queryParams);
 
@@ -27,6 +35,14 @@ class CustomerServicesController extends \yii\web\Controller
 
     public function actionCreate($customer_id = null)
     {
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+        if(!$isAdmin) {
+            $user = Yii::$app->user->identity;
+            if ($user->role === \app\models\User::ROLE_CLIENT && !$user->customer) {
+                return $this->redirect('/customers/create');
+            }
+        }
+
         $model = new CustomerServices();
 
         if ($customer_id) {

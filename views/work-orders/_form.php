@@ -23,8 +23,8 @@ document.addEventListener("DOMContentLoaded", function() {
         menubar: false, // Sin menú superior (Archivo, Editar...)
         statusbar: false, // Sin barra inferior
         language: 'es', // Intenta cargar español, si falla usará inglés
-        plugins: 'lists link autolink', // Plugins básicos
-        toolbar: 'bold italic underline | bullist numlist | link | removeformat', // Herramientas limpias
+        plugins: 'lists link autolink fullscreen', // Plugins básicos
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', // Herramientas limpias
         skin: 'oxide', // Tema claro estándar
         content_css: 'default',
         branding: false, // Quitar marca "Powered by TinyMCE"
