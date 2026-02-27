@@ -149,6 +149,7 @@ $newUpdate = new \app\models\WorkOrderUpdates();
                 <div class="text-success font-bold text-xl uppercase">APROBADO DIGITALMENTE</div>
                 <div class="text-xs text-success">Fecha: <?= Yii::$app->formatter->asDatetime($model->updated_at) ?></div>
             </div>
+            <?php if($isAdmin): ?>
             <div class="mb-4">
                 <?php if ($model->down_payment_sent_at === null): ?>
                     
@@ -171,8 +172,8 @@ $newUpdate = new \app\models\WorkOrderUpdates();
                         </div>
 
                 <?php endif; ?>
-
             </div>
+            <?php endif; ?>
         <?php endif; ?>
 
     </div>
