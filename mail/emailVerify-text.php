@@ -8,7 +8,7 @@ $verifyLink = Yii::$app->urlManager->createAbsoluteUrl(['site/verify-email', 'to
 ?>
 ¡Bienvenido a ATSYS!
 
-Hola <?= Html::encode($user->username) ?>,
+¡Hola!
 
 Gracias por registrarte en nuestra área de clientes. Para comenzar a gestionar tus tickets, por favor confirma tu correo electrónico haciendo clic en el botón de abajo:
 

@@ -47,15 +47,26 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                 // Info por defecto
                 $icon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
         }
+
+        // Si $message contiene | debe separarse y dejar el primero como título
+        if (strpos($message, '|') !== false) {
+            $message = explode('|', $message);
+            $title = $message[0];
+            $text = $message[1];
+        } else {
+            $title = $message;
+            $text = '';
+        }
         ?>
-        <div class="fixed top-0 right-0 left-0 p-4 mt-4 z-50 max-w-96 mx-auto">
-            <div role="alert" class="alert <?= $alertClass ?> mb-5 shadow-lg flex items-center">
-                <?= $icon ?>
-                <span class="font-medium"><?= $message ?></span>
-                
-                <button onclick="this.parentElement.style.display='none'" class="btn btn-sm btn-ghost btn-circle ml-auto">✕</button>
-            </div>
-        </div>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script>
+            Swal.fire({
+                title: '<?= $title ?>',
+                text: '<?= $text ?>',
+                icon: '<?= $type ?>',
+                confirmButtonText: 'OK'
+            });
+        </script>
     <?php endforeach; ?>
     <?= $content ?>
 </div>

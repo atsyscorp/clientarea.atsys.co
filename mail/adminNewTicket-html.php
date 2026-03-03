@@ -30,6 +30,6 @@ $adminUrl = Yii::$app->urlManager->createAbsoluteUrl(['tickets/view', 'id' => $t
     </div>
 
     <p>
-        <a href="<?= $adminUrl ?>" style="font-weight: bold;">Ir a responder &rarr;</a>
+        <a href="<?= $adminUrl ?>" style="background-color: #134C42; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Ir a responder &rarr;</a>
     </p>
 </div>

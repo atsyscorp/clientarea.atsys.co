@@ -2,6 +2,8 @@
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
+use easedevs\yii2\turnstile\TurnstileInput;
+use borales\extensions\phoneInput\PhoneInput;
 
 /** @var yii\web\View $this */
 /** @var yii\widgets\ActiveForm $form */
@@ -14,7 +16,7 @@ $this->registerMetaTag(['property' => 'og:description', 'content' => 'Crea tu cu
 $this->registerMetaTag(['property' => 'og:type', 'content' => 'website']);
 $this->registerMetaTag(['property' => 'og:url', 'content' => Yii::$app->request->absoluteUrl]);
 $this->registerMetaTag(['property' => 'og:image', 'content' => Yii::$app->request->baseUrl . '/images/atsys-clientarea-og.webp']);
-
+$this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position' => \yii\web\View::POS_HEAD]);
 ?>
 
 <div class="min-h-screen flex bg-base-100">
@@ -98,6 +100,25 @@ $this->registerMetaTag(['property' => 'og:image', 'content' => Yii::$app->reques
                     {input}
                 </div>\n{error}"
             ])->passwordInput(['placeholder' => '••••••••']) ?>
+
+            <?= $form->field($model, 'mobile', [
+                'template' => "{label}\n<div class=\"relative\">
+                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400\">
+                        <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"w-5 h-5\">
+                            <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M2.25 6.75h19.5M2.25 12h19.5m-19.5 5.25h19.5\" />
+                        </svg>
+                    </div>  
+                    {input}
+                </div>\n{error}"
+            ])->widget(PhoneInput::className(), [
+                'jsOptions' => [
+                    'preferredCountries' => ['co'],
+                ]
+            ]);?>
+
+            <?= $form->field($model, 'captcha')->widget(TurnstileInput::class, [
+                'size' => TurnstileInput::SIZE_NORMAL,
+            ])->label(false);?>
 
             <div>
                 <?= Html::submitButton('Registrarse', [

@@ -8,7 +8,7 @@ $config = [
     'language' => 'es-CO',
     'timeZone' => 'America/Bogota',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log'],
+    'bootstrap' => ['log', 'queue'],
     'controllerNamespace' => 'app\commands',
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
@@ -57,6 +57,13 @@ $config = [
             'locale' => 'es-CO', // Forzar localía
             'defaultTimeZone' => 'America/Bogota',
             'dateFormat' => 'long', // Formato por defecto
+        ],
+        'queue' => [
+            'class' => \yii\queue\db\Queue::class,
+            'db' => 'db',
+            'tableName' => '{{%queue}}',
+            'channel' => 'default',
+            'mutex' => \yii\mutex\MysqlMutex::class,
         ],
     ],
     'params' => $params,

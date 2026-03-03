@@ -4,7 +4,10 @@ namespace app\models;
 
 use Yii;
 use yii\base\Model;
-use app\models\User; // Asegúrate de que este sea el namespace de tu tabla de usuarios
+use app\models\User;
+use borales\extensions\phoneInput\PhoneInputValidator;
+
+use easedevs\yii2\turnstile\TurnstileInputValidator;
 
 /**
  * SignupForm es el modelo detrás del formulario de registro.
@@ -14,6 +17,8 @@ class SignupForm extends Model
     public $email;
     public $password;
     public $password_repeat; // Campo para confirmar contraseña
+    public $mobile;
+    public $captcha;
 
     /**
      * {@inheritdoc}
@@ -33,6 +38,13 @@ class SignupForm extends Model
 
             ['password_repeat', 'required', 'message' => 'Por favor, confirma la contraseña.'],
             ['password_repeat', 'compare', 'compareAttribute' => 'password', 'message' => 'Las contraseñas no coinciden.'],
+
+            ['mobile', 'trim'],
+            ['mobile', 'required', 'message' => 'El número de celular es obligatorio.'],
+            [['mobile'], PhoneInputValidator::className(), 'message' => 'El número de celular no es válido.'],
+
+            [['captcha'], 'string'],
+            [['captcha'], TurnstileInputValidator::class, 'message' => 'Por favor, confirma que no eres un robot.'],
         ];
     }
 
@@ -45,13 +57,14 @@ class SignupForm extends Model
             'email' => 'Correo Electrónico',
             'password' => 'Contraseña',
             'password_repeat' => 'Confirmar Contraseña',
+            'mobile' => 'Número de Celular',
         ];
     }
 
     public function signup()
     {
         if (!$this->validate()) {
-            return null;
+            return false;
         }
         
         $user = new User();
@@ -61,6 +74,7 @@ class SignupForm extends Model
 
         $user->username = $cleanPrefix . '_' . rand(1000, 9999);
         $user->email = $this->email;
+        $user->mobile = $this->mobile;
         $user->setPassword($this->password);
         $user->generateAuthKey();
         
@@ -69,12 +83,16 @@ class SignupForm extends Model
         $user->generateEmailVerificationToken();
         
         // Si se guarda, enviamos el email
-        return $user->save() && $this->sendEmail($user);
+        if($user->save()) {
+            $this->sendEmail($user);
+            return true;
+        }
+        return false;
     }
 
     protected function sendEmail($user)
     {
-        return Yii::$app->mailer->compose(
+        Yii::$app->mailer->compose(
             ['html' => 'emailVerify-html', 'text' => 'emailVerify-text'],
             ['user' => $user]
         )
@@ -83,5 +101,14 @@ class SignupForm extends Model
         ->setBcc(Yii::$app->params['adminEmail'])
         ->setSubject('Confirma tu registro en ' . Yii::$app->name)
         ->send();
+
+        $job = new \app\jobs\WhatsappJob([
+            'phone' => $this->mobile,
+            'message' => $user->verification_token,
+            'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-clientarea-alert' // Usamos TEST para debug
+        ]);
+        Yii::$app->queue->push($job);
+
+        return true;
     }
 }

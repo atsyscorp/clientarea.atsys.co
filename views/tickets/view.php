@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", function() {
         statusbar: false,
         language: 'es',
         plugins: 'lists link autolink fullscreen',
-        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen',
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen | blockquote',
         skin: 'oxide',
         content_css: 'default',
         branding: false,

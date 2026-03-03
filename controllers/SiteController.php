@@ -151,7 +151,7 @@ class SiteController extends Controller
         $this->layout = 'blank';
         
         if ($model->load(Yii::$app->request->post()) && $model->signup()) {
-            Yii::$app->session->setFlash('success', 'Gracias por registrarte. Se ha enviado un mensaje de verificación a tu correo electrónico.');
+            Yii::$app->session->setFlash('success', 'Gracias por registrarte|Se ha enviado un mensaje de verificación a tu correo electrónico, esto puede tomar unos minutos. Revisa también la carpeta de spam en caso tal de no recibirlo en la bandeja de entrada.');
             return $this->redirect(['site/login']);
         }
 
@@ -169,11 +169,11 @@ class SiteController extends Controller
         }
 
         if ($user && $this->activateUser($user)) {
-            Yii::$app->session->setFlash('success', '¡Tu correo ha sido confirmado! Hemos enviado un mensaje de bienvenida.');
+            Yii::$app->session->setFlash('success', '¡Tu correo ha sido confirmado!|Hemos enviado un mensaje de bienvenida a tu correo electrónico.');
             return $this->redirect(['site/login']);
         }
 
-        Yii::$app->session->setFlash('error', 'Lo sentimos, no pudimos verificar tu cuenta o el token ha expirado.');
+        Yii::$app->session->setFlash('error', 'Lo sentimos|No pudimos verificar tu cuenta o el token ha expirado. Si crees que es un error, por favor contacta a soporte.');
         return $this->goHome();
     }
 
@@ -189,7 +189,7 @@ class SiteController extends Controller
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                 ->setTo($user->email)
                 ->setBcc(Yii::$app->params['adminEmail'])
-                ->setSubject('¡Bienvenido a la familia ATSYS!')
+                ->setSubject('¡Bienvenid@ a la familia ATSYS!')
                 ->send();
             return true;
         }
@@ -263,6 +263,14 @@ class SiteController extends Controller
             return $this->redirect(['login']);
         }
 
+        if(Yii::$app->request->get('change') == '1') {
+            if(Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
+                Yii::$app->session->remove('whatsapp_otp');
+                Yii::$app->session->remove('whatsapp_mobile');
+            }
+            return $this->redirect(['/profile']);
+        }
+
         $user = Yii::$app->user->identity;
         $model = new \app\models\ProfileForm($user);
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
@@ -271,9 +279,41 @@ class SiteController extends Controller
         if(!$isAdmin) {
             $customer = $user->customer;
         }
+        
+        if($this->request->isPost) {
+            if(Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            Yii::$app->session->setFlash('success', 'Tu perfil ha sido actualizado correctamente.');
+                if(Yii::$app->request->post('ProfileForm')['otp'] == Yii::$app->session->get('whatsapp_otp')) {
+                    Yii::$app->session->remove('whatsapp_otp');
+                    Yii::$app->session->remove('whatsapp_mobile');
+                    $model->mobile = Yii::$app->request->post('ProfileForm')['mobile'];
+                    if($model->save()) {
+                        Yii::$app->session->setFlash('success', 'Tu número de celular ha sido actualizado correctamente.');
+                    } else {
+                        Yii::$app->session->setFlash('error', 'No pudimos actualizar tu número de celular.');
+                    }
+                    return $this->refresh();
+                } else {
+                    Yii::$app->session->setFlash('error', 'El código de verificación es incorrecto.');
+                    return $this->refresh();
+                }
+
+            } else {
+
+                if(Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
+                    Yii::$app->session->remove('whatsapp_otp');
+                    Yii::$app->session->remove('whatsapp_mobile');
+                }
+                if ($model->load(Yii::$app->request->post()) && $model->save()) {
+                    Yii::$app->session->setFlash(
+                        Yii::$app->session->has('whatsapp_otp') ? 'warning' : 'success', 
+                        Yii::$app->session->has('whatsapp_otp') ? 'Enviamos un código de verificación a tu número de celular.' : 'Tu perfil ha sido actualizado correctamente.'
+                    );
+                } else {
+                    Yii::$app->session->setFlash('error', 'No pudimos actualizar tu perfil.' . json_encode($model->getErrors()));
+                }
+                
+            }
             return $this->refresh();
         }
 
@@ -312,5 +352,29 @@ class SiteController extends Controller
                 $model->save();
             }
         }
+    }
+
+    public function actionTestAlert()
+    {
+        // En un controlador de prueba o consola:
+        $job = new \app\jobs\WhatsappJob([
+            'phone' => '573026496656',
+            'message' => 'TOKEN_ACCESO_TEST',
+            'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-clientarea-alert' // Usamos TEST para debug
+        ]);
+
+        // Enviamos a la cola
+        Yii::$app->queue->push($job);
+        echo "Job enviado a la cola correctamente.";
+    }
+
+    public function actionSetOtp() {
+        $job = new \app\jobs\WhatsappJob([
+            'phone' => '573026496656',
+            'message' => '123456',
+            'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-otp-alert'
+        ]);
+        Yii::$app->queue->push($job);
+        echo "Job enviado a la cola correctamente.";
     }
 }

@@ -25,7 +25,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
     </div>
 
     <?php if ($isAdmin): ?>
-        
+
         <div class="overflow-x-auto bg-base-100 shadow-xl rounded-box border border-base-200">
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
@@ -116,7 +116,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                 ],
             ]); ?>
         </div>
-
+        
     <?php else: ?>
 
         <?= ListView::widget([

@@ -278,7 +278,8 @@ class TicketsController extends \yii\web\Controller
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 // 1. Guardar el Ticket (Encabezado)
-                $model->email = ($model->customer_id == '9999') ? Yii::$app->request->post('Tickets')['email'] : Yii::$app->user->identity->email;
+                $model->email = ($model->customer_id == '9999') ? 
+                    $this->request->post('Tickets')['email'] : (($isAdmin) ? $customer->email : Yii::$app->user->identity->email);
                 if ($model->save()) {
                     
                     // 2. Guardar el Mensaje Inicial en TicketReplies

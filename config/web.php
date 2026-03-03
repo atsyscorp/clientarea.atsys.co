@@ -98,6 +98,22 @@ $config = [
             'defaultTimeZone' => 'America/Bogota',
             'dateFormat' => 'long', // Formato por defecto
         ],
+        'httpClient' => [
+            'class' => 'yii\httpclient\Client',
+            'baseUrl' => 'https://n8n.atsys.co', // URL base de tu n8n
+        ],
+        'turnstile' => [
+            'class' => 'easedevs\yii2\turnstile\TurnstileConfig',
+            'siteKey' => '0x4AAAAAACUI5outpThWhZZH',
+            'secret' => '0x4AAAAAACUI5h_9WeEbKlMvjgaSJpvwXa8',
+        ],
+        'queue' => [
+            'class' => \yii\queue\db\Queue::class,
+            'db' => 'db', // Componente de conexión a la base de datos
+            'tableName' => '{{%queue}}', // Nombre de la tabla
+            'channel' => 'default',
+            'mutex' => \yii\mutex\MysqlMutex::class,
+        ],
     ],
     'params' => $params,
     'container' => [
