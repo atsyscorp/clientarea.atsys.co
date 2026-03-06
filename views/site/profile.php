@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
-//use borales\extensions\phoneInput\PhoneInput;
+use borales\extensions\phoneInput\PhoneInput;
 
 /** @var yii\web\View $this */
 /** @var app\models\ProfileForm $model */
@@ -10,6 +10,16 @@ use yii\widgets\ActiveForm;
 
 $this->title = 'Mi Perfil';
 $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJs('
+$("#profile-form").on("beforeSubmit", function (e) {
+	if ($("#profile-form").yiiActiveForm("validate") === false) {
+		return false;
+	}
+    $(this).find("button.btn-submit").html(\'<i class="fa fa-spinner fa-spin"></i>\').prop("disabled", true);
+	return true;
+});
+', \yii\web\View::POS_END);
+
 ?>
 
 <div class="max-w-4xl mx-auto mt-6 mb-12">
@@ -50,7 +60,8 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
                         Datos de Acceso
                     </h2>
 
-                    <?php $form = ActiveForm::begin(['id' => 'user-form']); ?>
+                    <?php $form = ActiveForm::begin(['id' => 'profile-form']); ?>
+                        <?php if(!Yii::$app->session->has('whatsapp_otp')) { ?>
                         <div class="space-y-4">
                             <div>
                                 <label class="label font-bold">Nombre de Usuario</label>
@@ -64,11 +75,12 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
                             <?= $form->field($model, 'password')->passwordInput(['placeholder' => 'Nueva contraseña', 'class' => 'input input-bordered w-full']) ?>
                             <?= $form->field($model, 'confirm_password')->passwordInput(['placeholder' => 'Confirmar', 'class' => 'input input-bordered w-full']) ?>
                         </div>
+                        <?php } ?>
 
-                        <?php /* if(Yii::$app->session->has('whatsapp_otp')) { ?>
+                        <?php if(Yii::$app->session->has('whatsapp_otp')) { ?>
                             <div class="divider text-xs font-bold opacity-50 mt-6">VERIFICAR TELÉFONO</div>
                             <div class="grid grid-cols-1 gap-4">
-                                <?= $form->field($model, 'otp')->textInput(['placeholder' => 'Código de verificación', 'class' => 'input input-bordered w-full'])->label('Código de verificación') ?>
+                                <?= $form->field($model, 'otp')->textInput(['placeholder' => 'Código de verificación', 'class' => 'input input-bordered w-full', 'type' => 'tel'])->label('Código de verificación') ?>
                                 <small>Se ha enviado un código de verificación a tu número de celular. <a href="javascript:void(0);" class="text-primary" onclick="window.location.href = window.location.href + '?change=1';">Corregir número</a></small>
                             </div>
                         <?php } else { ?>
@@ -81,10 +93,13 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
                             ]) ?>
                             <small>Se enviará un código de verificación al nuevo número de teléfono para confirmar el cambio.</small>
                         </div>
-                        <?php } */ ?>
+                        <?php } ?>
 
                         <div class="card-actions justify-end mt-4">
-                            <?= Html::submitButton('Actualizar Acceso', ['class' => 'btn btn-primary text-white']) ?>
+                            <?= Html::submitButton(
+                                (Yii::$app->session->has('whatsapp_otp')) ? 'Verificar' : 'Actualizar datos', 
+                                ['class' => 'btn btn-primary text-white btn-submit']
+                            ) ?>
                         </div>
                     <?php ActiveForm::end(); ?>
                 </div>

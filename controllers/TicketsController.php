@@ -175,8 +175,7 @@ class TicketsController extends \yii\web\Controller
                             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                             ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
                             ->setTo($isAdmin ? $ticket->email : $adminEmail)
-                            ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject)
-                            ->setBcc($adminEmail);
+                            ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject);
 
                         if($reply->attachment) {
                             $mailer->attach(Yii::getAlias('@webroot/') . $reply->attachment, [
@@ -248,10 +247,6 @@ class TicketsController extends \yii\web\Controller
         $user = Yii::$app->user->identity;
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
-        if(Yii::$app->user->identity->isAdmin) {
-            $model->customer_id = Yii::$app->user->identity->customer;
-        }
-
         if (!Yii::$app->user->identity->isAdmin) {
             $customer = \app\models\Customers::findOne(['user_id' => Yii::$app->user->id]);
             
@@ -270,6 +265,11 @@ class TicketsController extends \yii\web\Controller
         $model->ticket_code = 'TKT-' . strtoupper(substr(uniqid(), -5)); 
 
         if ($this->request->isPost && $model->load($this->request->post())) {
+
+            if(Yii::$app->user->identity->isAdmin) {
+                $model->customer_id = $this->request->post('Tickets')['customer_id'];
+                $customer = \app\models\Customers::findOne(['id' => $model->customer_id]);
+            }
 
             // 1. Capturamos el archivo desde el modelo Tickets
             $model->attachmentFile = \yii\web\UploadedFile::getInstance($model, 'attachmentFile');
@@ -334,7 +334,7 @@ class TicketsController extends \yii\web\Controller
                 
             } catch (\Exception $e) {
                 $transaction->rollBack();
-                Yii::$app->session->setFlash('error', 'Ocurrió un error inesperado: ' . $e->getMessage());
+                Yii::$app->session->setFlash('error', 'Ocurrió un error inesperado: ' . $e->getMessage(). " on line: " . $e->getLine());
             }
         }
 
@@ -367,7 +367,6 @@ class TicketsController extends \yii\web\Controller
         )
         ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
         ->setTo($ticket->email)
-        ->setBcc($adminEmail)
         ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
         ->setSubject('[#'.$ticket->ticket_code.'] '. $ticket->subject)
         ->send();

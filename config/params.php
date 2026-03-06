@@ -29,7 +29,7 @@ return [
         'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-clientarea-alert',
     ],
     'whatsapp' => [
-        'token' => 'EAA89uZCgaiuIBQ4BxnqMtwrXUSZBgE5htYZC6ehJVEJOeBtqYji9cG9zQGfZBjKYnmdAUrhG8DqKifUzCc3xchTb70IHZA1JZB0aFmqQ5auZCK1d3eh4XBaIoZAUyTUUZCN3CeKhNVG3tfSkMXEQ5aXRK3He0B0AsbZBccJqxcNej4fskQdTeZAZB2dGnDd7HYqk8AZDZD',
+        'token' => 'EAA89uZCgaiuIBQ8Gv3eBWGh0G8CXUkcUBF7MhnyTQiW6mp9Hpy1n7T7prqHIhjLlKHsS2bc7nQ2dgaZB1bg1lXJ74pBnKGJxHIJF4YZAZCFoOfkynjqrgfTdnuee3ntwYJZCiZCE5GmepJemh3yuwTtZAW17LhIqEPEksH6Oo8ekvl353bdqZBH6eJAbvdC9YQZDZD',
         'phoneId' => '974241165778303',
         'businessId' => '1885925668728489'
     ]

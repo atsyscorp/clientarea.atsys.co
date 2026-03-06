@@ -1,5 +1,6 @@
 <?php
 use yii\helpers\Html;
+use yii\helpers\HtmlPurifier;
 
 /* @var $this yii\web\View */
 /* @var $ticket app\models\Tickets */
@@ -7,6 +8,22 @@ use yii\helpers\Html;
 /* @var $user app\models\User */
 
 $adminUrl = Yii::$app->urlManager->createAbsoluteUrl(['tickets/view', 'id' => $ticket->id]);
+$formatMessage = function($text, $dark = false) {
+    if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
+        $text = nl2br($text);
+    }
+
+    $config = function ($conf) {
+        $conf->set('HTML.TargetBlank', true);
+        $conf->set('AutoFormat.Linkify', true);
+        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+    };
+
+    $cleanHtml = HtmlPurifier::process($text, $config);
+    $cssClass = $dark ? 'link link-white underline' : 'link link-primary underline';
+
+    return str_replace('<a ', '<a class="' . $cssClass . '" ', $cleanHtml);
+};
 ?>
 <div style="font-family: Arial, sans-serif; color: #333;">
     <h3 style="color: #d97706;">🔔 Nuevo Ticket de Soporte</h3>
@@ -26,7 +43,7 @@ $adminUrl = Yii::$app->urlManager->createAbsoluteUrl(['tickets/view', 'id' => $t
 
     <div style="background: #fffbeb; padding: 15px; border: 1px solid #fcd34d; border-radius: 5px; margin-bottom: 20px;">
         <strong>Mensaje:</strong><br>
-        <?= nl2br(Html::encode($message)) ?>
+        <?= $formatMessage($message) ?>
     </div>
 
     <p>

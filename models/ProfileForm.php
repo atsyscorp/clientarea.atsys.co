@@ -13,8 +13,8 @@ class ProfileForm extends Model
     public $email;
     public $password;
     public $confirm_password;
-    //public $mobile;
-    //public $otp;
+    public $mobile;
+    public $otp;
 
     private $_user;
 
@@ -35,21 +35,18 @@ class ProfileForm extends Model
             // Validar que el email no lo use otro usuario
             ['email', 'unique', 'targetClass' => User::class, 'filter' => ['!=', 'id', $this->_user->id], 'message' => 'Este correo ya está registrado.'],
 
-            /*
             ['mobile', 'trim'],
             ['mobile', 'required', 'message' => 'El número de celular es obligatorio.'],
             [['mobile'], PhoneInputValidator::className(), 'message' => 'El número de celular no es válido.'],
-            */
 
             // Contraseñas (Opcional, solo si escribe algo)
             ['password', 'string', 'min' => 6],
             ['confirm_password', 'compare', 'compareAttribute' => 'password', 'message' => 'Las contraseñas no coinciden.'],
 
-            /*
             ['otp', 'required', 'message' => 'El código de verificación es obligatorio.', 'when' => function ($model) {
                 return Yii::$app->session->has('whatsapp_otp');
             }],
-            */
+
         ];
     }
 
@@ -60,6 +57,7 @@ class ProfileForm extends Model
             'email' => 'Correo Electrónico',
             'password' => 'Nueva Contraseña (Opcional)',
             'confirm_password' => 'Confirmar Contraseña',
+            'mobile' => 'Número móvil'
         ];
     }
 
@@ -77,22 +75,20 @@ class ProfileForm extends Model
             $user->setPassword($this->password);
         }
 
-        /*
         if($user->mobile != $this->mobile) {
 
-            $codigoOtp = (string)rand(100000, 999999);
-            Yii::$app->session->set('whatsapp_otp', $codigoOtp);
+            $otpCode = (string)rand(100000, 999999);
+            Yii::$app->session->set('whatsapp_otp', $otpCode);
             Yii::$app->session->set('whatsapp_mobile', $this->mobile);
 
             $job = new \app\jobs\WhatsappJob([
                 'phone' => $this->mobile,
-                'message' => $codigoOtp,
+                'message' => $otpCode,
                 'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-otp-alert'
             ]);
             Yii::$app->queue->push($job);
 
         }
-        */
 
         return $user->save();
     }

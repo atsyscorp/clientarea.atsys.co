@@ -8,6 +8,23 @@ use yii\helpers\HtmlPurifier;
 
 $ticketUrl = Yii::$app->urlManager->createAbsoluteUrl(['tickets/view', 'id' => $ticket->id]);
 $linkRegistro = Yii::$app->urlManager->createAbsoluteUrl(['signup']);
+
+$formatMessage = function($text, $dark = false) {
+    if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
+        $text = nl2br($text);
+    }
+
+    $config = function ($conf) {
+        $conf->set('HTML.TargetBlank', true);
+        $conf->set('AutoFormat.Linkify', true);
+        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+    };
+
+    $cleanHtml = HtmlPurifier::process($text, $config);
+    $cssClass = $dark ? 'link link-white underline' : 'link link-primary underline';
+
+    return str_replace('<a ', '<a class="' . $cssClass . '" ', $cleanHtml);
+};
 ?>
 <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
     <h2 style="color: #4F46E5;">¡Hemos recibido tu solicitud!</h2>
@@ -52,5 +69,5 @@ $linkRegistro = Yii::$app->urlManager->createAbsoluteUrl(['signup']);
     <?php } ?>
     
     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-    <p style="font-size: 12px; color: #777;">Detalle de tu mensaje:<br><em><?= HtmlPurifier::process($message) ?></em></p>
+    <p style="font-size: 12px; color: #777;">Detalle de tu mensaje:<br><em><?= $formatMessage($message) ?></em></p>
 </div>
