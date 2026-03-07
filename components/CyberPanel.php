@@ -26,7 +26,7 @@ class CyberPanel extends Component
         }
 
         // 1. URL Base de la API
-        $baseUrl = "https://{$server->hostname}:8090/api/";
+        $baseUrl = "https://{$server->hostname}:8443/api/";
 
         // 2. Datos comunes de autenticación (Admin Token/Pass)
         // CyberPanel suele usar el usuario admin y su clave para la API
