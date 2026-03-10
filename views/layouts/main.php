@@ -68,7 +68,7 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
             </div>
         <?php endif; ?>
 
-        <?php /* if (!Yii::$app->user->isGuest && !Yii::$app->user->identity->isAdmin): ?>
+        <?php if (!Yii::$app->user->isGuest && !Yii::$app->user->identity->isAdmin): ?>
             <?php if(Yii::$app->user->identity->mobile == '') { ?>
                 <div class="container mx-auto px-4 mt-4">
                     <div class="alert alert-warning shadow-lg">
@@ -76,7 +76,7 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                         <div class="w-full">
                             <h3 class="font-bold text-lg">Alerta de Seguridad</h3>
                             <div class="text-sm opacity-90">
-                                Su cuenta no tiene un número de teléfono registrado. Por favor, actualice su perfil para recibir notificaciones de seguridad.
+                                Tu cuenta no tiene un número de teléfono registrado. Por favor, actualiza tu perfil para recibir notificaciones de seguridad.
                             </div>
                             <div class="mt-2">
                                 <?= Html::a('Actualizar Perfil', ['/profile'], ['class' => 'btn btn-primary text-white shadow-lg']) ?>
@@ -85,7 +85,7 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                     </div>
                 </div>
             <?php } ?>
-        <?php endif; */ ?>
+        <?php endif; ?>
 
         <div class="p-6">
             <?php foreach (Yii::$app->session->getAllFlashes() as $type => $message): ?>

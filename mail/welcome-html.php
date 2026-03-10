@@ -11,10 +11,10 @@ $loginLink = Yii::$app->urlManager->createAbsoluteUrl(['site/login']);
     <p>¡Hola!</p>
     <p>Tu cuenta en el <strong>Área de clientes</strong> ha sido verificada. Ya tienes acceso completo a la plataforma de gestión.</p>
     
-    <p>Puedes ingresar ahora mismo:</p>
+    <p>Puedes ingresar ahora mismo y completar la información básica de tu empresa:</p>
     <p style="text-align: center;">
         <a href="<?= $loginLink ?>" style="background-color: #134C42; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Ir al Login</a>
     </p>
     
-    <p>Atentamente,<br>El equipo de ATSYS.</p>
+    <p>Gracias por ser parte de nuestra comunidad.</p>
 </div>

@@ -80,15 +80,21 @@ $("#profile-form").on("beforeSubmit", function (e) {
                         <?php if(Yii::$app->session->has('whatsapp_otp')) { ?>
                             <div class="divider text-xs font-bold opacity-50 mt-6">VERIFICAR TELÉFONO</div>
                             <div class="grid grid-cols-1 gap-4">
-                                <?= $form->field($model, 'otp')->textInput(['placeholder' => 'Código de verificación', 'class' => 'input input-bordered w-full', 'type' => 'tel'])->label('Código de verificación') ?>
+                                <?= $form->field($model, 'otp')->textInput(['placeholder' => 'Código de verificación', 'class' => 'input input-bordered w-full', 'type' => 'number', 'autocomplete' => 'off'])->label('Código de verificación') ?>
                                 <small>Se ha enviado un código de verificación a tu número de celular. <a href="javascript:void(0);" class="text-primary" onclick="window.location.href = window.location.href + '?change=1';">Corregir número</a></small>
                             </div>
                         <?php } else { ?>
                         <div class="divider text-xs font-bold opacity-50 mt-6">CAMBIAR TELÉFONO</div>
                         <div class="grid grid-cols-1 gap-4">
-                            <?= $form->field($model, 'mobile')->widget(PhoneInput::className(), [
+                            <?= $form->field($model, 'mobile',[
+                                'template' => '<p>{label} - <a href="javascript:void(0);" onclick="$(\'#profileform-mobile\').val(\'\').focus();" class="text-primary text-xs">Cambiar número</a></p><p>{input}{error}</p>',
+                            ])->widget(PhoneInput::className(), [
                                 'jsOptions' => [
                                     'preferredCountries' => ['co'],
+                                ],
+                                'options' => [
+                                    'value' => $model->mobile ?? Yii::$app->user->identity->mobile,
+                                    'autocomplete' => 'off',
                                 ]
                             ]) ?>
                             <small>Se enviará un código de verificación al nuevo número de teléfono para confirmar el cambio.</small>

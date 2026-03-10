@@ -15,6 +15,7 @@ class ProfileForm extends Model
     public $confirm_password;
     public $mobile;
     public $otp;
+    public $otpVerified = false;
 
     private $_user;
 
@@ -75,18 +76,28 @@ class ProfileForm extends Model
             $user->setPassword($this->password);
         }
 
-        if($user->mobile != $this->mobile) {
+        if ($this->mobile != $user->mobile) {
 
-            $otpCode = (string)rand(100000, 999999);
-            Yii::$app->session->set('whatsapp_otp', $otpCode);
-            Yii::$app->session->set('whatsapp_mobile', $this->mobile);
+            if (!$this->otpVerified) {
 
-            $job = new \app\jobs\WhatsappJob([
-                'phone' => $this->mobile,
-                'message' => $otpCode,
-                'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-otp-alert'
-            ]);
-            Yii::$app->queue->push($job);
+                $otpCode = (string)random_int(100000, 999999);
+                Yii::$app->session->set('whatsapp_otp', $otpCode);
+                Yii::$app->session->set('whatsapp_mobile', $this->mobile);
+
+                $job = new \app\jobs\WhatsappJob([
+                    'phone' => $this->mobile,
+                    'message' => $otpCode,
+                    'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-otp-alert'
+                ]);
+                Yii::$app->queue->push($job);
+
+                return true;
+
+            } else {
+
+                $user->mobile = $this->mobile;
+
+            }
 
         }
 

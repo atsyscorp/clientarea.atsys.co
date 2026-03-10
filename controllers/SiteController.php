@@ -283,8 +283,10 @@ class SiteController extends Controller
         if($this->request->isPost) {
             if(Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
 
-                if(Yii::$app->request->post('ProfileForm')['otp'] == Yii::$app->session->get('whatsapp_otp')) {
-                    $model->mobile = Yii::$app->session->get('whatsapp_mobile');
+                if(Yii::$app->request->post('ProfileForm')['otp'] == Yii::$app->session['whatsapp_otp']) {
+
+                    $model->otpVerified = true;
+                    $model->mobile = Yii::$app->session['whatsapp_mobile'];
 
                     Yii::$app->session->remove('whatsapp_otp');
                     Yii::$app->session->remove('whatsapp_mobile');
@@ -292,7 +294,7 @@ class SiteController extends Controller
                     if($model->save()) {
                         Yii::$app->session->setFlash('success', 'Tu número de celular ha sido actualizado correctamente.');
                     } else {
-                        Yii::$app->session->setFlash('error', 'No pudimos actualizar tu número de celular.');
+                        Yii::$app->session->setFlash('error', 'No pudimos actualizar tu número de celular.' . json_encode($model->getErrors()));
                     }
                     return $this->refresh();
                 } else {
@@ -301,11 +303,6 @@ class SiteController extends Controller
                 }
 
             } else {
-
-                if(Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
-                    Yii::$app->session->remove('whatsapp_otp');
-                    Yii::$app->session->remove('whatsapp_mobile');
-                }
 
                 if ($model->load(Yii::$app->request->post()) && $model->save()) {
                     Yii::$app->session->setFlash(
