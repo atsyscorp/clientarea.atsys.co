@@ -28,8 +28,8 @@ document.addEventListener("DOMContentLoaded", function() {
         menubar: false, // Sin menú superior (Archivo, Editar...)
         statusbar: false, // Sin barra inferior
         language: 'es', // Intenta cargar español, si falla usará inglés
-        plugins: 'lists link autolink', // Plugins básicos
-        toolbar: 'bold italic underline | bullist numlist | link | removeformat', // Herramientas limpias
+        plugins: 'lists link autolink fullscreen image code', // Plugins básicos
+        toolbar: 'bold italic underline | bullist numlist | link image | removeformat | fullscreen | blockquote', // Herramientas limpias
         skin: 'oxide', // Tema claro estándar
         content_css: 'default',
         branding: false, // Quitar marca "Powered by TinyMCE"
@@ -38,7 +38,55 @@ document.addEventListener("DOMContentLoaded", function() {
             editor.on('change', function () {
                 editor.save();
             });
-        }
+        },
+        paste_data_images: true,
+        automatic_uploads: true,
+        paste_preprocess: (plugin, args) => {
+            if (args.content.indexOf('src="data:image') !== -1) {
+                args.content = args.content.replace(/<img[^>]*src="data:image[^>]*>/gi, ' [Imagen bloqueada: Por favor usa el botón de subir imagen] ');
+                alert("No se permite pegar imágenes directamente. Por favor, usa la opción de 'Insertar Imagen'.");
+            }
+        },
+        images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.withCredentials = false;
+            xhr.open('POST', '/tickets/upload-image');
+
+            xhr.upload.onprogress = (e) => {
+                progress(e.loaded / e.total * 100);
+            };
+
+            xhr.onload = () => {
+                // Si el status no es 200 (OK)
+                if (xhr.status < 200 || xhr.status >= 300) {
+                    reject('Error del servidor (Código: ' + xhr.status + ')');
+                    return;
+                }
+
+                const json = JSON.parse(xhr.responseText);
+
+                // Si el backend envió un mensaje de error específico (ej. "Archivo muy pesado")
+                if (json && json.error) {
+                    reject(json.error); 
+                    return;
+                }
+
+                if (!json || typeof json.location != 'string') {
+                    reject('Respuesta del servidor inválida');
+                    return;
+                }
+
+                resolve(json.location);
+            };
+
+            xhr.onerror = () => {
+                reject('Error de red o conexión fallida.');
+            };
+
+            const formData = new FormData();
+            formData.append('file', blobInfo.blob(), blobInfo.filename());
+            xhr.send(formData);
+        })
     });
 });
 JS;

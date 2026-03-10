@@ -40,6 +40,18 @@ class TicketReplies extends \yii\db\ActiveRecord
         return 'ticket_replies';
     }
 
+    public function beforeSave($insert)
+    {
+        if (parent::beforeSave($insert)) {
+            if (preg_match('/<img[^>]*src="data:image[^>]*>/i', $this->message)) {
+                $this->addError('message', 'No se permiten imágenes incrustadas (Base64).');
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
     public function afterSave($insert, $changedAttributes)
     {
         parent::afterSave($insert, $changedAttributes);

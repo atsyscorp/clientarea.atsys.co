@@ -465,4 +465,43 @@ class TicketsController extends \yii\web\Controller
         return ['success' => false, 'message' => 'Petición inválida.'];
     }
 
+    public function actionUploadImage()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $file = \yii\web\UploadedFile::getInstanceByName('file');
+
+        if (!$file) {
+            return ['error' => 'No se recibió ningún archivo.'];
+        }
+
+        // Validación de tamaño (Ejemplo: 2MB)
+        if ($file->size > 2 * 1024 * 1024) {
+            return ['error' => 'La imagen es muy pesada (Máximo 2MB).'];
+        }
+
+        // Validación de tipo de archivo
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+        if (!in_array(strtolower($file->extension), $allowedExtensions)) {
+            return ['error' => 'Solo se permiten imágenes JPG, PNG o WebP.'];
+        }
+
+        $folder = 'uploads/tickets/content/';
+        $path = Yii::getAlias('@webroot/') . $folder;
+        
+        if (!is_dir($path)) {
+            \yii\helpers\FileHelper::createDirectory($path);
+        }
+
+        $fileName = uniqid('img_') . '.' . $file->extension;
+        
+        if ($file->saveAs($path . $fileName)) {
+            return [
+                'location' => 'https://clientarea.atsys.co/' . $folder . $fileName
+            ];
+        }
+
+        return ['error' => 'Error interno al guardar el archivo.'];
+    }
+
 }
