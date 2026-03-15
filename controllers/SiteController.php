@@ -92,11 +92,21 @@ class SiteController extends Controller
             $recentTickets = Tickets::find();
 
             if(!Yii::$app->user->identity->isAdmin) {
-                $recentTickets = $recentTickets->where(['customer_id' => Yii::$app->user->id]);
+                $recentTickets = $recentTickets->where([
+                    'customer_id' => Yii::$app->user->id
+                ]);
+            } else {
+                $recentTickets = $recentTickets->where([
+                    'status' => [
+                        Tickets::STATUS_OPEN,
+                        Tickets::STATUS_ANSWERED,
+                        Tickets::STATUS_CUSTOMER_REPLY,
+                    ]
+                ]);
             }
 
-            $recentTickets =
-                $recentTickets->orderBy(['created_at' => SORT_DESC])
+            $recentTickets = $recentTickets
+                ->orderBy(['created_at' => SORT_DESC])
                 ->limit(5)
                 ->all();
 
