@@ -21,6 +21,12 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 // B. Inicializamos el editor sobre el ID 'tickets-message'
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
+    const getCsrf = () => {
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const param = document.querySelector('meta[name="csrf-param"]')?.getAttribute('content');
+        return { token, param };
+    };
+
     tinymce.remove('#tickets-message'); // Limpieza preventiva por si usas Pjax
     tinymce.init({
         selector: '#tickets-message', // Debe coincidir con el ID de arriba
@@ -51,6 +57,11 @@ document.addEventListener("DOMContentLoaded", function() {
             const xhr = new XMLHttpRequest();
             xhr.withCredentials = false;
             xhr.open('POST', '/tickets/upload-image');
+
+            const csrf = getCsrf();
+            if (csrf.token) {
+                xhr.setRequestHeader("X-CSRF-Token", csrf.token);
+            }
 
             xhr.upload.onprogress = (e) => {
                 progress(e.loaded / e.total * 100);
@@ -84,6 +95,9 @@ document.addEventListener("DOMContentLoaded", function() {
             };
 
             const formData = new FormData();
+            if (csrf.param) {
+                formData.append(csrf.param, csrf.token);
+            }
             formData.append('file', blobInfo.blob(), blobInfo.filename());
             xhr.send(formData);
         })

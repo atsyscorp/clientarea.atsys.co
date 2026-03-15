@@ -26,14 +26,13 @@ class WorkOrders extends \yii\db\ActiveRecord
             // Valores por defecto
             [['notes', 'down_payment_sent_at', 'created_at', 'updated_at'], 'default', 'value' => null],
             [['total_cost'], 'default', 'value' => 0.00],
-            [['status'], 'default', 'value' => 0],
-            
-            // CORRECCIÓN AQUÍ: Quitamos 'code' de required
+            [['status', 'is_request'], 'default', 'value' => 0],
+    
             [['customer_id', 'title', 'requirements'], 'required'],
             
             // Tipos de datos
-            [['customer_id', 'status'], 'integer'],
-            [['requirements', 'notes'], 'string'],
+            [['customer_id', 'status', 'is_request'], 'integer'],
+            [['requirements', 'notes', 'original_request'], 'string'],
             [['total_cost'], 'number'],
             [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'safe'],
             
@@ -59,7 +58,7 @@ class WorkOrders extends \yii\db\ActiveRecord
                 // (Usar count() es peligroso si borras órdenes intermedias)
                 $nextId = $lastOrder ? ($lastOrder->id + 1) : 1;
                 
-                $this->code = 'OT-' . date('Y') . '-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+                $this->code = 'OT'.(($this->is_request == 1) ? 'R' : '').'-' . date('Y') . '-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
             }
             return true;
         }
@@ -92,7 +91,6 @@ class WorkOrders extends \yii\db\ActiveRecord
         ];
     }
 
-    // ... (Tus relaciones y getStatusHtml siguen igual) ...
     public function getCustomer()
     {
         return $this->hasOne(Customers::class, ['id' => 'customer_id']);
@@ -110,5 +108,31 @@ class WorkOrders extends \yii\db\ActiveRecord
 
         $s = $statusMap[$this->status] ?? ['label' => 'Desconocido', 'class' => 'badge-ghost'];
         return "<span class='badge {$s['class']} font-bold'>{$s['label']}</span>";
+    }
+
+    public function request() {
+
+        $this->is_request = 1;
+        $this->save(false);
+
+        // Enviar notificacion a admin
+        Yii::$app->mailer->compose([
+            'html' => 'work_order_request-html',
+        ],[
+            'id' => $this->id,
+            'code' => $this->code,
+            'title' => $this->title,
+            'requirements' => $this->requirements,
+            'customer' => $this->customer,
+        ])
+        ->setFrom([
+            Yii::$app->params['senderEmail'] => Yii::$app->name
+        ])
+        ->setTo(Yii::$app->params['adminEmail'])
+        ->setSubject("Nueva solicitud de orden de trabajo: " . $this->code)
+        ->send();
+
+        return true;
+
     }
 }

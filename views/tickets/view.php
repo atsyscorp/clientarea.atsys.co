@@ -58,6 +58,13 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 // B. Inicializamos el editor
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
+
+    const getCsrf = () => {
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const param = document.querySelector('meta[name="csrf-param"]')?.getAttribute('content');
+        return { token, param };
+    };
+
     tinymce.remove('#ticket-message-editor'); 
     tinymce.init({
         selector: '#ticket-message-editor',
@@ -86,7 +93,13 @@ document.addEventListener("DOMContentLoaded", function() {
         images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.withCredentials = false;
-            xhr.open('POST', '/tickets/upload-image');
+            var data = {};
+            xhr.open('POST', '/tickets/upload-image', true);
+
+            const csrf = getCsrf();
+            if (csrf.token) {
+                xhr.setRequestHeader("X-CSRF-Token", csrf.token);
+            }
 
             xhr.upload.onprogress = (e) => {
                 progress(e.loaded / e.total * 100);
@@ -120,6 +133,9 @@ document.addEventListener("DOMContentLoaded", function() {
             };
 
             const formData = new FormData();
+            if (csrf.param) {
+                formData.append(csrf.param, csrf.token);
+            }
             formData.append('file', blobInfo.blob(), blobInfo.filename());
             xhr.send(formData);
         })

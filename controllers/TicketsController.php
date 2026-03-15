@@ -29,7 +29,7 @@ class TicketsController extends \yii\web\Controller
                     'rules' => [
                         // REGLA 1: Usuarios autenticados pueden ver, crear y cerrar SUS tickets
                         [
-                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk'],
+                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk', 'upload-image'],
                             'allow' => true,
                             'roles' => ['@'],
                         ],

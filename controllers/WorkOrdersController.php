@@ -82,6 +82,14 @@ class WorkOrdersController extends Controller
                 
                 // 3. NOTIFICACIÓN AL ADMIN (hola@atsys.co)
                 try {
+
+                    // Si existe el campo de una solicitud, debe eliminarse
+                    if(Yii::$app->request->post('previousOrder')) {
+                        WorkOrders::deleteAll([
+                            'id' => Yii::$app->request->post('previousOrder')
+                        ]);
+                    }
+
                     $htmlContent = "
                         <p>El cliente <strong>{$model->customer->business_name}</strong> ha aprobado la siguiente orden:</p>
                         <ul>
@@ -162,6 +170,13 @@ class WorkOrdersController extends Controller
         return $this->redirect(['view', 'id' => $model->id]);
     }
 
+    public function actionRejectRequest($id) {
+        $model = $this->findModel($id);
+        $model->delete();
+        Yii::$app->session->setFlash('success', 'Solicitud eliminada con éxito.');
+        return $this->redirect(['index']);
+    }
+
     protected function findModel($id)
     {
         if (($model = WorkOrders::findOne(['id' => $id])) !== null) {
@@ -218,7 +233,7 @@ class WorkOrdersController extends Controller
         return new Pdf([
             'mode' => Pdf::MODE_UTF8, 
             'format' => Pdf::FORMAT_A4, 
-            'destination' => $destination, 
+            'destination' => $destination,
             'content' => $this->renderPartial('_pdf', ['model' => $model]),
             'cssInline' => $this->getPdfStyles(), // Usamos el CSS centralizado
             'options' => ['title' => 'Orden ' . $model->code],
@@ -288,6 +303,36 @@ class WorkOrdersController extends Controller
         return $this->redirect(['view', 'id' => $model->id]);
     }
 
+    /**
+     * Método privado para reutilizar la lógica pesada de PDF y Correo
+     * en cualquier parte del controlador sin duplicar código.
+     */
+    private function pdfAndEmailOrder($model)
+    {
+        try {
+            // 1. Generar PDF en memoria (String)
+            $pdf = $this->createPdfObject($model, Pdf::DEST_STRING);
+            $pdfContent = $pdf->render();
+
+            // 2. Enviar Correo
+            Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], ['model' => $model])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setTo($model->customer->email)
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->setSubject("Nueva Orden de Trabajo: " . $model->title)
+                ->attachContent($pdfContent, [
+                    'fileName' => $model->code . '.pdf', 
+                    'contentType' => 'application/pdf'
+                ])
+                ->send();
+
+            return true;
+        } catch (\Exception $e) {
+            Yii::error('Error enviando correo de orden: ' . $e->getMessage());
+            return $e->getMessage(); // Retornamos el error para mostrarlo en el flash
+        }
+    }
+
     public function actionCreate()
     {
         // Solo Admin puede crear
@@ -301,35 +346,16 @@ class WorkOrdersController extends Controller
 
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
-                
-                // --- INICIO: Lógica de Envío Automático ---
-                try {
-                    // 1. Generar PDF en memoria (String)
-                    $pdf = $this->createPdfObject($model, Pdf::DEST_STRING);
-                    $pdfContent = $pdf->render();
 
-                    // 2. Enviar Correo
-                    Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], ['model' => $model])
-                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                        ->setTo($model->customer->email)
-                        ->setBcc(Yii::$app->params['adminEmail'])
-                        ->setSubject("Nueva Orden de Trabajo: " . $model->title)
-                        ->attachContent($pdfContent, [
-                            'fileName' => $model->code . '.pdf', 
-                            'contentType' => 'application/pdf'
-                        ])
-                        ->send();
-
+                $send = $this->pdfAndEmailOrder($model);
+                if ($send === true) {
                     Yii::$app->session->setFlash('success', 'Orden creada y enviada al cliente exitosamente.');
-
-                } catch (\Exception $e) {
-                    // Si falla el correo, no detenemos el proceso, solo avisamos
-                    Yii::error($e->getMessage());
-                    Yii::$app->session->setFlash('warning', 'La orden se guardó, pero hubo un error enviando el email: ' . $e->getMessage());
+                } else {
+                    Yii::$app->session->setFlash('warning', 'La orden se guardó, pero hubo un error enviando el email: ' . $send);
                 }
-                // --- FIN: Lógica de Envío ---
 
                 return $this->redirect(['view', 'id' => $model->id]);
+
             } else {
                 Yii::$app->session->setFlash('error', 'Error: ' . json_encode($model->getErrors()));
             }
@@ -340,6 +366,46 @@ class WorkOrdersController extends Controller
             // Enviamos la lista de clientes para el dropdown
             'customers' => \app\models\Customers::find()->orderBy('business_name')->all(),
         ]);
+    }
+
+    public function actionApproveRequest($id)
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+             throw new \yii\web\ForbiddenHttpException();
+        }
+
+        $model = $this->findModel($id);
+
+        if ($model->is_request != 1) {
+            Yii::$app->session->setFlash('error', 'Esta orden no es una solicitud.');
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+
+        if ($this->request->isPost) {
+            $model->original_request = $model->getOldAttribute('requirements');
+            if ($model->load($this->request->post())) {
+                $model->is_request = 0; 
+                $model->status = WorkOrders::STATUS_PENDING; 
+                
+                $model->code = preg_replace('/^OTR-/', 'OT-', $model->code);
+                
+                if ($model->save()) {
+                    $send = $this->pdfAndEmailOrder($model);
+                    
+                    if ($send === true) {
+                        Yii::$app->session->setFlash('success', 'Solicitud aprobada. El código cambió a ' . $model->code . ' y fue enviada al cliente.');
+                    } else {
+                        Yii::$app->session->setFlash('warning', 'Solicitud aprobada, pero falló el envío del email: ' . $send);
+                    }
+
+                    return $this->redirect(['view', 'id' => $model->id]);
+                } else {
+                    Yii::$app->session->setFlash('error', 'Error validando los requerimientos: ' . json_encode($model->getErrors()));
+                }
+            }
+        }
+
+        return $this->redirect(['view', 'id' => $model->id]);
     }
 
     public function actionUpdate($id)
@@ -359,6 +425,38 @@ class WorkOrdersController extends Controller
         }
 
         return $this->render('update', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionRequest() {
+
+        // Solo para clientes
+        if (Yii::$app->user->isGuest || Yii::$app->user->identity->isAdmin) {
+             throw new \yii\web\ForbiddenHttpException();
+        }
+
+        $model = new WorkOrders();
+
+        if (!Yii::$app->user->identity->isAdmin) {
+            $customer = \app\models\Customers::findOne(['user_id' => Yii::$app->user->id]);
+            
+            if ($customer) {
+                $model->customer_id = $customer->id;
+            } else {
+                Yii::$app->session->setFlash('error', 'Tu usuario no tiene un perfil de cliente asociado.');
+                return $this->redirect(['index']);
+            }
+        }
+
+        if ($this->request->isPost) {
+            if ($model->load($this->request->post()) && $model->request()) {
+                Yii::$app->session->setFlash('success', 'Orden solicitada exitosamente, pronto recibirás un correo con el detalle propuesto para que lo revises.');
+                return $this->redirect(['index']);
+            }
+        }
+
+        return $this->render('request', [
             'model' => $model,
         ]);
     }

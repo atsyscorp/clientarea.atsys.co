@@ -1,6 +1,7 @@
 <?php
 
 use yii\helpers\Html;
+use yii\widgets\ActiveForm;
 use yii\helpers\HtmlPurifier;
 
 /* @var $this yii\web\View */
@@ -35,6 +36,39 @@ function formatMessage($text, $dark = false) {
 $this->title = $model->code . ' - ' . $model->title;
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 $newUpdate = new \app\models\WorkOrderUpdates();
+
+if($model->is_request == 1) {
+    // A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
+    $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
+        'position' => \yii\web\View::POS_HEAD
+    ]);
+
+    // B. Inicializamos el editor sobre el ID 'workorders-requirements'
+    $js = <<<JS
+    document.addEventListener("DOMContentLoaded", function() {
+        tinymce.remove('#workorders-requirements'); // Limpieza preventiva por si usas Pjax
+        tinymce.init({
+            selector: '#workorders-requirements', // Debe coincidir con el ID de arriba
+            height: 300,
+            menubar: false, // Sin menú superior (Archivo, Editar...)
+            statusbar: false, // Sin barra inferior
+            language: 'es', // Intenta cargar español, si falla usará inglés
+            plugins: 'lists link autolink fullscreen', // Plugins básicos
+            toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', // Herramientas limpias
+            skin: 'oxide', // Tema claro estándar
+            content_css: 'default',
+            branding: false, // Quitar marca "Powered by TinyMCE"
+            setup: function (editor) {
+                // Esto asegura que el valor se guarde en el textarea al enviar el formulario
+                editor.on('change', function () {
+                    editor.save();
+                });
+            }
+        });
+    });
+    JS;
+    $this->registerJs($js, \yii\web\View::POS_END);
+}
 ?>
 
 <div class="max-w-4xl mx-auto my-8">
@@ -63,7 +97,7 @@ $newUpdate = new \app\models\WorkOrderUpdates();
         
         <div class="flex flex-col md:flex-row justify-between items-start border-b border-base-300 pb-8 mb-8">
             <div>
-                <h1 class="text-3xl font-bold text-primary tracking-tight">ORDEN DE TRABAJO</h1>
+                <h1 class="text-3xl font-bold text-primary tracking-tight"><?=($model->is_request == 1) ? 'SOLICITUD DE ' : ''?>ORDEN DE TRABAJO</h1>
                 <div class="text-sm opacity-60 mt-1 uppercase tracking-widest">Requerimientos de Desarrollo</div>
             </div>
             <div class="text-right mt-4 md:mt-0">
@@ -80,12 +114,14 @@ $newUpdate = new \app\models\WorkOrderUpdates();
                 <div class="text-sm opacity-70"><?= Html::encode($model->customer->email ?? '') ?></div>
                 <div class="text-sm opacity-70"><?= Html::encode($model->customer->document_number ?? '') ?></div>
             </div>
+            <?php if($model->is_request == 0) { ?>
             <div class="md:text-right">
                 <h3 class="text-xs font-bold uppercase opacity-50 mb-2">Proveedor</h3>
                 <div class="font-bold text-lg">Arkitech Systems SAS</div>
                 <div class="text-sm opacity-70">ATSYS - Desarrollo de Software</div>
                 <div class="text-sm opacity-70">Trascendemos</div>
             </div>
+            <?php } ?>
         </div>
 
         <div class="mb-8">
@@ -100,81 +136,171 @@ $newUpdate = new \app\models\WorkOrderUpdates();
             </div>
         </div>
 
-        <?php if(!empty($model->notes)): ?>
+        <?php
+            if($model->is_request == 1) {
+
+                if($isAdmin): 
+                
+                    ?>
+                    <?php $form = ActiveForm::begin([
+                        'action' => ['work-orders/approve-request', 'id' => $model->id]
+                    ]); ?>
+                    <div class="bg-base-200/30 rounded-lg p-6 mb-8 border border-base-200">
+                        <h3 class="font-bold text-sm uppercase opacity-50 mb-4 border-b border-base-300 pb-2">Definición de Alcance y Cotización</h3>
+
+                        <div class="prose max-w-none text-justify mb-6">
+                            <?= $form->field($model, 'requirements', ['template' => '{input}{error}'])
+                            ->textarea([
+                                'id' => 'workorders-requirements', // Importante para el TinyMCE
+                                'rows' => 10, 
+                                'class' => 'textarea textarea-bordered w-full h-64 font-mono text-sm leading-relaxed',
+                                'placeholder' => "1. Desarrollo de Login...\n2. Panel administrativo...\n3. Integración con pasarela...",
+                                'value' => ''
+                            ]) ?>
+                        </div>
+
+                        <div class="flex justify-end mt-6 border-t border-base-300 pt-6">
+                            <div class="w-full md:w-1/2 lg:w-1/3">
+                                <label class="label">
+                                    <span class="label-text font-bold text-lg">Inversión Total a Cotizar</span>
+                                </label>
+                                <div class="join w-full">
+                                    <span class="join-item btn btn-active pointer-events-none">$</span>
+                                    <?= $form->field($model, 'total_cost', [
+                                        'template' => '{input}',
+                                        'options' => ['tag' => false]
+                                    ])->textInput([
+                                        'type' => 'number', 
+                                        'step' => '0.01', 
+                                        'class' => 'input input-bordered join-item w-full text-lg font-bold text-primary',
+                                        'placeholder' => '0.00'
+                                    ]) ?>
+                                </div>
+                                <?= Html::error($model, 'total_cost', ['class' => 'text-error text-sm mt-1']) ?>
+                            </div>
+                        </div>
+
+                        <div class="border-t-2 border-dashed border-base-300 pt-8 mt-8 text-center no-print">
+                            <h3 class="text-lg font-bold mb-4">¿Aprobar solicitud?</h3>
+                            <p class="text-sm mb-6 max-w-2xl mx-auto opacity-70">
+                                Al aprobar, esta solicitud pasará a ser una Orden de Trabajo oficial con el prefijo OT-. El cliente recibirá un correo con el PDF adjunto detallando los requerimientos y la inversión asignada.
+                            </p>
+
+                            <div class="flex justify-center gap-4">
+                                <?= Html::submitButton('✓ Aprobar y Enviar Cotización', [
+                                    'class' => 'btn btn-primary text-white px-8',
+                                    'data' => ['confirm' => '¿Confirmas la creación de la orden y el envío del correo al cliente con el costo estipulado?']
+                                ]) ?>
+
+                                <?= Html::a('✕ Rechazar', ['reject-request', 'id' => $model->id], [
+                                    'class' => 'btn btn-outline btn-error px-6',
+                                    'data' => ['confirm' => '¿Deseas rechazar esta solicitud? Se eliminará de inmediato.', 'method' => 'post']
+                                ]) ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php ActiveForm::end(); ?>
+                    <?php
+
+                else:
+
+                    ?>
+                    <div class="border-t-2 border-dashed border-base-300 pt-8 mt-8 text-center no-print">
+                        <p class="text-sm mb-6 max-w-2xl mx-auto opacity-70">
+                            Esta orden se encuentra bajo revisión o está por ser revisada por el equipo de trabajo de ATSYS. Recibirás un email con la órden de trabajo lista con la propuesta para que la puedas aprobar.
+                        </p>
+                    </div>
+                    <?php
+
+                endif;
+
+            } else {
+            
+            ?>
+
+            <?php if(!empty($model->original_request)): ?>
+            <div class="mb-8 text-sm italic opacity-70">
+                <strong>Solicitud original:</strong> <?= formatMessage($model->original_request) ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if(!empty($model->notes)): ?>
             <div class="mb-8 text-sm italic opacity-70">
                 <strong>Notas:</strong> <?= Html::encode($model->notes) ?>
             </div>
-        <?php endif; ?>
-
-        <div class="flex justify-end mb-12">
-            <div class="w-full md:w-1/3 bg-base-200 p-4 rounded-lg">
-                <div class="flex justify-between items-center text-lg font-bold">
-                    <span>Inversión:</span>
-                    <span class="text-primary"><?= Yii::$app->formatter->asCurrency($model->total_cost) ?></span>
-                </div>
-            </div>
-        </div>
-
-        <?php if (!$isAdmin && $model->status == \app\models\WorkOrders::STATUS_PENDING): ?>
-            <div class="border-t-2 border-dashed border-base-300 pt-8 mt-8 text-center no-print">
-                <h3 class="text-lg font-bold mb-4">Aprobación del Cliente</h3>
-                <p class="text-sm mb-6 max-w-2xl mx-auto opacity-70">
-                    Al aprobar esta orden de trabajo, confirmas que los requerimientos descritos arriba son correctos y autorizas el inicio del desarrollo bajo los costos estipulados.
-                </p>
-                
-                <div class="flex justify-center gap-4">
-                    <?= Html::a('✓ Aprobar e Iniciar', ['approve', 'id' => $model->id], [
-                        'class' => 'btn btn-primary text-white px-8',
-                        'data' => ['confirm' => '¿Estás seguro de aprobar esta orden? Esto autoriza el inicio del trabajo.', 'method' => 'post']
-                    ]) ?>
-                    
-                    <?= Html::a('✕ Rechazar / Solicitar Cambios', ['reject', 'id' => $model->id], [
-                        'class' => 'btn btn-outline btn-error px-6',
-                        'data' => ['confirm' => '¿Deseas rechazar esta orden?', 'method' => 'post']
-                    ]) ?>
-                </div>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($isAdmin && $model->status == \app\models\WorkOrders::STATUS_PENDING): ?>
-            <div class="bg-base-200 p-3 rounded-xl">
-                <div class="text-sm italic">
-                    El cliente aún no ha aprobado esta orden, vuelve cuando hayas recibido una notificación.
-                </div>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($model->status == \app\models\WorkOrders::STATUS_APPROVED): ?>
-            <div class="mt-8 text-center border-2 border-success border-dashed p-4 rounded-xl opacity-80 rotate-1 max-w-xs mx-auto">
-                <div class="text-success font-bold text-xl uppercase">APROBADO DIGITALMENTE</div>
-                <div class="text-xs text-success">Fecha: <?= Yii::$app->formatter->asDatetime($model->updated_at) ?></div>
-            </div>
-            <?php if($isAdmin): ?>
-            <div class="mb-4">
-                <?php if ($model->down_payment_sent_at === null): ?>
-                    
-                    <?= \yii\helpers\Html::a('Generar Cobro 50%', ['generate-payment', 'id' => $model->id], [
-                        'class' => 'btn btn-primary gap-2',
-                        'data' => [
-                            'confirm' => '¿Generar cobro del 50% y enviar correo?',
-                            'method' => 'post',
-                        ]
-                    ]) ?>
-
-                <?php else: ?>
-                    
-                    <div class="alert alert-success shadow-sm inline-flex w-auto py-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <div class="flex flex-col">
-                            <span class="font-bold text-sm">Anticipo Solicitado</span>
-                            <span class="text-xs">Enviado el: <?= Yii::$app->formatter->asDatetime($model->down_payment_sent_at) ?></span>
-                        </div>
-                        </div>
-
-                <?php endif; ?>
-            </div>
             <?php endif; ?>
-        <?php endif; ?>
+
+            <div class="flex justify-end mb-12">
+                <div class="w-full md:w-1/3 bg-base-200 p-4 rounded-lg">
+                    <div class="flex justify-between items-center text-lg font-bold">
+                        <span>Inversión:</span>
+                        <span class="text-primary"><?= Yii::$app->formatter->asCurrency($model->total_cost) ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <?php if (!$isAdmin && $model->status == \app\models\WorkOrders::STATUS_PENDING): ?>
+                <div class="border-t-2 border-dashed border-base-300 pt-8 mt-8 text-center no-print">
+                    <h3 class="text-lg font-bold mb-4">Aprobación del Cliente</h3>
+                    <p class="text-sm mb-6 max-w-2xl mx-auto opacity-70">
+                        Al aprobar esta orden de trabajo, confirmas que los requerimientos descritos arriba son correctos y autorizas el inicio del desarrollo bajo los costos estipulados.
+                    </p>
+                    
+                    <div class="flex justify-center gap-4">
+                        <?= Html::a('✓ Aprobar e Iniciar', ['approve', 'id' => $model->id], [
+                            'class' => 'btn btn-primary text-white px-8',
+                            'data' => ['confirm' => '¿Estás seguro de aprobar esta orden? Esto autoriza el inicio del trabajo.', 'method' => 'post']
+                        ]) ?>
+                        
+                        <?= Html::a('✕ Rechazar / Solicitar Cambios', ['reject', 'id' => $model->id], [
+                            'class' => 'btn btn-outline btn-error px-6',
+                            'data' => ['confirm' => '¿Deseas rechazar esta orden?', 'method' => 'post']
+                        ]) ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($isAdmin && $model->status == \app\models\WorkOrders::STATUS_PENDING): ?>
+                <div class="bg-base-200 p-3 rounded-xl">
+                    <div class="text-sm italic">
+                        El cliente aún no ha aprobado esta orden, vuelve cuando hayas recibido una notificación.
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($model->status == \app\models\WorkOrders::STATUS_APPROVED): ?>
+                <div class="mt-8 text-center border-2 border-success border-dashed p-4 rounded-xl opacity-80 rotate-1 max-w-xs mx-auto">
+                    <div class="text-success font-bold text-xl uppercase">APROBADO DIGITALMENTE</div>
+                    <div class="text-xs text-success">Fecha: <?= Yii::$app->formatter->asDatetime($model->updated_at) ?></div>
+                </div>
+                <?php if($isAdmin): ?>
+                <div class="mb-4">
+                    <?php if ($model->down_payment_sent_at === null): ?>
+                        
+                        <?= \yii\helpers\Html::a('Generar Cobro 50%', ['generate-payment', 'id' => $model->id], [
+                            'class' => 'btn btn-primary gap-2',
+                            'data' => [
+                                'confirm' => '¿Generar cobro del 50% y enviar correo?',
+                                'method' => 'post',
+                            ]
+                        ]) ?>
+
+                    <?php else: ?>
+                        
+                        <div class="alert alert-success shadow-sm inline-flex w-auto py-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-sm">Anticipo Solicitado</span>
+                                <span class="text-xs">Enviado el: <?= Yii::$app->formatter->asDatetime($model->down_payment_sent_at) ?></span>
+                            </div>
+                            </div>
+
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
+        <?php } ?>
 
     </div>
     

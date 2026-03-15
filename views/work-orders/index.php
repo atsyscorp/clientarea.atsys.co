@@ -22,6 +22,9 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
         <?php if ($isAdmin): ?>
             <?= Html::a('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg> Nueva Orden', ['create'], ['class' => 'btn btn-primary text-white']) ?>
         <?php endif; ?>
+        <?php if (!$isAdmin): ?>
+            <?= Html::a('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg> Solicitar', ['request'], ['class' => 'btn btn-primary text-white']) ?>
+        <?php endif; ?>
     </div>
 
     <?php if ($isAdmin): ?>
@@ -63,7 +66,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     [
                         'attribute' => 'status',
                         'format' => 'raw',
-                        'value' => function($model) { return $model->getStatusHtml(); },
+                        'value' => function($model) { return ($model->is_request == 1) ? 'Solicitud' : $model->getStatusHtml(); },
                         'filter' => [
                             0 => 'Borrador', 
                             1 => 'Pendiente', 
@@ -139,7 +142,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     <div class="card-body p-6">
                         <div class="flex justify-between items-start mb-2">
                             <div class="font-mono text-sm opacity-60 font-bold">' . Html::encode($model->code) . '</div>
-                            ' . $model->getStatusHtml() . '
+                            ' . (($model->is_request == 1) ? 'Solicitud' : $model->getStatusHtml()) . '
                         </div>
                         
                         <h2 class="card-title text-lg leading-tight mb-2">
