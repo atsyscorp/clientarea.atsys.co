@@ -243,6 +243,23 @@ class TicketsController extends \yii\web\Controller
      */
     public function actionCreate()
     {
+
+        // 1. Definir el límite y el inicio del día
+        $limiteDiario = 3;
+        $inicioDelDia = date('Y-m-d 00:00:00');
+
+        // 2. Contar cuántos tickets ha creado hoy este usuario
+        $ticketsHoy = Tickets::find()
+            ->where(['customer_id' => Yii::$app->user->identity->customer->id])
+            ->andWhere(['>=', 'created_at', $inicioDelDia])
+            ->count();
+
+        // 3. Bloquear si ya llegó al límite
+        if ($ticketsHoy >= $limiteDiario) {
+            Yii::$app->session->setFlash('error', 'Has alcanzado el límite de ' . $limiteDiario . ' tickets diarios permitidos. Por favor, responde sobre un ticket existente si es del mismo tema.');
+            return $this->redirect(['index']);
+        }
+
         $model = new Tickets(['scenario' => 'create']);
         $user = Yii::$app->user->identity;
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;

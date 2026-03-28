@@ -400,7 +400,7 @@ class Tickets extends \yii\db\ActiveRecord
         $statusLabels = [
             self::STATUS_OPEN => 'Abierto',
             self::STATUS_ANSWERED => 'Respondido',
-            self::STATUS_CUSTOMER_REPLY => 'Respuesta del cliente',
+            self::STATUS_CUSTOMER_REPLY => 'Cliente',
             self::STATUS_CLOSED => 'Cerrado',
         ];
         return $statusLabels[$this->status] ?? 'Desconocido';

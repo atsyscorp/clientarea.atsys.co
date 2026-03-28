@@ -19,7 +19,7 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
 }
 ?>
 
-<table class="header-table">
+<table class="header-table" cellspacing="0">
     <tr>
         <td width="60%">
             <div class="company-name">
@@ -38,7 +38,7 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
     </tr>
 </table>
 
-<table class="info-table">
+<table class="info-table" cellspacing="0">
     <tr>
         <td class="info-cell">
             <div class="box">
@@ -105,7 +105,7 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
     </div>
 <?php endif; ?>
 
-<table class="total-table">
+<table class="total-table" cellspacing="0" border="0">
     <tr>
         <td width="70%"></td>
         <td width="30%" align="right">

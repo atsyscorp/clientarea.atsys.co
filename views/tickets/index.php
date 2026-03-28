@@ -25,7 +25,7 @@ $clientesList = ArrayHelper::map(Customers::find()->orderBy('business_name')->al
 $estadosList = [
     'open' => 'Abierto',
     'answered' => 'Respondido',
-    'customer_reply' => 'Respuesta del cliente',
+    'customer_reply' => 'Resp. cliente',
     'closed' => 'Cerrado',
 ];
 ?>

@@ -37,6 +37,7 @@ $statusLabels = [
     'open' => ['text' => 'ABIERTO', 'color' => 'badge-error text-white'],
     'answered' => ['text' => 'RESPONDIDO', 'color' => 'badge-success text-white'],
     'closed' => ['text' => 'CERRADO', 'color' => 'badge-neutral text-white'],
+    'customer_reply' => ['text' => 'CLIENTE', 'color' => 'badge-warning'],
 ];
 $st = strtolower($model->status);
 $currentStatus = $statusLabels[$st] ?? ['text' => strtoupper($st), 'color' => 'bg-ghost'];
