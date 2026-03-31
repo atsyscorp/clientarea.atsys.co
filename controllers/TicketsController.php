@@ -35,7 +35,7 @@ class TicketsController extends \yii\web\Controller
                         ],
                         // REGLA 2: Solo el ADMIN puede ELIMINAR y actualizar (editar)
                         [
-                            'actions' => ['update', 'delete'],
+                            'actions' => ['update', 'in-progress', 'delete'],
                             'allow' => true,
                             'roles' => ['@'],
                             'matchCallback' => function ($rule, $action) {
@@ -76,9 +76,22 @@ class TicketsController extends \yii\web\Controller
         $searchModel = new TicketsSearch();
         $dataProvider = $searchModel->search($this->request->queryParams);
 
+        // Si NO es administrador de ATSYS, aplicamos el filtro de privacidad
         if (!Yii::$app->user->identity->isAdmin) {
-            $myCustomer = \app\models\Customers::findOne(['user_id' => Yii::$app->user->id]);
+            
+            $identity = Yii::$app->user->identity;
+
+            // 1. Identificar al "Dueño de la Empresa"
+            // Si el usuario tiene un parent_id (es delegado), usamos el ID de su jefe.
+            // Si no tiene parent_id (es el titular), usamos su propio ID.
+            $ownerId = (!empty($identity->parent_id)) ? $identity->parent_id : $identity->id;
+
+            // 2. Buscar el registro de la Empresa (Customers) basado en el Titular
+            $myCustomer = \app\models\Customers::findOne(['user_id' => $ownerId]);
             $realCustomerId = $myCustomer ? $myCustomer->id : -1;
+
+            // 3. Filtrar el DataProvider
+            // Así, tanto el titular como el delegado verán todos los tickets de la empresa
             $dataProvider->query->andWhere(['customer_id' => $realCustomerId]);
         }
 
@@ -244,35 +257,38 @@ class TicketsController extends \yii\web\Controller
     public function actionCreate()
     {
 
-        // 1. Definir el límite y el inicio del día
-        $limiteDiario = 3;
-        $inicioDelDia = date('Y-m-d 00:00:00');
-
-        // 2. Contar cuántos tickets ha creado hoy este usuario
-        $ticketsHoy = Tickets::find()
-            ->where(['customer_id' => Yii::$app->user->identity->customer->id])
-            ->andWhere(['>=', 'created_at', $inicioDelDia])
-            ->count();
-
-        // 3. Bloquear si ya llegó al límite
-        if ($ticketsHoy >= $limiteDiario) {
-            Yii::$app->session->setFlash('error', 'Has alcanzado el límite de ' . $limiteDiario . ' tickets diarios permitidos. Por favor, responde sobre un ticket existente si es del mismo tema.');
-            return $this->redirect(['index']);
-        }
-
-        $model = new Tickets(['scenario' => 'create']);
         $user = Yii::$app->user->identity;
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
-        if (!Yii::$app->user->identity->isAdmin) {
-            $customer = \app\models\Customers::findOne(['user_id' => Yii::$app->user->id]);
-            
-            if ($customer) {
-                $model->customer_id = $customer->id;
-            } else {
+        // 1. Definimos el límite de tickets activos simultáneos
+        $limiteTicketsActivos = 3; 
+
+        $model = new Tickets(['scenario' => 'create']);
+
+        // 2. Aplicamos la regla SOLO a los clientes (excluimos a los administradores de ATSYS)
+        if (!$isAdmin) {
+
+            $customer_id = Yii::$app->user->identity->getRealCustomerId();
+
+            if (!$customer_id) {
                 Yii::$app->session->setFlash('error', 'Tu usuario no tiene un perfil de cliente asociado.');
                 return $this->redirect(['index']);
             }
+
+            $model->customer_id = $customer_id;
+
+            // Contamos los tickets que el cliente tiene en espera o en progreso
+            $ticketsActivos = Tickets::find()
+                ->where(['customer_id' => $customer_id])
+                ->andWhere(['in', 'status', ['open', 'in_progress']])
+                ->count();
+
+            // 3. Si llega al límite, bloqueamos y redirigimos
+            if ($ticketsActivos >= $limiteTicketsActivos) {
+                Yii::$app->session->setFlash('warning', '<b>Límite de solicitudes activas:</b> Actualmente tienes ' . $ticketsActivos . ' tickets en proceso. Para abrir una nueva solicitud, por favor espera a que nuestro equipo resuelva las actuales o marca como resueltos los tickets que ya fueron solucionados.');
+                return $this->redirect(['index']);
+            }
+
         }
 
         $model->status = Tickets::STATUS_OPEN;
@@ -406,13 +422,14 @@ class TicketsController extends \yii\web\Controller
         $model = $this->findModel($id);
 
         if (!Yii::$app->user->identity->isAdmin) {
-            $myCustomer = \app\models\Customers::findOne(['user_id' => Yii::$app->user->id]);
-            if (!$myCustomer || $model->customer_id !== $myCustomer->id) {
+            $myCustomerId = Yii::$app->user->identity->realCustomerId; 
+            
+            if (!$myCustomerId || $model->customer_id !== $myCustomerId) {
                 throw new \yii\web\ForbiddenHttpException('No tienes permiso para gestionar este ticket.');
             }
         }
 
-        $model->status = Tickets::STATUS_CLOSED;
+        $model->status = Tickets::STATUS_CLOSED; // O el string 'closed' si es como lo guardas
         
         if ($model->save()) {
             Yii::$app->session->setFlash('info', 'El ticket ha sido cerrado.');
@@ -421,6 +438,28 @@ class TicketsController extends \yii\web\Controller
         }
 
         return $this->redirect(Yii::$app->request->referrer ?: ['index']);
+    }
+
+    /**
+     * Cambia el estado del ticket a "En Progreso"
+     */
+    public function actionInProgress($id)
+    {
+        // Solo administradores o personal de soporte deberían poder hacer esto
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
+        }
+
+        $model = $this->findModel($id);
+        $model->status = 'in_progress';
+        
+        if ($model->save(false)) { // save(false) para saltar validaciones de otros campos si no son necesarias
+            Yii::$app->session->setFlash('success', 'El ticket ahora está marcado como En Progreso.');
+        } else {
+            Yii::$app->session->setFlash('error', 'Hubo un error al actualizar el estado.');
+        }
+
+        return $this->redirect(['view', 'id' => $model->id]);
     }
 
     /**

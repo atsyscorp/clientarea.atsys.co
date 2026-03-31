@@ -11,12 +11,16 @@ use yii\web\IdentityInterface;
 
 class User extends ActiveRecord implements \yii\web\IdentityInterface
 {
+
+    public $password;
+
     const STATUS_DELETED = 0;
     const STATUS_INACTIVE = 9;
     const STATUS_ACTIVE = 10;
 
     // Constantes de Roles
     const ROLE_CLIENT = 10;
+    const ROLE_SUBACCOUNT = 11;
     const ROLE_ADMIN = 20;
 
     public static function tableName() {
@@ -166,6 +170,93 @@ class User extends ActiveRecord implements \yii\web\IdentityInterface
     public function removePasswordResetToken()
     {
         $this->password_reset_token = null;
+    }
+
+    // Cuentas desglosadas.
+    // 1. Relación para saber quién es el jefe
+    public function getParentAccount()
+    {
+        return $this->hasOne(User::class, ['id' => 'parent_id']);
+    }
+
+    // 2. Saber si es sub-cuenta
+    public function getIsSubAccount()
+    {
+        return $this->parent_id !== null && $this->role === self::ROLE_SUBACCOUNT;
+    }
+
+    // 3. Obtener el ID de "la empresa" (Si es jefe, su propio ID. Si es empleado, el ID del jefe)
+    public function getCompanyOwnerId()
+    {
+        // 1. Identificamos el ID del usuario dueño (Titular)
+        $ownerId = $this->parent_id ? $this->parent_id : $this->id;
+
+        // 2. Buscamos el registro en la tabla Customers
+        $customer = \app\models\Customers::findOne(['user_id' => $ownerId]);
+
+        // 3. LA CORRECCIÓN: Validamos si el cliente existe antes de pedir el ->id
+        // Devolvemos -1 si no existe para que el GridView simplemente salga vacío y no se rompa
+        return $customer ? $customer->id : -1;
+    }
+
+    // --- HELPERS DE ROLES Y PERMISOS ---
+
+    /**
+     * ¿Es el dueño absoluto de la cuenta? (No tiene jefe)
+     */
+    public function getIsCustomerOwner()
+    {
+        return $this->parent_id === null && !$this->isAdmin;
+    }
+
+    /**
+     * ¿Es un delegado con rol Administrativo (Backup)?
+     */
+    public function getIsCustomerAdmin()
+    {
+        return $this->parent_id !== null && $this->role == 12;
+    }
+
+    /**
+     * ¿Es un delegado estándar? (Solo soporte)
+     */
+    public function getIsCustomerStandard()
+    {
+        return $this->parent_id !== null && $this->role == 11;
+    }
+
+    /**
+     * ¿Puede ver y gestionar la Facturación / Pagos / Servicios?
+     * (Solo el dueño y el delegado administrativo)
+     */
+    public function getCanManageBilling()
+    {
+        return $this->isCustomerOwner || $this->isCustomerAdmin;
+    }
+
+    /**
+     * ¿Puede gestionar el equipo (crear otras sub-cuentas)?
+     * (Usualmente solo el dueño, pero podrías agregar al Admin si quieres)
+     */
+    public function getCanManageTeam()
+    {
+        return $this->isCustomerOwner; // O cambiar a: return $this->isCustomerOwner || $this->isCustomerAdmin;
+    }
+
+    /**
+     * Obtiene el ID real de la empresa (customer_id) sin importar si es el Titular o un Delegado.
+     * @return int|null
+     */
+    public function getRealCustomerId()
+    {
+        // 1. Determinamos quién es el dueño de la empresa
+        $ownerId = $this->parent_id ? $this->parent_id : $this->id;
+
+        // 2. Buscamos la empresa vinculada a ese dueño
+        $customer = \app\models\Customers::findOne(['user_id' => $ownerId]);
+
+        // 3. Devolvemos el ID de la tabla customers
+        return $customer ? $customer->id : null;
     }
 
 }

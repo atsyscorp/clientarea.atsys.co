@@ -16,6 +16,7 @@ use yii\web\UploadedFile;
  * @property string|null $created_at
  *
  * @property Tickets $ticket
+ * @property User $user
  */
 class TicketReplies extends \yii\db\ActiveRecord
 {
@@ -189,5 +190,16 @@ class TicketReplies extends \yii\db\ActiveRecord
     public function setSenderTypeToSystem()
     {
         $this->sender_type = self::SENDER_TYPE_SYSTEM;
+    }
+
+    /**
+     * Gets query for [[User]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getUser()
+    {
+        // Asegúrate de que User::class apunte a tu modelo de usuarios correcto
+        return $this->hasOne(User::class, ['id' => 'user_id']);
     }
 }

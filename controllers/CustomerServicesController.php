@@ -4,6 +4,8 @@ namespace app\controllers;
 
 use Yii;
 use yii\web\NotFoundHttpException;
+use yii\filters\AccessControl;
+
 use app\models\Orders;
 use app\models\Products;
 use app\models\Customers;
@@ -13,6 +15,27 @@ use app\models\CustomerServicesSearch;
 
 class CustomerServicesController extends \yii\web\Controller
 {
+
+    public function behaviors()
+    {
+        return [
+            'access' => [
+                'class' => AccessControl::class,
+                'rules' => [
+                    [
+                        'allow' => true,
+                        'roles' => ['@'], // Solo logueados
+                        'matchCallback' => function ($rule, $action) {
+                            return !Yii::$app->user->isGuest && (
+                                Yii::$app->user->identity->isAdmin || 
+                                Yii::$app->user->identity->role == 10 ||
+                                Yii::$app->user->identity->role == 12);
+                        }
+                    ],
+                ],
+            ],
+        ];
+    }
 
     public function actionIndex()
     {

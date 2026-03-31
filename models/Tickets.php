@@ -31,10 +31,13 @@ class Tickets extends \yii\db\ActiveRecord
     const STATUS_ANSWERED = 'answered';
     const STATUS_CUSTOMER_REPLY = 'customer_reply';
     const STATUS_CLOSED = 'closed';
+    const STATUS_IN_PROGRESS = 'in_progress';
+
     const PRIORITY_LOW = 'low';
     const PRIORITY_MEDIUM = 'medium';
     const PRIORITY_HIGH = 'high';
     const PRIORITY_CRITICAL = 'critical';
+
     const SOURCE_WEB = 'web';
     const SOURCE_EMAIL = 'email';
     const SOURCE_WHATSAPP = 'whatsapp';
@@ -199,6 +202,7 @@ class Tickets extends \yii\db\ActiveRecord
             self::STATUS_ANSWERED => 'answered',
             self::STATUS_CUSTOMER_REPLY => 'customer_reply',
             self::STATUS_CLOSED => 'closed',
+            self::STATUS_IN_PROGRESS => 'in_progress',
         ];
     }
 
@@ -402,6 +406,7 @@ class Tickets extends \yii\db\ActiveRecord
             self::STATUS_ANSWERED => 'Respondido',
             self::STATUS_CUSTOMER_REPLY => 'Cliente',
             self::STATUS_CLOSED => 'Cerrado',
+            self::STATUS_IN_PROGRESS => 'En Proceso',
         ];
         return $statusLabels[$this->status] ?? 'Desconocido';
     }
@@ -462,7 +467,6 @@ class Tickets extends \yii\db\ActiveRecord
             self::DEPT_BILLING => ['facturacion@atsys.co' => 'Facturación ATSYS']
         ];
         return $departmentsAddresses[$this->department] ?? $departmentsAddresses[self::DEPT_SUPPORT];
-
 
     }
 

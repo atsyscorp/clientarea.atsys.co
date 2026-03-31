@@ -59,7 +59,7 @@ class CustomerServicesSearch extends CustomerServices
         }
 
         if (!Yii::$app->user->isGuest && !Yii::$app->user->identity->isAdmin) {
-            $query->andWhere(['customer_id' => Yii::$app->user->identity->customer->id]);
+            $query->andWhere(['customer_id' => Yii::$app->user->identity->getCompanyOwnerId()]);
         }
 
         // Filtros exactos

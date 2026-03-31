@@ -12,7 +12,7 @@ $this->title = $model->ticket_code . ' - ' . $model->subject;
 // Verificamos si es admin
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
-// Helper para links (CORREGIDO: Ahora es una función anónima para evitar errores fatales de PHP)
+// Helper para links
 $formatMessage = function($text, $dark = false) {
     if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
         $text = nl2br($text);
@@ -35,9 +35,9 @@ $formatMessage = function($text, $dark = false) {
 // 1. Estados
 $statusLabels = [
     'open' => ['text' => 'ABIERTO', 'color' => 'badge-error text-white'],
+    'in_progress' => ['text' => 'EN PROGRESO', 'color' => 'badge-info text-white'],
     'answered' => ['text' => 'RESPONDIDO', 'color' => 'badge-success text-white'],
     'closed' => ['text' => 'CERRADO', 'color' => 'badge-neutral text-white'],
-    'customer_reply' => ['text' => 'CLIENTE', 'color' => 'badge-warning'],
 ];
 $st = strtolower($model->status);
 $currentStatus = $statusLabels[$st] ?? ['text' => strtoupper($st), 'color' => 'bg-ghost'];
@@ -107,7 +107,6 @@ document.addEventListener("DOMContentLoaded", function() {
             };
 
             xhr.onload = () => {
-                // Si el status no es 200 (OK)
                 if (xhr.status < 200 || xhr.status >= 300) {
                     reject('Error del servidor (Código: ' + xhr.status + ')');
                     return;
@@ -115,7 +114,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
                 const json = JSON.parse(xhr.responseText);
 
-                // Si el backend envió un mensaje de error específico (ej. "Archivo muy pesado")
                 if (json && json.error) {
                     reject(json.error); 
                     return;
@@ -141,9 +139,11 @@ document.addEventListener("DOMContentLoaded", function() {
             xhr.send(formData);
         })
     });
+
 });
 JS;
 $this->registerJs($js, \yii\web\View::POS_END);
+
 ?>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -190,14 +190,45 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     $alignmentFirst = $isSupportFirst ? 'chat-end' : 'chat-start';
                     $darkLinkFirst = $isSupportFirst ? true : false;
                     $bubbleColorFirst = $isSupportFirst ? 'chat-bubble-primary text-primary-content' : 'bg-white text-base-content border border-base-300';
-                    $nameFirst = $isSupportFirst ? 'Soporte ATSYS' : ($model->customer ? ($model->customer->contact_name . ' ('.$model->customer->business_name.')') : $model->email);
-                    $avatarFirst = $isSupportFirst ? '🛡️' : '👤';
+                    
+                    // --- LÓGICA DE IDENTIFICACIÓN: PRIMER MENSAJE ---
+                    $nameFirst = 'Usuario Desconocido';
+                    $badgeRolFirst = '';
+                    $avatarFirst = '👤';
+
+                    if ($isSupportFirst) {
+                        $nameFirst = 'Soporte ATSYS';
+                        $avatarFirst = '🛡️';
+                        $badgeRolFirst = '<span class="badge badge-primary badge-xs ml-2">Soporte</span>';
+                    } else {
+                        // Intentamos obtener el usuario que envió la respuesta
+                        $senderUserFirst = $firstReply->user; 
+                        
+                        if ($senderUserFirst) {
+                            $nameFirst = Html::encode($senderUserFirst->contact_name ?? $senderUserFirst->email);
+                            
+                            // Determinamos si es Sub-cuenta o Titular
+                            if ($senderUserFirst->getIsSubAccount()) {
+                                $badgeRolFirst = '<span class="badge badge-ghost badge-xs ml-2 text-base-content/60">Delegado</span>';
+                            } else {
+                                $badgeRolFirst = '<span class="badge badge-neutral badge-xs ml-2 font-bold">Titular</span>';
+                            }
+                        } else {
+                            // Fallback si no hay usuario asociado a la respuesta
+                            $nameFirst = $model->customer ? (
+                                $model->customer->contact_name == $model->customer->business_name ? 
+                                    $model->customer->contact_name :
+                                    $model->customer->contact_name . ' ('.$model->customer->business_name.')'
+                            ) : $model->email;
+                        }
+                    }
                     ?>
 
                     <div class="chat <?= $alignmentFirst ?>">
-                        <div class="chat-header text-xs opacity-50 mb-1">
-                            <?= Html::encode($nameFirst) ?>
-                            <time class="text-xs opacity-50 ml-1">
+                        <div class="chat-header text-xs opacity-50 mb-1 flex items-center">
+                            <?= $nameFirst ?>
+                            <?= $badgeRolFirst ?>
+                            <time class="text-xs opacity-50 ml-2">
                                 <?= Yii::$app->formatter->asRelativeTime($firstReply->created_at) ?>
                             </time>
                         </div>
@@ -231,16 +262,39 @@ $this->registerJs($js, \yii\web\View::POS_END);
                             $darkLink = $isSupport ? true : false;
                             $bubbleColor = $isSupport ? 'chat-bubble-primary text-primary-content' : 'bg-white text-base-content border border-base-300';
                             
-                            $name = $isSupport ? 'Soporte ATSYS' : ($model->customer ? (
-                                $model->customer->contact_name . ' ('.$model->customer->business_name.')'
-                            ) : $model->email);
-                            $avatar = $isSupport ? '🛡️' : '👤';
+                            // --- LÓGICA DE IDENTIFICACIÓN: RESPUESTAS ---
+                            $name = 'Usuario Desconocido';
+                            $badgeRol = '';
+                            $avatar = '👤';
+
+                            if ($isSupport) {
+                                $name = 'Soporte ATSYS';
+                                $avatar = '🛡️';
+                                $badgeRol = '<span class="badge badge-primary badge-xs ml-2">Soporte</span>';
+                            } else {
+                                $senderUser = $reply->user; 
+                                
+                                if ($senderUser) {
+                                    $name = Html::encode($senderUser->contact_name ?? $senderUser->email);
+                                    
+                                    if ($senderUser->getIsSubAccount()) {
+                                        $badgeRol = '<span class="badge badge-ghost badge-xs ml-2 text-base-content/60">Delegado</span>';
+                                    } else {
+                                        $badgeRol = '<span class="badge badge-neutral badge-xs ml-2 font-bold">Titular</span>';
+                                    }
+                                } else {
+                                    $name = $model->customer ? (
+                                        $model->customer->contact_name . ' ('.$model->customer->business_name.')'
+                                    ) : $model->email;
+                                }
+                            }
                         ?>
 
                         <div class="chat <?= $alignment ?>">
-                            <div class="chat-header text-xs opacity-50 mb-1">
-                                <?= Html::encode($name) ?>
-                                <time class="text-xs opacity-50 ml-1">
+                            <div class="chat-header text-xs opacity-50 mb-1 flex items-center">
+                                <?= $name ?>
+                                <?= $badgeRol ?>
+                                <time class="text-xs opacity-50 ml-2">
                                     <?= Yii::$app->formatter->asRelativeTime($reply->created_at) ?>
                                 </time>
                             </div>
@@ -344,6 +398,16 @@ $this->registerJs($js, \yii\web\View::POS_END);
             <div class="card bg-base-100 shadow-xl border border-base-200">
                 <div class="card-body p-5">
                     <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Acciones</h3>
+
+                    <?php if ($model->status !== 'in_progress'): ?>
+                        <?= Html::a('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Tomar / En Progreso', 
+                            ['in-progress', 'id' => $model->id], 
+                            [
+                                'class' => 'btn btn-outline btn-info btn-block gap-2 mb-3',
+                                'data-method' => 'post',
+                            ]
+                        ) ?>
+                    <?php endif; ?>
                     
                     <?= Html::a('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Marcar como Resuelto', 
                         ['close', 'id' => $model->id], 
@@ -390,6 +454,12 @@ $this->registerJs($js, \yii\web\View::POS_END);
                                     <div class="badge <?= $currentPriority['color'] ?> badge-sm font-semibold border-0">
                                         <?= $currentPriority['text'] ?>
                                     </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="text-base-content/60 font-normal pl-0">Departamento:</th>
+                                <td class="text-right pr-0">
+                                    <?= $model->getDepartmentLabelShort() ?>
                                 </td>
                             </tr>
                             

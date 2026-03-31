@@ -113,6 +113,7 @@ class WorkOrders extends \yii\db\ActiveRecord
     public function request() {
 
         $this->is_request = 1;
+        $this->customer_id = Yii::$app->user->identity->getRealCustomerId();
         $this->save(false);
 
         // Enviar notificacion a admin

@@ -22,6 +22,9 @@ class WorkOrdersController extends Controller
                     [
                         'allow' => true,
                         'roles' => ['@'], // Solo logueados
+                        'matchCallback' => function ($rule, $action) {
+                            return !Yii::$app->user->isGuest && (Yii::$app->user->identity->isAdmin || Yii::$app->user->identity->role == 12);
+                        }
                     ],
                 ],
             ],
@@ -342,7 +345,7 @@ class WorkOrdersController extends Controller
 
         $model = new WorkOrders();
         // Por defecto, si se envía email, nace como PENDIENTE (1)
-        $model->status = WorkOrders::STATUS_PENDING; 
+        $model->status = WorkOrders::STATUS_PENDING;
 
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
@@ -439,10 +442,10 @@ class WorkOrdersController extends Controller
         $model = new WorkOrders();
 
         if (!Yii::$app->user->identity->isAdmin) {
-            $customer = \app\models\Customers::findOne(['user_id' => Yii::$app->user->id]);
+            $customer_id = Yii::$app->user->identity->getRealCustomerId();
             
-            if ($customer) {
-                $model->customer_id = $customer->id;
+            if ($customer_id) {
+                $model->customer_id = $customer_id;
             } else {
                 Yii::$app->session->setFlash('error', 'Tu usuario no tiene un perfil de cliente asociado.');
                 return $this->redirect(['index']);
