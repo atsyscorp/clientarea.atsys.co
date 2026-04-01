@@ -34,7 +34,7 @@ $myReaction = (new \yii\db\Query())
             <h1 class="text-3xl font-bold mb-6"><?= Html::encode($model->title) ?></h1>
             
             <div class="prose max-w-none mb-8">
-                <?= Html::decode($model->content) ?>
+                <?= nl2br(Html::decode($model->content)) ?>
             </div>
 
             <div class="divider"></div>
