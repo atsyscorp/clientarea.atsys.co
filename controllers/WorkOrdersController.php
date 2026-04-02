@@ -23,7 +23,7 @@ class WorkOrdersController extends Controller
                         'allow' => true,
                         'roles' => ['@'], // Solo logueados
                         'matchCallback' => function ($rule, $action) {
-                            return !Yii::$app->user->isGuest && (Yii::$app->user->identity->isAdmin || Yii::$app->user->identity->role == 12);
+                            return !Yii::$app->user->isGuest && (Yii::$app->user->identity->isAdmin || Yii::$app->user->identity->role == 12 || Yii::$app->user->identity->role == 10);
                         }
                     ],
                 ],
@@ -436,7 +436,7 @@ class WorkOrdersController extends Controller
 
         // Solo para clientes
         if (Yii::$app->user->isGuest || Yii::$app->user->identity->isAdmin) {
-             throw new \yii\web\ForbiddenHttpException();
+            throw new \yii\web\ForbiddenHttpException();
         }
 
         $model = new WorkOrders();
@@ -493,7 +493,7 @@ class WorkOrdersController extends Controller
             if ($update->save()) {
                 
                 // Lógica opcional de notificación
-                if ($update->notify_email && $update->is_visible) {
+                if ($update->notify_email && $update->allow_reply == 1) {
                     try {
                         Yii::$app->mailer->compose(['html' => 'admin-notification'], [
                             'title' => '🚀 Nuevo Avance en tu Proyecto',
@@ -501,7 +501,8 @@ class WorkOrdersController extends Controller
                                           <blockquote style='background:#f9f9f9; padding:10px; border-left:3px solid #134C42;'>
                                             " . nl2br($update->description) . "
                                           </blockquote>
-                                          <p><a href='https://clientarea.atsys.co/work-orders/view?id={$workOrder->id}'>Ver en el portal</a></p>",
+                                          ".(($update->allow_reply == 1) ? '<p>Este avance incluye una solicitud de respuesta de tu parte. Por favor, ingresa a la orden de trabajo para ver los detalles y responder.</p><br><br>' : '')."
+                                          <p><a href='https://clientarea.atsys.co/work-orders/view?id={$workOrder->id}' style='background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;'>Ver en el área de clientes</a></p>",
                             'color' => '#134C42'
                         ])
                         ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
@@ -653,6 +654,80 @@ class WorkOrdersController extends Controller
         }
 
         return $this->redirect(['view', 'id' => $model->id]);
+    }
+
+    public function actionAddReply($id)
+    {
+        $request = Yii::$app->request;
+
+        // 1. Seguridad básica: Solo aceptar peticiones POST
+        if (!$request->isPost) {
+            throw new \yii\web\BadRequestHttpException('Petición no válida. Solo se aceptan envíos por formulario.');
+        }
+
+        $updateId = $request->post('update_id');
+        $replyText = $request->post('reply');
+
+        if (empty($updateId) || empty(trim($replyText))) {
+            Yii::$app->session->setFlash('error', 'La respuesta no puede estar vacía.');
+            return $this->redirect(['view', 'id' => $id]);
+        }
+
+        // 2. Buscar el avance asegurando que pertenezca a la Orden de Trabajo actual
+        $update = \app\models\WorkOrderUpdates::findOne([
+            'id' => $updateId,
+            'work_order_id' => $id,
+            'allow_reply' => 1 // Doble validación: asegurar que este avance permite respuesta
+        ]);
+
+        if (!$update) {
+            throw new \yii\web\NotFoundHttpException('El registro de avance no existe o no admite respuestas.');
+        }
+
+        // 3. LA REGLA DE ORO (Backend): Bloquear si ya existe una respuesta
+        if (!empty($update->client_reply)) {
+            Yii::$app->session->setFlash('warning', 'Ya has enviado una respuesta para este avance. No se permiten modificaciones adicionales.');
+            return $this->redirect(['view', 'id' => $id]);
+        }
+
+        // 4. Sanitizar y guardar los datos
+        // Usamos HtmlPurifier por seguridad, para evitar inyección de scripts si el cliente copia/pega algo extraño
+        $update->client_reply = \yii\helpers\HtmlPurifier::process(trim($replyText));
+        $update->replied_at = date('Y-m-d H:i:s');
+        $update->replied_by = Yii::$app->user->id; // Aquí queda el rastro exacto de quién respondió (Ideal para las subcuentas)
+
+        if ($update->save(false)) { // false evita validaciones extrañas del modelo si no tienes rules strictas configuradas para estos campos
+            
+            Yii::$app->session->setFlash('success', 'Tu respuesta ha sido registrada correctamente en la bitácora.');
+
+            // 5. Notificación al equipo de ATSYS
+            $workOrder = \app\models\WorkOrders::findOne($id);
+            
+            if ($workOrder) {
+                try {
+                    Yii::$app->mailer->compose([
+                        'html' => 'workOrderReply-html'
+                    ],
+                    [
+                        'model' => $workOrder,
+                        'update' => $update,
+                    ])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                    ->setTo(Yii::$app->params['adminEmail'])
+                    ->setSubject('Nueva respuesta del cliente - ' . $workOrder->code)
+                    ->send();
+                } catch (\Exception $e) {
+                    // Si falla el correo/webhook, no bloqueamos al cliente, solo registramos el error en los logs
+                    Yii::error('Error enviando notificación de respuesta OT: ' . $e->getMessage());
+                }
+            }
+
+        } else {
+            Yii::$app->session->setFlash('error', 'Ocurrió un error interno al guardar la respuesta. Por favor, contacta a soporte.');
+        }
+
+        // 6. Redirigir de vuelta a la vista de la orden
+        return $this->redirect(['view', 'id' => $id]);
     }
 
 }

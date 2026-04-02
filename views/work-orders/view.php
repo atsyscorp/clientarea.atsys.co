@@ -333,7 +333,7 @@ if($model->is_request == 1) {
                             <div class="timeline-middle">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-primary"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
                             </div>
-                            <div class="timeline-end mb-10 bg-base-100 p-4 rounded-box shadow-sm border border-base-200 w-full">
+                            <div class="timeline-<?=$index%2==0 ? 'start':'end'?> mb-10 bg-base-100 p-4 rounded-box shadow-sm border border-base-200 w-full">
                                 <time class="font-mono italic text-xs opacity-50 block mb-1">
                                     <?= Yii::$app->formatter->asDatetime($update->created_at) ?>
                                     <?php if($isAdmin && !$update->is_visible): ?>
@@ -343,6 +343,38 @@ if($model->is_request == 1) {
                                 <div class="text-sm text-justify">
                                     <?= nl2br(\yii\helpers\Html::encode($update->description)) ?>
                                 </div>
+
+                                <?php if($update->allow_reply == 1): ?>
+                                    <?php if(!empty($update->client_reply)): ?>
+                                        <div class="bg-base-200 p-3 rounded-lg border-l-4 border-primary mt-4">
+                                            <div class="text-xs font-bold text-primary mb-1">Respuesta del cliente:</div>
+                                            <div class="text-sm italic text-justify">
+                                                <?= nl2br(\yii\helpers\Html::encode($update->client_reply)) ?>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <?php //if(!$isAdmin) { ?>
+                                        <div class="bg-base-200 p-3 rounded-lg border-l-4 border-primary mt-4">
+                                            <div class="text-xs font-bold text-primary mb-2">Este avance requiere tu respuesta:</div>
+                                            <div class="text-sm text-justify">
+                                                <?= \yii\helpers\Html::beginForm(['work-orders/add-reply', 'id' => $model->id], 'post') ?>
+                                                    <?= \yii\helpers\Html::hiddenInput('update_id', $update->id) ?>
+                                                    <?= \yii\helpers\Html::textarea('reply', '', [
+                                                        'class' => 'textarea textarea-bordered w-full', 
+                                                        'rows' => 2, 
+                                                        'placeholder' => 'Tu respuesta (solo podrás enviarla una vez)...',
+                                                        'required' => true
+                                                    ]) ?>
+                                                    <?= \yii\helpers\Html::submitButton('Enviar Respuesta', [
+                                                        'class' => 'btn btn-primary btn-sm mt-2',
+                                                        'data' => ['confirm' => '¿Estás seguro de enviar esta respuesta? No podrás modificarla después.']
+                                                    ]) ?>
+                                                <?= \yii\helpers\Html::endForm() ?>
+                                            </div>
+                                        </div>
+                                        <?php //} ?>
+                                    <?php endif; ?>
+                                <?php endif; ?>
                             </div>
                             <hr class="bg-primary"/>
                         </li>
@@ -376,6 +408,16 @@ if($model->is_request == 1) {
                         <label class="label cursor-pointer justify-start gap-4">
                             <?= $form->field($newUpdate, 'notify_email')->checkbox(['class' => 'checkbox checkbox-sm checkbox-secondary'], false)->label(false) ?>
                             <span class="label-text">Notificar por Email</span>
+                        </label>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <?= $form->field($newUpdate, 'allow_reply')->checkbox([
+                                'class' => 'checkbox checkbox-sm checkbox-accent',
+                                'onclick' => 'if(this.checked === true) { if(document.getElementById("workorderupdates-is_visible").checked == false) { document.getElementById("workorderupdates-is_visible").checked = true; } if(document.getElementById("workorderupdates-notify_email").checked == false) { document.getElementById("workorderupdates-notify_email").checked = true; } alert("Para que el cliente pueda responder se activará automáticamente las opciones de notificar por email y hacer visible este avance para el cliente."); }'
+                            ], false)->label(false) ?>
+                            <span class="label-text font-bold">Solicitar respuesta / aclaración del cliente</span>
                         </label>
                     </div>
     

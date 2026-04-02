@@ -27,9 +27,20 @@ class WorkOrderUpdates extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
+            /*
             [['work_order_id', 'description'], 'required'],
-            [['work_order_id', 'created_by', 'is_visible', 'notify_email'], 'integer'],
+            [['work_order_id', 'created_by', 'is_visible', 'notify_email', 'allow_reply', 'replied_by'], 'integer'],
+            [['allow_reply'], 'default', 'value' => 0],
             [['description'], 'string'],
+            */
+
+            [['created_at', 'client_reply', 'replied_by', 'replied_at'], 'default', 'value' => null],
+            [['allow_reply'], 'default', 'value' => 0],
+            [['work_order_id', 'description'], 'required'],
+            [['work_order_id', 'created_by', 'is_visible', 'notify_email', 'allow_reply', 'replied_by'], 'integer'],
+            [['description', 'client_reply'], 'string'],
+            [['created_at', 'replied_at'], 'safe'],
+            [['work_order_id'], 'exist', 'skipOnError' => true, 'targetClass' => WorkOrders::class, 'targetAttribute' => ['work_order_id' => 'id']],
         ];
     }
 
