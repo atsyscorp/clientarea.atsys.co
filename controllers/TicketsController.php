@@ -78,7 +78,7 @@ class TicketsController extends \yii\web\Controller
 
         // Si NO es administrador de ATSYS, aplicamos el filtro de privacidad
         if (!Yii::$app->user->identity->isAdmin) {
-            
+
             $identity = Yii::$app->user->identity;
 
             // 1. Identificar al "Dueño de la Empresa"
@@ -106,6 +106,7 @@ class TicketsController extends \yii\web\Controller
      */
     public function actionView($id)
     {
+
         $model = $this->findModel($id);
         $newReply = new TicketReplies();
 
@@ -116,10 +117,20 @@ class TicketsController extends \yii\web\Controller
         ]);
     }
 
-    protected function findModel($id) {
-        if (($model = Tickets::findOne($id)) !== null) {
-            return $model;
+    protected function findModel($id)
+    {
+        // Identificar el id del ticket.
+        if (is_numeric($id)) {
+            if (($model = Tickets::findOne($id)) !== null) {
+                return $model;
+            }
+        } else {
+            // Si contiene TKT en $id
+            if (($model = Tickets::findOne(['ticket_code' => $id])) !== null) {
+                return $model;
+            }
         }
+
         throw new NotFoundHttpException('El ticket seleccionado no existe.');
     }
 
@@ -134,13 +145,13 @@ class TicketsController extends \yii\web\Controller
         if ($this->request->isPost) {
             // Cargamos los datos del formulario (mensaje, etc.)
             if ($reply->load($this->request->post())) {
-                
+
                 $reply->ticket_id = $ticket->id;
-                
+
                 // Determinamos quién responde
                 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
-                $reply->sender_type = $isAdmin ? 'admin' : 'customer'; 
-                $reply->user_id = Yii::$app->user->id; 
+                $reply->sender_type = $isAdmin ? 'admin' : 'customer';
+                $reply->user_id = Yii::$app->user->id;
 
                 // Lógica de Archivos Adjuntos
                 $reply->attachmentFile = UploadedFile::getInstance($reply, 'attachmentFile');
@@ -158,7 +169,7 @@ class TicketsController extends \yii\web\Controller
 
                 // Guardamos la respuesta
                 if ($reply->save()) {
-                    
+
                     // Actualizamos el ticket padre
                     // Si responde el cliente, el estado pasa a 'open' o 'customer_reply' para que lo veas
                     // Si responde el admin, pasa a 'answered'
@@ -183,14 +194,14 @@ class TicketsController extends \yii\web\Controller
                     $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
 
                     try {
-                        $department = $ticket->getDepartmentEmail(); 
+                        $department = $ticket->getDepartmentEmail();
                         $mailer = Yii::$app->mailer->compose('ticket_reply', ['reply' => $reply])
                             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                             ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
                             ->setTo($isAdmin ? $ticket->email : $adminEmail)
                             ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject);
 
-                        if($reply->attachment) {
+                        if ($reply->attachment) {
                             $mailer->attach(Yii::getAlias('@webroot/') . $reply->attachment, [
                                 'fileName' => basename(Yii::getAlias('@webroot/') . $reply->attachment),
                             ]);
@@ -223,16 +234,17 @@ class TicketsController extends \yii\web\Controller
             return; // No hay nadie a quien notificar
         }
 
-        // 2. Preparar el payload
+        // 2. Preparar el payload, incluir imagen de ATSYS
         $payload = [
             'tokens' => $tokens, // Array de tokens
-            'title'  => $title,
-            'body'   => $body,
-            'link'   => "https://clientarea.atsys.co/tickets/view?id=" . $ticketId
+            'title' => $title,
+            'body' => $body,
+            'link' => "https://clientarea.atsys.co/tickets/view?id=" . $ticketId,
+            'image' => 'https://clientarea.atsys.co/images/atsys-clientarea-og.webp'
         ];
 
         // 3. Configurar la petición a N8N
-        $n8nUrl = 'https://n8n.atsys.co/webhook/send-admin-push'; 
+        $n8nUrl = 'https://n8n.atsys.co/webhook/send-admin-push';
 
         try {
             $ch = curl_init($n8nUrl);
@@ -261,7 +273,7 @@ class TicketsController extends \yii\web\Controller
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
         // 1. Definimos el límite de tickets activos simultáneos
-        $limiteTicketsActivos = 3; 
+        $limiteTicketsActivos = 3;
 
         $model = new Tickets(['scenario' => 'create']);
 
@@ -293,36 +305,36 @@ class TicketsController extends \yii\web\Controller
 
         $model->status = Tickets::STATUS_OPEN;
         $model->created_at = date('Y-m-d H:i:s');
-        
+
         // Generar un código de ticket único (Ej: TKT-84920)
-        $model->ticket_code = 'TKT-' . strtoupper(substr(uniqid(), -5)); 
+        $model->ticket_code = 'TKT-' . strtoupper(substr(uniqid(), -5));
 
         if ($this->request->isPost && $model->load($this->request->post())) {
 
-            if(Yii::$app->user->identity->isAdmin) {
+            if (Yii::$app->user->identity->isAdmin) {
                 $model->customer_id = $this->request->post('Tickets')['customer_id'];
                 $customer = \app\models\Customers::findOne(['id' => $model->customer_id]);
             }
 
             // 1. Capturamos el archivo desde el modelo Tickets
             $model->attachmentFile = \yii\web\UploadedFile::getInstance($model, 'attachmentFile');
-            
+
             // INICIO TRANSACCIÓN
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 // 1. Guardar el Ticket (Encabezado)
-                $model->email = ($model->customer_id == '9999') ? 
+                $model->email = ($model->customer_id == '9999') ?
                     $this->request->post('Tickets')['email'] : (($isAdmin) ? $customer->email : Yii::$app->user->identity->email);
                 if ($model->save()) {
-                    
+
                     // 2. Guardar el Mensaje Inicial en TicketReplies
                     $reply = new TicketReplies();
                     $reply->ticket_id = $model->id;
                     $reply->message = $model->message; // Tomado del campo virtual
-                    
+
                     // Definir quién escribe (Cliente)
                     // Ajusta 'customer' o 'user' según lo que uses en tu base de datos para sender_type
-                    $reply->sender_type = 'customer'; 
+                    $reply->sender_type = 'customer';
                     $reply->created_at = date('Y-m-d H:i:s');
 
                     if ($model->attachmentFile) {
@@ -332,12 +344,12 @@ class TicketsController extends \yii\web\Controller
                         }
 
                         $fileName = time() . '_' . $model->attachmentFile->baseName . '.' . $model->attachmentFile->extension;
-                        
+
                         if ($model->attachmentFile->saveAs($uploadPath . $fileName)) {
                             $reply->attachment = 'uploads/tickets/' . $model->id . '/' . $fileName;
                         }
                     }
-                    
+
                     if ($reply->save()) {
                         // Si ambos se guardan, confirmamos cambios
                         $transaction->commit();
@@ -364,18 +376,18 @@ class TicketsController extends \yii\web\Controller
                     // Si falla el guardado del ticket, lanzamos excepción
                     throw new \Exception('No se pudo guardar el ticket. ' . json_encode($model->getErrors()));
                 }
-                
+
             } catch (\Exception $e) {
                 $transaction->rollBack();
-                Yii::$app->session->setFlash('error', 'Ocurrió un error inesperado: ' . $e->getMessage(). " on line: " . $e->getLine());
+                Yii::$app->session->setFlash('error', 'Ocurrió un error inesperado: ' . $e->getMessage() . " on line: " . $e->getLine());
             }
         }
 
         $customers = [];
         if (Yii::$app->user->identity->isAdmin) {
             $customers = \yii\helpers\ArrayHelper::map(
-                \app\models\Customers::find()->orderBy('business_name')->all(), 
-                'id', 
+                \app\models\Customers::find()->orderBy('business_name')->all(),
+                'id',
                 'business_name'
             );
             $customers[9999] = '★ Cliente No Registrado';
@@ -398,20 +410,20 @@ class TicketsController extends \yii\web\Controller
             ['html' => 'newTicket-html'],
             ['ticket' => $ticket, 'message' => $messageContent]
         )
-        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-        ->setTo($ticket->email)
-        ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
-        ->setSubject('[#'.$ticket->ticket_code.'] '. $ticket->subject)
-        ->send();
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+            ->setTo($ticket->email)
+            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
+            ->setSubject('[#' . $ticket->ticket_code . '] ' . $ticket->subject)
+            ->send();
 
         Yii::$app->mailer->compose(
             ['html' => 'adminNewTicket-html'],
             ['ticket' => $ticket, 'message' => $messageContent, 'user' => $user]
         )
-        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-        ->setTo($adminEmail)
-        ->setSubject('Nuevo Ticket [' . $ticket->ticket_code . '] - ' . $ticket->subject)
-        ->send();
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+            ->setTo($adminEmail)
+            ->setSubject('Nuevo Ticket [' . $ticket->ticket_code . '] - ' . $ticket->subject)
+            ->send();
     }
 
     /**
@@ -422,15 +434,15 @@ class TicketsController extends \yii\web\Controller
         $model = $this->findModel($id);
 
         if (!Yii::$app->user->identity->isAdmin) {
-            $myCustomerId = Yii::$app->user->identity->realCustomerId; 
-            
+            $myCustomerId = Yii::$app->user->identity->realCustomerId;
+
             if (!$myCustomerId || $model->customer_id !== $myCustomerId) {
                 throw new \yii\web\ForbiddenHttpException('No tienes permiso para gestionar este ticket.');
             }
         }
 
         $model->status = Tickets::STATUS_CLOSED; // O el string 'closed' si es como lo guardas
-        
+
         if ($model->save()) {
             Yii::$app->session->setFlash('info', 'El ticket ha sido cerrado.');
         } else {
@@ -452,7 +464,7 @@ class TicketsController extends \yii\web\Controller
 
         $model = $this->findModel($id);
         $model->status = 'in_progress';
-        
+
         if ($model->save(false)) { // save(false) para saltar validaciones de otros campos si no son necesarias
             Yii::$app->session->setFlash('success', 'El ticket ahora está marcado como En Progreso.');
         } else {
@@ -487,24 +499,25 @@ class TicketsController extends \yii\web\Controller
             }
 
             $count = 0;
-            
+
             foreach ($ids as $id) {
-                $model = $this->findModel($id); 
-                
+                $model = $this->findModel($id);
+
                 if ($model) {
                     if ($action === 'close' && $model->status !== 'closed') {
                         $model->status = 'closed';
-                        if ($model->save()) $count++;
-                    } 
-                    elseif ($action === 'delete') {
+                        if ($model->save())
+                            $count++;
+                    } elseif ($action === 'delete') {
                         // Verificar permisos extra si es necesario
-                        if ($model->delete()) $count++;
+                        if ($model->delete())
+                            $count++;
                     }
                 }
             }
 
-            $message = $action === 'delete' 
-                ? "Se eliminaron $count tickets correctamente." 
+            $message = $action === 'delete'
+                ? "Se eliminaron $count tickets correctamente."
                 : "Se cerraron $count tickets correctamente.";
 
             // Guardamos el mensaje en sesión para que se vea al recargar
@@ -524,7 +537,7 @@ class TicketsController extends \yii\web\Controller
     public function actionUploadImage()
     {
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-        
+
         $file = \yii\web\UploadedFile::getInstanceByName('file');
 
         if (!$file) {
@@ -544,13 +557,13 @@ class TicketsController extends \yii\web\Controller
 
         $folder = 'uploads/tickets/content/';
         $path = Yii::getAlias('@webroot/') . $folder;
-        
+
         if (!is_dir($path)) {
             \yii\helpers\FileHelper::createDirectory($path);
         }
 
         $fileName = uniqid('img_') . '.' . $file->extension;
-        
+
         if ($file->saveAs($path . $fileName)) {
             return [
                 'location' => 'https://clientarea.atsys.co/' . $folder . $fileName
