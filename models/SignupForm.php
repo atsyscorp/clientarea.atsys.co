@@ -41,7 +41,7 @@ class SignupForm extends Model
 
             ['mobile', 'trim'],
             ['mobile', 'required', 'message' => 'El número de celular es obligatorio.'],
-            [['mobile'], PhoneInputValidator::className(), 'message' => 'El número de celular no es válido.'],
+            //[['mobile'], PhoneInputValidator::className(), 'message' => 'El número de celular no es válido.'],
 
             [['captcha'], 'string'],
             [['captcha'], TurnstileInputValidator::class, 'message' => 'Por favor, confirma que no eres un robot.'],
@@ -66,7 +66,7 @@ class SignupForm extends Model
         if (!$this->validate()) {
             return false;
         }
-        
+
         $user = new User();
 
         $emailPrefix = explode('@', $this->email)[0];
@@ -77,13 +77,13 @@ class SignupForm extends Model
         $user->mobile = $this->mobile;
         $user->setPassword($this->password);
         $user->generateAuthKey();
-        
+
         // IMPORTANTE: Estado INACTIVO y generar token
-        $user->status = User::STATUS_INACTIVE; 
+        $user->status = User::STATUS_INACTIVE;
         $user->generateEmailVerificationToken();
-        
+
         // Si se guarda, enviamos el email
-        if($user->save()) {
+        if ($user->save()) {
             $this->sendEmail($user);
             return true;
         }
@@ -96,11 +96,11 @@ class SignupForm extends Model
             ['html' => 'emailVerify-html', 'text' => 'emailVerify-text'],
             ['user' => $user]
         )
-        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name ])
-        ->setTo($this->email)
-        ->setBcc(Yii::$app->params['adminEmail'])
-        ->setSubject('Confirma tu registro en ' . Yii::$app->name)
-        ->send();
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+            ->setTo($this->email)
+            ->setBcc(Yii::$app->params['adminEmail'])
+            ->setSubject('Confirma tu registro en ' . Yii::$app->name)
+            ->send();
 
         $job = new \app\jobs\WhatsappJob([
             'phone' => $this->mobile,

@@ -19,12 +19,12 @@ class CronController extends Controller
     {
         echo "Iniciando revisión de cuentas vencidas...\n";
 
-        // 1. Buscar servicios ACTIVOS y VENCIDOS
+        // 1. Buscar servicios ACTIVOS y VENCIDOS que tengan un servidor asignado
+        // Usamos 'with' para traer el servidor y el cliente en una sola consulta
         $overdueServices = CustomerServices::find()
-            ->with(['customer', 'product']) // Traemos datos del cliente para el email/whatsapp
-            ->where(['status' => 1]) 
+            ->with(['customer', 'product', 'server'])
+            ->where(['status' => 1])
             ->andWhere(['<', 'next_due_date', date('Y-m-d')])
-            ->andWhere(['not', ['server_id' => null]])
             ->all();
 
         $count = 0;
@@ -32,23 +32,55 @@ class CronController extends Controller
         foreach ($overdueServices as $service) {
             echo "Procesando: {$service->domain}... ";
 
-            // 2. Intentar suspender en CyberPanel
-            $apiResult = CyberPanel::suspendAccount($service->server_id, $service->domain);
+            // 2. Identificar Servidor y Tipo
+            $server = $service->server;
 
-            if ($apiResult) {
-                // A. Actualizar BD local
-                $service->status = 2; 
+            // Fallback: Si no tiene server_id directo, intentamos el del producto
+            if (!$server && $service->product->server_id) {
+                $server = \app\models\Servers::findOne($service->product->server_id);
+            }
+
+            if (!$server) {
+                echo "SALTADO (Sin servidor configurado).\n";
+                continue;
+            }
+
+            $apiSuccess = false;
+
+            // 3. Ejecutar Suspensión según el tipo de Panel
+            try {
+                if ($server->type === 'virtualmin') {
+                    $result = Yii::$app->virtualmin->sendCommandDynamic(
+                        $server->username,
+                        $server->auth_token,
+                        $server->hostname,
+                        'disable-domain',
+                        ['domain' => $service->domain]
+                    );
+                    $apiSuccess = $result['success'];
+                } elseif ($server->type === 'cyberpanel') {
+                    $apiSuccess = CyberPanel::suspendAccount($server->id, $service->domain);
+                }
+            } catch (\Exception $e) {
+                Yii::error("Cron Suspend Error [{$service->domain}]: " . $e->getMessage());
+                echo "ERROR CONEXIÓN.\n";
+                continue;
+            }
+
+            // 4. Procesar resultado de la API
+            if ($apiSuccess) {
+                $service->status = 2; // Suspendido
                 $service->save(false);
-                
-                // B. ENVIAR NOTIFICACIONES
+
+                // Notificaciones (Solo si no es modo silencioso, aunque en cron suele ser activo siempre)
                 $this->sendSuspensionEmail($service);
-                //$this->triggerN8NWebhook($service);
+                $this->triggerN8NWebhook($service);
 
                 echo "SUSPENDIDO Y NOTIFICADO.\n";
                 $count++;
             } else {
-                echo "ERROR API.\n";
-                Yii::error("Cron Job: Falló suspensión de {$service->domain}");
+                echo "ERROR API (Revisa logs).\n";
+                Yii::error("Cron Job: Falló suspensión remota de {$service->domain} en servidor {$server->name}");
             }
         }
 
@@ -65,17 +97,17 @@ class CronController extends Controller
             $customer = $service->customer;
             $subject = "⚠️ Servicio Suspendido: {$service->domain}";
 
-            Yii::$app->mailer->compose(['html' => 'overdue_hosting-html'],[
+            Yii::$app->mailer->compose(['html' => 'overdue_hosting-html'], [
                 'business_name' => $customer->business_name,
                 'domain' => $service->domain,
                 'due_date' => $service->next_due_date
             ])
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-            ->setTo($customer->email)
-            ->setSubject($subject)
-            ->setBcc(Yii::$app->params['adminEmail'])
-            ->send();
-                
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setTo($customer->email)
+                ->setSubject($subject)
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->send();
+
         } catch (\Exception $e) {
             echo "Error enviando email: " . $e->getMessage() . "\n";
         }
@@ -145,7 +177,7 @@ class CronController extends Controller
             // Verificamos si hoy coincide con uno de los días gatillo
             // (El diff->invert == 0 asegura que sea fecha futura)
             if ($diff->invert == 0 && in_array($daysLeft, $triggerDays)) {
-                
+
                 echo "Enviando aviso de {$daysLeft} días a {$service->domain}... ";
                 $this->sendRenewalReminderEmail($service, $daysLeft);
                 $count++;
@@ -164,7 +196,7 @@ class CronController extends Controller
     {
         try {
             $customer = $service->customer;
-            
+
             // Personalización según urgencia
             if ($daysLeft <= 5) {
                 $subject = "🚨 ÚLTIMO AVISO: Tu servicio vence en {$daysLeft} días";
@@ -184,7 +216,7 @@ class CronController extends Controller
 
             Yii::$app->mailer->compose([
                 'html' => 'renewal_alert-html'
-            ],[
+            ], [
                 'daysLeft' => $daysLeft,
                 'business_name' => $customer->business_name,
                 'msgIntro' => $msgIntro,
@@ -193,11 +225,11 @@ class CronController extends Controller
                 'renewLink' => $renewLink,
                 'color' => $color
             ])
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-            ->setTo($customer->email)
-            ->setSubject($subject)
-            ->setBcc(Yii::$app->params['adminEmail'])
-            ->send();
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setTo($customer->email)
+                ->setSubject($subject)
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->send();
 
         } catch (\Exception $e) {
             Yii::error("Error enviando recordatorio: " . $e->getMessage());

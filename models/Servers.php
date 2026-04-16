@@ -70,16 +70,16 @@ class Servers extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
-            'name' => 'Name',
-            'hostname' => 'Hostname',
-            'ip_address' => 'Ip Address',
-            'username' => 'Username',
-            'auth_token' => 'Auth Token',
-            'type' => 'Type',
-            'current_accounts' => 'Current Accounts',
-            'max_accounts' => 'Max Accounts',
-            'is_active' => 'Is Active',
-            'created_at' => 'Created At',
+            'name' => 'Nombre',
+            'hostname' => 'Nombre de servidor',
+            'ip_address' => 'Dirección IP',
+            'username' => 'Usuario',
+            'auth_token' => 'Token de autenticación',
+            'type' => 'Tipo',
+            'current_accounts' => 'Cuentas actuales',
+            'max_accounts' => 'Cuentas máximas',
+            'is_active' => 'Activo',
+            'created_at' => 'Fecha de creación',
         ];
     }
 

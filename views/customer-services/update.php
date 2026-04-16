@@ -13,8 +13,9 @@ $this->title = 'Editar Servicio: ' . ($model->domain ?? $model->product->name);
 
     <?= $this->render('_form', [
         'model' => $model,
-        'customers' => $customers,
+        'servers' => $servers,
         'products' => $products,
+        'customers' => $customers,
     ]) ?>
 
 </div>

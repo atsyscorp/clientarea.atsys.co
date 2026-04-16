@@ -13,7 +13,7 @@ $config = [
     'bootstrap' => ['log'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
-        '@npm'   => '@vendor/npm-asset',
+        '@npm' => '@vendor/npm-asset',
     ],
     'components' => [
         'request' => [
@@ -73,8 +73,8 @@ $config = [
                 '*' => [
                     'class' => 'yii\i18n\PhpMessageSource',
                     'basePath' => '@app/messages'
-                ]    
-            ]  
+                ]
+            ]
         ],
         'assetManager' => [
             'bundles' => [
@@ -113,6 +113,9 @@ $config = [
             'tableName' => '{{%queue}}', // Nombre de la tabla
             'channel' => 'default',
             'mutex' => \yii\mutex\MysqlMutex::class,
+        ],
+        'virtualmin' => [
+            'class' => 'app\components\Virtualmin',
         ],
     ],
     'params' => $params,
@@ -160,8 +163,8 @@ $config['container']['definitions'] = [
                     </label>
                 </div>
             ",
-            'labelOptions' => ['class' => 'label-text font-bold'], 
-            'inputOptions' => ['class' => 'input input-bordered w-full'], 
+            'labelOptions' => ['class' => 'label-text font-bold'],
+            'inputOptions' => ['class' => 'input input-bordered w-full'],
             'errorOptions' => ['class' => 'text-error text-xs'],
         ],
     ],

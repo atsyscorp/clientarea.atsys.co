@@ -69,7 +69,7 @@ class SiteController extends Controller
      */
     public function actionIndex()
     {
-        if(Yii::$app->user->isGuest) {
+        if (Yii::$app->user->isGuest) {
             return $this->actionLogin();
         } else {
 
@@ -83,15 +83,15 @@ class SiteController extends Controller
             $countAnswered = 0;
             $countTotal = 0;
 
-            if(Yii::$app->user->identity->isAdmin) {
-                $countOpen     = Tickets::find()->where(['status' => 'open'])->count();
+            if (Yii::$app->user->identity->isAdmin) {
+                $countOpen = Tickets::find()->where(['status' => 'open'])->count();
                 $countAnswered = Tickets::find()->where(['status' => 'answered'])->count();
-                $countTotal    = Tickets::find()->count();
+                $countTotal = Tickets::find()->count();
             }
 
             $recentTickets = Tickets::find();
 
-            if(!Yii::$app->user->identity->isAdmin) {
+            if (!Yii::$app->user->identity->isAdmin) {
                 $recentTickets = $recentTickets->where([
                     'customer_id' => Yii::$app->user->id
                 ]);
@@ -159,7 +159,7 @@ class SiteController extends Controller
     {
         $model = new SignupForm();
         $this->layout = 'blank';
-        
+
         if ($model->load(Yii::$app->request->post()) && $model->signup()) {
             Yii::$app->session->setFlash('success', 'Gracias por registrarte|Se ha enviado un mensaje de verificación a tu correo electrónico, esto puede tomar unos minutos. Revisa también la carpeta de spam en caso tal de no recibirlo en la bandeja de entrada.');
             return $this->redirect(['site/login']);
@@ -193,7 +193,7 @@ class SiteController extends Controller
         $user->status = User::STATUS_ACTIVE;
         $user->removeEmailVerificationToken(); // Tener este método en User o simplemente: $user->verification_token = null;
         $user->verification_token = null;
-        
+
         if ($user->save(false)) {
             Yii::$app->mailer->compose(['html' => 'welcome-html'], ['user' => $user])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
@@ -214,7 +214,7 @@ class SiteController extends Controller
     public function actionRequestPasswordReset()
     {
         $this->layout = 'blank';
-        
+
         $model = new PasswordResetRequestForm();
 
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
@@ -273,8 +273,8 @@ class SiteController extends Controller
             return $this->redirect(['login']);
         }
 
-        if(Yii::$app->request->get('change') == '1') {
-            if(Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
+        if (Yii::$app->request->get('change') == '1') {
+            if (Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
                 Yii::$app->session->remove('whatsapp_otp');
                 Yii::$app->session->remove('whatsapp_mobile');
             }
@@ -286,14 +286,14 @@ class SiteController extends Controller
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
         $customer = null;
-        if(!$isAdmin) {
+        if (!$isAdmin) {
             $customer = $user->customer;
         }
-        
-        if($this->request->isPost) {
-            if(Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
 
-                if(Yii::$app->request->post('ProfileForm')['otp'] == Yii::$app->session['whatsapp_otp']) {
+        if ($this->request->isPost) {
+            if (Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
+
+                if (Yii::$app->request->post('ProfileForm')['otp'] == Yii::$app->session['whatsapp_otp']) {
 
                     $model->otpVerified = true;
                     $model->mobile = Yii::$app->session['whatsapp_mobile'];
@@ -301,7 +301,7 @@ class SiteController extends Controller
                     Yii::$app->session->remove('whatsapp_otp');
                     Yii::$app->session->remove('whatsapp_mobile');
 
-                    if($model->save()) {
+                    if ($model->save()) {
                         Yii::$app->session->setFlash('success', 'Tu número de celular ha sido actualizado correctamente.');
                     } else {
                         Yii::$app->session->setFlash('error', 'No pudimos actualizar tu número de celular.' . json_encode($model->getErrors()));
@@ -316,18 +316,18 @@ class SiteController extends Controller
 
                 if ($model->load(Yii::$app->request->post()) && $model->save()) {
                     Yii::$app->session->setFlash(
-                        Yii::$app->session->has('whatsapp_otp') ? 'warning' : 'success', 
+                        Yii::$app->session->has('whatsapp_otp') ? 'warning' : 'success',
                         Yii::$app->session->has('whatsapp_otp') ? 'Enviamos un código de verificación a tu número de celular.' : 'Tu perfil ha sido actualizado correctamente.'
                     );
                 } else {
                     Yii::$app->session->setFlash('error', 'No pudimos actualizar tu perfil.' . json_encode($model->getErrors()));
                 }
-                
+
             }
             return $this->refresh();
         }
 
-        if(!$isAdmin) {
+        if (!$isAdmin) {
             if ($customer && $customer->load(Yii::$app->request->post()) && $customer->save()) {
                 Yii::$app->session->setFlash('success', 'Datos de facturación actualizados.');
                 return $this->refresh();
@@ -340,19 +340,25 @@ class SiteController extends Controller
         ]);
     }
 
+    public function actionSuspendedAccount()
+    {
+        $this->layout = 'blank';
+        return $this->render('suspended-account');
+    }
+
     public function actionSavePushToken()
     {
         // Solo permitimos esto a usuarios logueados y administradores
         if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
-            return; 
+            return;
         }
 
         $token = Yii::$app->request->post('token');
-        
+
         if ($token) {
             // Evitamos duplicados: Si ya existe este token, no hacemos nada
             $exists = \app\models\AdminTokens::find()->where(['token' => $token])->exists();
-            
+
             if (!$exists) {
                 $model = new \app\models\AdminTokens();
                 $model->user_id = Yii::$app->user->id;
@@ -378,7 +384,8 @@ class SiteController extends Controller
         echo "Job enviado a la cola correctamente.";
     }
 
-    public function actionSetOtp() {
+    public function actionSetOtp()
+    {
         $job = new \app\jobs\WhatsappJob([
             'phone' => '573026496656',
             'message' => '123456',

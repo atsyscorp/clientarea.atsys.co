@@ -18,9 +18,11 @@ use Yii;
  * @property string|null $next_due_date
  * @property int|null $status
  * @property string|null $created_at
+ * @property int|null $server_id
  *
  * @property Customers $customer
  * @property Products $product
+ * @property Servers $server
  */
 class CustomerServices extends \yii\db\ActiveRecord
 {
@@ -40,15 +42,16 @@ class CustomerServices extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['description_label', 'domain', 'username_service', 'password_service', 'start_date', 'next_due_date'], 'default', 'value' => null],
+            [['description_label', 'domain', 'username_service', 'password_service', 'start_date', 'next_due_date', 'server_id'], 'default', 'value' => null],
             [['status'], 'default', 'value' => 1],
             [['customer_id', 'product_id'], 'required'],
-            [['customer_id', 'product_id', 'status'], 'integer'],
+            [['customer_id', 'product_id', 'status', 'server_id'], 'integer'],
             [['start_date', 'next_due_date', 'created_at'], 'safe'],
             [['description_label', 'domain', 'password_service'], 'string', 'max' => 255],
             [['username_service'], 'string', 'max' => 100],
             [['customer_id'], 'exist', 'skipOnError' => true, 'targetClass' => Customers::class, 'targetAttribute' => ['customer_id' => 'id']],
             [['product_id'], 'exist', 'skipOnError' => true, 'targetClass' => Products::class, 'targetAttribute' => ['product_id' => 'id']],
+            [['server_id'], 'exist', 'skipOnError' => true, 'targetClass' => Servers::class, 'targetAttribute' => ['server_id' => 'id']],
         ];
     }
 
@@ -69,6 +72,7 @@ class CustomerServices extends \yii\db\ActiveRecord
             'next_due_date' => 'Próxima renovación',
             'status' => 'Estado',
             'created_at' => 'Fecha creación',
+            'server_id' => 'Servidor'
         ];
     }
 
@@ -100,8 +104,18 @@ class CustomerServices extends \yii\db\ActiveRecord
             0 => ['label' => 'Cancelado', 'class' => 'badge-error text-white'],
         ];
         $s = $states[$this->status] ?? ['label' => 'Desconocido', 'class' => 'badge-ghost'];
-        
+
         return "<span class='badge {$s['class']} font-bold'>{$s['label']}</span>";
+    }
+
+    /**
+     * Gets query for [[Server]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getServer()
+    {
+        return $this->hasOne(Servers::class, ['id' => 'server_id']);
     }
 
 }
