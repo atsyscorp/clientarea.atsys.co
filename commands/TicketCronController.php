@@ -13,45 +13,57 @@ use app\models\Tickets;
  */
 class TicketCronController extends Controller
 {
-    public $hours = 48;
+    public $hoursToClose = 48; // Tiempo para cerrar tickets inactivos del cliente
+    public $hoursSla = 24;     // Tiempo límite de respuesta para ATSYS
+
     /**
-     * Cierra tickets con más de 72 horas de inactividad.
+     * Acción principal a ejecutar en el Cron de Virtualmin
      */
     public function actionAutoClose()
     {
-        $hours = $this->hours;
-        echo "Iniciando proceso de cierre automático...\n";
+        echo "Iniciando proceso de revisión de tickets...\n";
 
-        // 1. Definir el límite de tiempo (Hace $hours horas)
-        $limitTime = date('Y-m-d H:i:s', strtotime('-'.$hours.' hours'));
+        $this->processAutoClose();
+        $this->processSlaAlerts();
 
-        // 2. Buscar tickets:
-        // - Estado: ABIERTO
-        // - Última actualización (updated_at): Anterior al límite
-        // IMPORTANTE: Asumimos que cuando respondes un ticket, se actualiza 'updated_at'.
-        // Si no tienes updated_at, usa created_at, pero ojo con ignorar respuestas recientes.
+        echo "Proceso finalizado.\n";
+        return ExitCode::OK;
+    }
+
+    /**
+     * 1. Auto-cierre estricto: Solo afecta tickets donde el cliente debe responder
+     */
+    protected function processAutoClose()
+    {
+        echo "1. Verificando tickets para auto-cierre...\n";
+        $limitTime = date('Y-m-d H:i:s', strtotime('-' . $this->hoursToClose . ' hours'));
+
+        // Solo buscar tickets donde ATSYS ya respondió (STATUS_ANSWERED)
         $tickets = Tickets::find()
-            ->where(['<', 'updated_at', $limitTime]) // O created_at si no usas updated_at
-            ->andWhere(['status' => [
-                Tickets::STATUS_OPEN,
-                Tickets::STATUS_ANSWERED,
-                Tickets::STATUS_CUSTOMER_REPLY
-            ]])
+            ->where(['<', 'updated_at', $limitTime])
+            ->andWhere([
+                'status' => [
+                    Tickets::STATUS_ANSWERED
+                ]
+            ])
             ->all();
 
         $count = 0;
-
         foreach ($tickets as $ticket) {
-            echo "Procesando Ticket #{$ticket->ticket_code}...\n";
+            echo "Procesando cierre del Ticket #{$ticket->ticket_code}...\n";
 
             $ticket->status = Tickets::STATUS_CLOSED;
-            
+
             // Guardamos sin validación estricta para asegurar el cierre
             if ($ticket->save(false)) {
-                
-                // Enviar correo de notificación
-                $this->sendNotification($ticket);
-                
+
+                // Notificación interna de control
+                $this->triggerN8nNotification(
+                    "🧹 Ticket Auto-Cerrado: {$ticket->ticket_code}",
+                    "El sistema cerró este ticket por inactividad del cliente tras {$this->hoursToClose} horas.",
+                    $ticket->id
+                );
+
                 $count++;
                 echo " - Cerrado y notificado.\n";
             } else {
@@ -59,24 +71,73 @@ class TicketCronController extends Controller
             }
         }
 
-        echo "Proceso finalizado. Total cerrados: $count\n";
-
-        return ExitCode::OK;
+        echo "   Total cerrados: $count\n\n";
     }
 
-    protected function sendNotification($ticket)
+    /**
+     * 2. Alertas SLA: Avisa mediante Push si ATSYS está tardando en responder
+     */
+    protected function processSlaAlerts()
     {
-        if (empty($ticket->email)) return;
+        echo "2. Verificando alertas de SLA para soporte...\n";
+        $slaLimitTime = date('Y-m-d H:i:s', strtotime('-' . $this->hoursSla . ' hours'));
+
+        // Buscar tickets que la empresa no ha respondido a tiempo
+        $ticketsEnRiesgo = Tickets::find()
+            ->where(['<', 'updated_at', $slaLimitTime])
+            ->andWhere([
+                'status' => [
+                    Tickets::STATUS_OPEN,
+                    Tickets::STATUS_CUSTOMER_REPLY
+                ]
+            ])
+            ->all();
+
+        $countSla = 0;
+        foreach ($ticketsEnRiesgo as $riesgo) {
+            // Disparar alerta push a dispositivos
+            $this->triggerN8nNotification(
+                "⚠️ ALERTA SLA: Ticket {$riesgo->ticket_code} requiere atención",
+                "El cliente lleva más de {$this->hoursSla} horas esperando una respuesta. Requiere revisión inmediata.",
+                $riesgo->id
+            );
+
+            $countSla++;
+            echo " - Alerta SLA enviada para el Ticket #{$riesgo->ticket_code}.\n";
+        }
+
+        echo "   Total alertas enviadas: $countSla\n\n";
+    }
+
+    /**
+     * Canaliza todas las notificaciones hacia el flujo de automatización (Push)
+     */
+    protected function triggerN8nNotification($title, $message, $ticketId)
+    {
+        // Define aquí la URL de tu webhook de N8N
+        $webhookUrl = 'https://n8n.tudominio.com/webhook/alertas-tickets';
+
+        $data = [
+            'title' => $title,
+            'message' => $message,
+            'ticket_id' => $ticketId,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
 
         try {
-            Yii::$app->mailer->compose(['html' => 'ticket_autoclose-html'], ['ticket' => $ticket, 'hours' => $this->hours])
-                ->setFrom([Yii::$app->params['senderEmail'] => 'Soporte ATSYS'])
-                ->setTo($ticket->email)
-                ->setBcc(Yii::$app->params['adminEmail'])
-                ->setSubject("Ticket Cerrado por Inactividad: {$ticket->ticket_code}")
-                ->send();
+            $ch = curl_init($webhookUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Accept: application/json'
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Evita que el cron se cuelgue si N8N no responde
+
+            curl_exec($ch);
+            curl_close($ch);
         } catch (\Exception $e) {
-            echo " - Error enviando email: " . $e->getMessage() . "\n";
+            echo " - Error disparando webhook: " . $e->getMessage() . "\n";
         }
     }
 }

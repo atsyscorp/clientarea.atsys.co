@@ -273,7 +273,7 @@ class TicketsController extends \yii\web\Controller
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
         // 1. Definimos el límite de tickets activos simultáneos
-        $limiteTicketsActivos = 3;
+        $limiteTicketsActivos = 5;
 
         $model = new Tickets(['scenario' => 'create']);
 

@@ -165,7 +165,7 @@ class CronController extends Controller
 
         $count = 0;
         // Días gatillo para enviar correo
-        $triggerDays = [30, 15, 7, 5, 1];
+        $triggerDays = [30, 20, 15, 10, 7, 5, 2, 1];
 
         foreach ($services as $service) {
             // Calcular días faltantes
@@ -182,6 +182,7 @@ class CronController extends Controller
                 $this->sendRenewalReminderEmail($service, $daysLeft);
                 $count++;
                 echo "OK.\n";
+
             }
         }
 
