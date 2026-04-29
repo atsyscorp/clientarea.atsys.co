@@ -13,28 +13,47 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
     'position' => \yii\web\View::POS_HEAD
 ]);
 
-// B. Inicializamos el editor sobre el ID 'workorders-requirements'
+// B. Inicializamos el editor y la lógica de la TRM
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
-    tinymce.remove('#workorders-requirements'); // Limpieza preventiva por si usas Pjax
+    // --- LÓGICA DE TINYMCE ---
+    tinymce.remove('#workorders-requirements'); // Limpieza preventiva
     tinymce.init({
-        selector: '#workorders-requirements', // Debe coincidir con el ID de arriba
+        selector: '#workorders-requirements', 
         height: 300,
-        menubar: false, // Sin menú superior (Archivo, Editar...)
-        statusbar: false, // Sin barra inferior
-        language: 'es', // Intenta cargar español, si falla usará inglés
-        plugins: 'lists link autolink fullscreen', // Plugins básicos
-        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', // Herramientas limpias
-        skin: 'oxide', // Tema claro estándar
+        menubar: false, 
+        statusbar: false, 
+        language: 'es', 
+        plugins: 'lists link autolink fullscreen', 
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', 
+        skin: 'oxide', 
         content_css: 'default',
-        branding: false, // Quitar marca "Powered by TinyMCE"
+        branding: false, 
         setup: function (editor) {
-            // Esto asegura que el valor se guarde en el textarea al enviar el formulario
             editor.on('change', function () {
                 editor.save();
             });
         }
     });
+
+    // --- LÓGICA DE MONEDA Y TRM ---
+    const currencySelect = document.getElementById('workorders-currency');
+    const trmContainer = document.getElementById('trm-container');
+    const trmInput = document.getElementById('workorders-exchange_rate');
+
+    function toggleTrm() {
+        if (currencySelect.value === 'USD') {
+            trmContainer.style.display = 'block';
+            trmContainer.classList.add('animate-fade-in'); // Clase opcional si usas animaciones en Tailwind
+        } else {
+            trmContainer.style.display = 'none';
+            trmInput.value = ''; // Limpiar el valor para evitar guardar basura
+        }
+    }
+
+    if (currencySelect) {
+        currencySelect.addEventListener('change', toggleTrm);
+    }
 });
 JS;
 $this->registerJs($js, \yii\web\View::POS_END);
@@ -43,12 +62,12 @@ $this->registerJs($js, \yii\web\View::POS_END);
 <div class="card bg-base-100 shadow-xl border border-base-200">
     <div class="card-body">
 
-        <?php $form = ActiveForm::begin(); ?>
+        <?php $form = ActiveForm::begin(['id' => 'work-order-form']); ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             <?php if (isset($customers)): ?>
-            <div class="form-control w-full">
+            <div class="form-control w-full md:col-span-2">
                 <label class="label"><span class="label-text font-bold">Cliente</span></label>
                 <?= $form->field($model, 'customer_id', ['template' => '{input}{error}'])->dropDownList(
                     ArrayHelper::map($customers, 'id', 'business_name'),
@@ -57,14 +76,42 @@ $this->registerJs($js, \yii\web\View::POS_END);
             </div>
             <?php endif; ?>
 
-            <div class="form-control w-full">
-                <label class="label"><span class="label-text font-bold">Inversión Total ($)</span></label>
-                <?= $form->field($model, 'total_cost', ['template' => '{input}{error}'])->textInput([
-                    'type' => 'number', 
-                    'step' => '0.01', 
-                    'class' => 'input input-bordered w-full font-mono text-lg',
-                    'placeholder' => '0.00'
-                ]) ?>
+            <!-- Nueva Agrupación: Costo, Moneda y TRM -->
+            <div class="form-control w-full md:col-span-2">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border border-base-200 p-4 rounded-xl bg-base-50">
+                    
+                    <div class="form-control w-full">
+                        <label class="label"><span class="label-text font-bold">Inversión Total</span></label>
+                        <?= $form->field($model, 'total_cost', ['template' => '{input}{error}'])->textInput([
+                            'type' => 'number', 
+                            'step' => '0.01', 
+                            'class' => 'input input-bordered w-full font-mono text-lg',
+                            'placeholder' => '0.00'
+                        ]) ?>
+                    </div>
+
+                    <div class="form-control w-full">
+                        <label class="label"><span class="label-text font-bold">Moneda</span></label>
+                        <?= $form->field($model, 'currency', ['template' => '{input}{error}'])->dropDownList([
+                            'COP' => 'Pesos (COP)',
+                            'USD' => 'Dólares (USD)'
+                        ], [
+                            'id' => 'workorders-currency',
+                            'class' => 'select select-bordered w-full text-lg'
+                        ]) ?>
+                    </div>
+
+                    <div class="form-control w-full" id="trm-container" style="<?= $model->currency === 'USD' ? '' : 'display: none;' ?>">
+                        <label class="label"><span class="label-text font-bold text-primary">Tasa de Cambio (TRM)</span></label>
+                        <?= $form->field($model, 'exchange_rate', ['template' => '{input}{error}'])->textInput([
+                            'id' => 'workorders-exchange_rate',
+                            'type' => 'number', 
+                            'step' => '0.01', 
+                            'class' => 'input input-bordered input-primary w-full font-mono text-lg',
+                            'placeholder' => 'Ej: 3950.00'
+                        ]) ?>
+                    </div>
+                </div>
             </div>
 
             <div class="form-control w-full md:col-span-2">
@@ -82,6 +129,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 </label>
                 <?= $form->field($model, 'requirements', ['template' => '{input}{error}'])
                 ->textarea([
+                    'id' => 'workorders-requirements', // Agregado el ID explícito para TinyMCE
                     'rows' => 10, 
                     'class' => 'textarea textarea-bordered w-full h-64 font-mono text-sm leading-relaxed',
                     'placeholder' => "1. Desarrollo de Login...\n2. Panel administrativo...\n3. Integración con pasarela..."

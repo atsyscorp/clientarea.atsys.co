@@ -19,11 +19,11 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
 }
 ?>
 
-<table class="header-table" cellspacing="0">
+<table class="header-table" cellspacing="0" border="0" cellspacing="0" style="border:0 none;">
     <tr>
         <td width="60%">
             <div class="company-name">
-                <img src="<?= Yii::getAlias('@webroot') . '/images/atsys-logo-src-clear-2026.png' ?>" alt="ATSYS" class="company-logo">
+                <img src="<?= Yii::getAlias('@webroot') . '/images/atsys-logo-src-clear-2026.png' ?>" alt="ATSYS" class="company-logo" style="width:110px;">
             </div>
             <div class="company-slogan">Trascendemos</div>
         </td>
@@ -38,7 +38,7 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
     </tr>
 </table>
 
-<table class="info-table" cellspacing="0">
+<table class="info-table" cellspacing="0" border="0">
     <tr>
         <td class="info-cell">
             <div class="box">
@@ -105,14 +105,29 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
     </div>
 <?php endif; ?>
 
+<?php
+// --- LÓGICA DE MONEDA PARA EL PDF ---
+$isUsd = $model->currency === 'USD';
+$currencySuffix = $isUsd ? ' USD' : ' COP';
+
+// Si es USD, tomamos el valor pre-calculado, de lo contrario el costo base
+$displayTotal = $isUsd ? ($model->total_cost_usd ?? round($model->total_cost / $model->exchange_rate, 2)) : $model->total_cost;
+?>
+
 <table class="total-table" cellspacing="0" border="0">
     <tr>
-        <td width="70%"></td>
-        <td width="30%" align="right">
+        <td width="60%"></td>
+        <td width="40%" align="right">
             <div class="total-label">INVERSIÓN TOTAL</div>
             <div class="total-amount">
-                <?= Yii::$app->formatter->asCurrency($model->total_cost) ?>
+                <?= Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix ?>
             </div>
+            
+            <?php if ($isUsd && !empty($model->exchange_rate)): ?>
+                <div style="font-size: 10px; color: #666; margin-top: 5px;">
+                    Tasa de cambio pactada (TRM): <?= Yii::$app->formatter->asCurrency($model->exchange_rate) ?> COP
+                </div>
+            <?php endif; ?>
         </td>
     </tr>
 </table>

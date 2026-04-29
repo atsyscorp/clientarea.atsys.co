@@ -32,5 +32,8 @@ return [
         'token' => 'EAA89uZCgaiuIBQ8Gv3eBWGh0G8CXUkcUBF7MhnyTQiW6mp9Hpy1n7T7prqHIhjLlKHsS2bc7nQ2dgaZB1bg1lXJ74pBnKGJxHIJF4YZAZCFoOfkynjqrgfTdnuee3ntwYJZCiZCE5GmepJemh3yuwTtZAW17LhIqEPEksH6Oo8ekvl353bdqZBH6eJAbvdC9YQZDZD',
         'phoneId' => '974241165778303',
         'businessId' => '1885925668728489'
-    ]
+    ],
+    'paypalClientId' => 'AU_cSBGjJ2xkMEpexON_CoHaM-FmFz1fIb2Rpl3hkLeUMM-PzZHSbQaXAzIiRpyh6C_oieRSL1S_s01P',
+    'paypalSecret' => 'EDYeF8tGl-TuXU5EnH5cQxXgu21AYEfsiJt-5z8ajGdoGu51cv2peIJzWyeZOdlkNK54lcUZxkQkZRTB',
+    'paypalMode' => 'sandbox',
 ];

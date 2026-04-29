@@ -6,6 +6,31 @@ use Yii;
 use yii\behaviors\TimestampBehavior;
 use yii\db\Expression;
 
+/**
+ * This is the model class for table "work_orders".
+ *
+ * @property int $id
+ * @property int $customer_id
+ * @property string $code
+ * @property string $title
+ * @property string $requirements
+ * @property string|null $original_request
+ * @property string|null $notes
+ * @property float|null $total_cost
+ * @property string $currency
+ * @property float|null $exchange_rate
+ * @property float|null $total_cost_usd
+ * @property int|null $status 0: Borrador, 1: Enviada/Pendiente, 2: Aprobada, 3: Rechazada, 4: Finalizada
+ * @property int $is_request
+ * @property string|null $down_payment_sent_at
+ * @property string|null $created_at
+ * @property string|null $updated_at
+ * @property string|null $completed_at
+ *
+ * @property Customers $customer
+ * @property WorkOrderUpdates[] $workOrderUpdates
+ */
+
 class WorkOrders extends \yii\db\ActiveRecord
 {
     // Constantes de Estado...
@@ -24,42 +49,70 @@ class WorkOrders extends \yii\db\ActiveRecord
     {
         return [
             // Valores por defecto
-            [['notes', 'down_payment_sent_at', 'created_at', 'updated_at'], 'default', 'value' => null],
-            [['total_cost'], 'default', 'value' => 0.00],
+            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'default', 'value' => null],
+            [['total_cost', 'total_cost_usd'], 'default', 'value' => 0.00],
             [['status', 'is_request'], 'default', 'value' => 0],
-    
+            [['currency'], 'default', 'value' => 'COP'],
+            
             [['customer_id', 'title', 'requirements'], 'required'],
             
             // Tipos de datos
             [['customer_id', 'status', 'is_request'], 'integer'],
             [['requirements', 'notes', 'original_request'], 'string'],
-            [['total_cost'], 'number'],
+            [['total_cost', 'total_cost_usd', 'exchange_rate'], 'number'],
             [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'safe'],
             
-            // Validaciones de longitud
+            // Validaciones de longitud y formato
             [['code'], 'string', 'max' => 50],
             [['title'], 'string', 'max' => 255],
+            [['currency'], 'string', 'max' => 3],
+            [['currency'], 'in', 'range' => ['COP', 'USD']],
             
             // Integridad referencial
             [['customer_id'], 'exist', 'skipOnError' => true, 'targetClass' => Customers::class, 'targetAttribute' => ['customer_id' => 'id']],
+
+            // VALIDACIÓN CONDICIONAL: TRM obligatoria si es USD
+            [['exchange_rate'], 'required', 'when' => function ($model) {
+                return $model->currency === 'USD';
+            }, 'whenClient' => "function (attribute, value) {
+                return $('#workorders-currency').val() === 'USD'; // Asegúrate que el ID del input coincida en tu vista
+            }", 'message' => 'La TRM es obligatoria para órdenes en USD.'],
         ];
     }
 
-    // Generador de Código Automático
     public function beforeSave($insert)
     {
         if (parent::beforeSave($insert)) {
+            // Generador de Código Automático (Intacto)
             if ($this->isNewRecord && empty($this->code)) {
-                // Generar consecutivo basado en el último ID para evitar duplicados si borras registros
-                // Buscamos el último registro creado
                 $lastOrder = self::find()->orderBy(['id' => SORT_DESC])->one();
-                
-                // Si existe tomamos su ID + 1, si no existe empezamos en 1
-                // (Usar count() es peligroso si borras órdenes intermedias)
                 $nextId = $lastOrder ? ($lastOrder->id + 1) : 1;
-                
                 $this->code = 'OT'.(($this->is_request == 1) ? 'R' : '').'-' . date('Y') . '-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
             }
+
+            // --- PROTECCIÓN CONTRA RECÁLCULOS INFINITOS ---
+            // Revisamos si el usuario realmente modificó el costo, la moneda o la TRM en este guardado.
+            // Al aprobar o rechazar una orden (donde solo cambia el status), esto estará vacío.
+            $atributosModificados = $this->getDirtyAttributes(['total_cost', 'currency', 'exchange_rate']);
+
+            if (!empty($atributosModificados) || $this->isNewRecord) {
+                
+                if ($this->currency === 'USD' && !empty($this->exchange_rate) && !empty($this->total_cost)) {
+                    // Como en el formulario digitas el valor en USD:
+                    // 1. Guardamos ese valor digitado intacto en la columna USD
+                    $this->total_cost_usd = $this->total_cost; 
+                    
+                    // 2. Calculamos el equivalente en COP multiplicando por la TRM para la columna base
+                    $this->total_cost = round($this->total_cost_usd * $this->exchange_rate, 2); 
+                } else {
+                    // Si vuelve a ser COP, limpiamos la basura
+                    if ($this->currency === 'COP') {
+                        $this->exchange_rate = null;
+                        $this->total_cost_usd = null;
+                    }
+                }
+            }
+
             return true;
         }
         return false;
@@ -84,7 +137,10 @@ class WorkOrders extends \yii\db\ActiveRecord
             'title' => 'Título del Proyecto',
             'requirements' => 'Detalle de Requerimientos',
             'notes' => 'Notas Adicionales',
-            'total_cost' => 'Inversión Total',
+            'total_cost' => 'Inversión Total (COP)', // Aclaramos la moneda base
+            'currency' => 'Moneda',
+            'exchange_rate' => 'TRM',
+            'total_cost_usd' => 'Inversión Total (USD)',
             'status' => 'Estado',
             'down_payment_sent_at' => 'Anticipo enviado el',
             'created_at' => 'Fecha Creación',
@@ -134,6 +190,5 @@ class WorkOrders extends \yii\db\ActiveRecord
         ->send();
 
         return true;
-
     }
 }

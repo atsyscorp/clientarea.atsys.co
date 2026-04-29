@@ -221,9 +221,9 @@ class WorkOrdersController extends Controller
             .stamp-approved { display: inline-block; border: 3px solid #10b981; color: #10b981; padding: 10px 20px; font-weight: bold; font-size: 16px; border-radius: 8px; transform: rotate(-3deg); opacity: 0.8; }
             .kv-heading-1{font-size:18px}
             
-            table { width: 100% !important; max-width: 100%; border-collapse: collapse; page-break-inside: auto; }
+            table { width: 100% !important; max-width: 100%; border:0 none; border-collapse: collapse; page-break-inside: auto; }
             tr { page-break-inside: avoid; page-break-after: auto; }
-            td, th { border: 1px solid #333; padding: 5px; word-wrap: break-word; }
+            td, th { border: 0 none; padding: 5px; word-wrap: break-word; }
             p { margin-top: 0; margin-bottom: 10px; }
         ";
     }
@@ -528,64 +528,80 @@ class WorkOrdersController extends Controller
     {
         $workOrder = $this->findModel($id);
 
-        // Si ya tiene fecha registrada, detenemos el proceso.
         if ($workOrder->down_payment_sent_at !== null) {
             Yii::$app->session->setFlash('warning', 'El anticipo para esta orden ya fue generado y enviado el ' . Yii::$app->formatter->asDatetime($workOrder->down_payment_sent_at));
             return $this->redirect(['view', 'id' => $id]);
         }
         
-        // Validamos que tenga cliente
         if (!$workOrder->customer_id) {
             Yii::$app->session->setFlash('error', 'Esta orden de trabajo no tiene un cliente asociado.');
             return $this->redirect(['view', 'id' => $id]);
         }
 
-        // 1. Definir el Monto a Cobrar
-        // Aquí puedes decidir si cobras el 100% o el 50%
-        // Por defecto, pongamos el 50% como anticipo (como mencionaste antes)
-        $amountToPay = $workOrder->total_cost * 0.50; 
+        // 1. Definir los Montos a Cobrar (50% de anticipo)
+        $amountToPayCop = $workOrder->total_cost * 0.50; 
+        
+        // Si la orden está en USD, calculamos también la mitad del valor en dólares
+        $amountToPayUsd = ($workOrder->currency === 'USD') ? ($workOrder->total_cost_usd * 0.50) : null;
+        
         $concept = "Anticipo 50% - OT #" . $workOrder->id;
-
-        // Si prefieres cobrar el total, descomenta esto:
-        // $amountToPay = $workOrder->total;
-        // $concept = "Pago Total - OT #" . $workOrder->id;
 
         $transaction = Yii::$app->db->beginTransaction();
         try {
             // A. Crear la Cabecera de la Orden (Factura)
             $order = new \app\models\Orders();
-            $order->code = 'OT-' . $workOrder->id . '-' . date('His'); // Código único
+            $order->code = 'OT-' . $workOrder->id . '-' . date('His');
             $order->customer_id = $workOrder->customer_id;
-            $order->subtotal = $amountToPay;
-            $order->total = $amountToPay;
-            $order->status = 0; // Pendiente
+            
+            // Mantenemos la contabilidad base en pesos
+            $order->subtotal = $amountToPayCop; 
+            $order->total = $amountToPayCop;
+            
+            // --- INTEGRACIÓN PAYPAL: HEREDAR MONEDA ---
+            // IMPORTANTE: Asegúrate de que la tabla `orders` también tenga 
+            // las columnas `currency`, `exchange_rate` y `total_usd` (igual que work_orders)
+            $order->currency = $workOrder->currency ?? 'COP';
+            if ($order->currency === 'USD') {
+                $order->exchange_rate = $workOrder->exchange_rate;
+                $order->total_usd = $amountToPayUsd;
+                // Si tienes un subtotal_usd en la tabla orders, agrégalo aquí:
+                // $order->subtotal_usd = $amountToPayUsd; 
+            }
+            // ------------------------------------------
+
+            $order->status = 0; 
             $order->created_at = date('Y-m-d H:i:s');
             
-            if (!$order->save()) throw new \Exception('Error al crear la orden de pago.');
+            if (!$order->save()) throw new \Exception('Error al crear la orden de pago: ' . json_encode($order->getErrors()));
 
             // B. Crear el Ítem del Detalle
             $item = new \app\models\OrderItems();
             $item->order_id = $order->id;
             $item->service_id = 9999;
             $item->service_name = $concept;
-            $item->unit_price = $amountToPay;
-            $item->total = $amountToPay;
-            $item->action_type = 'payment'; // Solo cobro, no activa hosting
+            $item->unit_price = $amountToPayCop;
+            $item->total = $amountToPayCop;
             
-            if (!$item->save()) throw new \Exception('Error al crear el detalle del ítem.' . json_encode($item->getErrors()));
+            // Si tu tabla order_items tiene soporte para USD, lo llenamos:
+            if ($order->currency === 'USD' && $item->hasAttribute('total_usd')) {
+                $item->unit_price_usd = $amountToPayUsd;
+                $item->total_usd = $amountToPayUsd;
+            }
 
-            // C. ACTUALIZAR LA ORDEN DE TRABAJO (MARCAR COMO ENVIADO)
+            $item->action_type = 'payment'; 
+            
+            if (!$item->save()) throw new \Exception('Error al crear el detalle del ítem: ' . json_encode($item->getErrors()));
+
+            // C. ACTUALIZAR LA ORDEN DE TRABAJO
             $workOrder->down_payment_sent_at = date('Y-m-d H:i:s');
             if (!$workOrder->save(false)) throw new \Exception('Error actualizando estado de OT.');
 
             $transaction->commit();
 
-            // C. ENVIAR EL EMAIL DE COBRO (Aquí está la magia)
+            // D. ENVIAR EL EMAIL DE COBRO
             $this->sendPaymentRequestEmail($order, $workOrder);
 
             Yii::$app->session->setFlash('success', 'Orden de pago generada y correo enviado al cliente.');
-            
-            // Redirigir a la vista de la orden de trabajo o a la orden de pago
             return $this->redirect(['view', 'id' => $workOrder->id]);
 
         } catch (\Exception $e) {

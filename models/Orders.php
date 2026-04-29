@@ -13,6 +13,9 @@ use Yii;
  * @property float $subtotal
  * @property float|null $tax
  * @property float $total
+ * @property string $currency
+ * @property float|null $exchange_rate
+ * @property float|null $total_usd
  * @property int|null $status 0: Pendiente, 1: Pagado, 2: Activo, 3: Cancelado
  * @property string|null $payment_method
  * @property string|null $transaction_ref
@@ -40,14 +43,16 @@ class Orders extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['payment_method', 'transaction_ref', 'created_at', 'updated_at'], 'default', 'value' => null],
+            [['exchange_rate', 'total_usd', 'payment_method', 'transaction_ref', 'created_at', 'updated_at'], 'default', 'value' => null],
             [['tax'], 'default', 'value' => 0.00],
+            [['currency'], 'default', 'value' => 'COP'],
             [['status'], 'default', 'value' => 0],
             [['code', 'customer_id', 'subtotal', 'total'], 'required'],
             [['customer_id', 'status'], 'integer'],
-            [['subtotal', 'tax', 'total'], 'number'],
+            [['subtotal', 'tax', 'total', 'exchange_rate', 'total_usd'], 'number'],
             [['created_at', 'updated_at'], 'safe'],
             [['code'], 'string', 'max' => 30],
+            [['currency'], 'string', 'max' => 3],
             [['payment_method'], 'string', 'max' => 50],
             [['transaction_ref'], 'string', 'max' => 255],
             [['code'], 'unique'],
@@ -67,6 +72,9 @@ class Orders extends \yii\db\ActiveRecord
             'subtotal' => 'Subtotal',
             'tax' => 'Tax',
             'total' => 'Total',
+            'currency' => 'Currency',
+            'exchange_rate' => 'Exchange Rate',
+            'total_usd' => 'Total Usd',
             'status' => 'Status',
             'payment_method' => 'Payment Method',
             'transaction_ref' => 'Transaction Ref',
