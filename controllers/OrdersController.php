@@ -9,10 +9,19 @@ use app\models\CustomerServices;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
-class OrdersController extends Controller {
+class OrdersController extends Controller
+{
 
-    // (Opcional) Desactivar la validación CSRF solo para el endpoint de Wompi si este hace un POST directo
-    // public $enableCsrfValidation = false; 
+    /**
+     * IMPORTANTE: Desactiva CSRF para la confirmación de PayPal
+     */
+    public function beforeAction($action)
+    {
+        if ($action->id === 'paypal-confirm') {
+            $this->enableCsrfValidation = false;
+        }
+        return parent::beforeAction($action);
+    }
 
     protected function findModel($id)
     {
@@ -25,21 +34,29 @@ class OrdersController extends Controller {
     public function actionView($id)
     {
         $model = $this->findModel($id);
-        
-        // Preparamos el array base para la vista
+
+        // --- NUEVO: DETECCIÓN DE FIN DE SEMANA ---
+        // Configuramos la zona horaria para Colombia, para que no use la UTC del servidor
+        $timezone = new \DateTimeZone('America/Bogota');
+        $date = new \DateTime('now', $timezone);
+        // 'N' devuelve 1 (Lunes) a 7 (Domingo)
+        $dayOfWeek = (int) $date->format('N');
+
+        // Consideramos "Fin de semana" desde el Viernes (5) hasta el Domingo (7)
+        $isWeekend = ($dayOfWeek >= 5 && $dayOfWeek <= 7);
+        // -----------------------------------------
+
         $viewParams = [
             'model' => $model,
-            'gateway' => $model->currency // 'COP' o 'USD'
+            'gateway' => $model->currency,
+            'isWeekend' => $isWeekend
         ];
 
         if ($model->currency === 'COP') {
-            // --- LÓGICA WOMPI ---
-            $wompiPublicKey = Yii::$app->params['wmpi_pubKey']; 
-            $wompiIntegritySecret = Yii::$app->params['wmpi_integrity']; 
-            
+            $wompiPublicKey = Yii::$app->params['wmpi_pubKey'];
+            $wompiIntegritySecret = Yii::$app->params['wmpi_integrity'];
             $amountInCents = $model->total * 100;
-            $reference = $model->code; 
-            
+            $reference = $model->code;
             $cadenaConcatenada = $reference . $amountInCents . 'COP' . $wompiIntegritySecret;
             $integritySignature = hash('sha256', $cadenaConcatenada);
 
@@ -49,70 +66,48 @@ class OrdersController extends Controller {
                 'amountInCents' => $amountInCents,
                 'reference' => $reference,
                 'signature' => $integritySignature,
-                'redirectUrl' => \yii\helpers\Url::to(['orders/transaction-result', 'id' => $model->id], true), 
+                'redirectUrl' => \yii\helpers\Url::to(['orders/transaction-result', 'id' => $model->id], true),
             ];
         } elseif ($model->currency === 'USD') {
-            // --- LÓGICA PAYPAL ---
             $viewParams['paypal'] = [
                 'clientId' => Yii::$app->params['paypalClientId'],
                 'currency' => 'USD',
-                // Asegúrate de usar el campo que guarda el total en dólares que configuramos antes
-                'amount' => $model->total_usd ?? $model->total, 
+                'amount' => $model->total_usd ?? $model->total,
             ];
         }
 
         return $this->render('view', $viewParams);
     }
 
-    /**
-     * Retorno de Wompi después del pago (Vía Redirección GET).
-     */
     public function actionTransactionResult($id)
     {
-        if (!$id) {
+        if (!$id)
             return $this->redirect(['index']);
-        }
 
         $url = "https://production.wompi.co/v1/transactions/" . $id;
 
         try {
             $response = file_get_contents($url);
             $json = json_decode($response, true);
-            
-            if (!isset($json['data'])) {
+            if (!isset($json['data']))
                 throw new \Exception("Respuesta inválida de Wompi");
-            }
 
             $data = $json['data'];
-            $orderCode = $data['reference'];
-            $order = Orders::findOne(['code' => $orderCode]);
+            $order = Orders::findOne(['code' => $data['reference']]);
 
-            if (!$order) {
+            if (!$order)
                 throw new NotFoundHttpException("La orden asociada no existe.");
-            }
 
             if ($data['status'] == 'APPROVED') {
-                // LLAMAMOS AL NÚCLEO CENTRALIZADO
                 $this->processSuccessfulPayment($order, $id, $data['payment_method_type']);
-            } elseif ($data['status'] == 'DECLINED' || $data['status'] == 'ERROR') {
-                Yii::$app->session->setFlash('error', 'El pago fue rechazado por el banco.');
             }
 
-            return $this->render('transaction-result', [
-                'order' => $order,
-                'wompiData' => $data
-            ]);
-
+            return $this->render('transaction-result', ['order' => $order, 'wompiData' => $data]);
         } catch (\Exception $e) {
-            Yii::error("Error consultando Wompi: " . $e->getMessage());
-            Yii::$app->session->setFlash('error', 'No pudimos verificar el estado del pago automáticamente.');
             return $this->redirect(['index']);
         }
     }
 
-    /**
-     * Endpoint asíncrono para PayPal (Llamado vía Fetch/AJAX desde la vista)
-     */
     public function actionPaypalConfirm()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -120,124 +115,181 @@ class OrdersController extends Controller {
 
         if ($request->isPost) {
             $data = json_decode($request->getRawBody(), true);
-            
             $orderId = $data['order_id'] ?? null;
             $paypalTransactionId = $data['transaction_id'] ?? null;
             $status = $data['status'] ?? null;
 
             if ($orderId && $status === 'COMPLETED') {
                 $order = Orders::findOne($orderId);
-                
                 if ($order) {
-                    // LLAMAMOS AL NÚCLEO CENTRALIZADO
                     $this->processSuccessfulPayment($order, $paypalTransactionId, 'PAYPAL');
-                    return ['success' => true, 'message' => 'Pago procesado correctamente'];
+                    return ['success' => true];
                 }
             }
         }
-        return ['success' => false, 'message' => 'Datos inválidos o pago no completado'];
+        return ['success' => false, 'message' => 'Error en validación'];
     }
 
     /**
      * NÚCLEO CENTRALIZADO DE APROVISIONAMIENTO
-     * Extraído para ser reutilizado por Wompi, PayPal y futuros métodos de pago.
      */
     private function processSuccessfulPayment($order, $transactionRef, $paymentMethod)
     {
-        // Solo actualizamos si no estaba ya pagada
-        if ($order->status == 0) { 
-            $order->status = 1; 
-            $order->payment_method = $paymentMethod; 
-            $order->transaction_ref = $transactionRef; 
+        if ($order->status == 0) {
+            $order->status = 1;
+            $order->payment_method = $paymentMethod;
+            $order->transaction_ref = $transactionRef;
             $order->save(false);
 
             foreach ($order->orderItems as $item) {
-                // CASO A: ES UNA RENOVACIÓN
-                if ($item->action_type == 'renew') {
-                    $service = CustomerServices::find()
-                        ->where(['customer_id' => $order->customer_id])
-                        ->andWhere(['domain' => $item->domain_name]) 
-                        ->one();
 
+                // --- LÓGICA DE RENOVACIÓN ---
+                if ($item->action_type == 'renew') {
+                    $service = CustomerServices::find()->where(['customer_id' => $order->customer_id, 'domain' => $item->domain_name])->one();
                     if ($service) {
-                        $cycle = $service->product->billing_cycle ?? 'yearly'; 
-                        $tiempoASumar = ($cycle == 'monthly') ? '+1 month' : '+1 year';
-                        $nuevaFecha = date('Y-m-d', strtotime($tiempoASumar, strtotime($service->next_due_date)));
-                        
-                        $service->next_due_date = $nuevaFecha;
+                        $cycle = $service->product->billing_cycle ?? 'yearly';
+                        $service->next_due_date = date('Y-m-d', strtotime(($cycle == 'monthly' ? '+1 month' : '+1 year'), strtotime($service->next_due_date)));
                         $service->status = 1;
 
-                        if($service->product->type == 'hosting') {
-                            if($service->server_id !== NULL) {
-                                \app\components\CyberPanel::unsuspendAccount($service->server_id, $service->domain);
-                                $this->sendUnsuspensionEmail($service);
+                        if ($service->product->type == 'hosting' && !empty($service->server_id)) {
+                            // Detectamos el servidor asociado al servicio para desuspender en el panel correcto
+                            $serverRen = $service->server;
+                            if ($serverRen) {
+                                if ($serverRen->type == 'virtualmin') {
+                                    // Cambia esto por tu método real en el componente de Virtualmin
+                                    Yii::$app->virtualmin->unsuspendAccount($serverRen->username, $serverRen->auth_token, $serverRen->hostname, $service->domain);
+                                } elseif ($serverRen->type == 'cyberpanel') {
+                                    \app\components\CyberPanel::unsuspendAccount($serverRen->id, $service->domain);
+                                }
                             }
+                            $this->sendUnsuspensionEmail($service);
                         }
-
-                        if(!$service->save(false)) {
-                            Yii::$app->session->setFlash('error', 'No se pudo renovar el producto ' . $service->product->name);
-                        }
+                        $service->save(false);
                     }
                 }
 
-                // CASO B: ES COMPRA NUEVA (Hosting Setup)
+                // --- LÓGICA DE CREACIÓN DE HOSTING ---
                 if ($item->action_type == 'hosting_setup') {
-                    $product = $item->product; 
-                    $customer = $order->customer;
-                    
-                    $panelUser = substr(preg_replace('/[^a-zA-Z0-9]/', '', explode('.', $item->domain_name)[0]), 0, 8) . rand(10,99);
-                    $panelPass = Yii::$app->security->generateRandomString(12); 
-                    
-                    $provisionResult = \app\components\CyberPanel::createAccount(
-                        $product->server_id, $item->domain_name, $product->server_package, 
-                        $customer->email, $panelPass, $panelUser
-                    );
 
+                    $product = $item->product; // Accedemos al producto a través del ítem
+                    $domain = $item->domain_name;
+                    $customer = $order->customer;
+                    $panelUser = substr(preg_replace('/[^a-zA-Z0-9]/', '', explode('.', $domain)[0]), 0, 8) . rand(10, 99);
+                    $panelPass = Yii::$app->security->generateRandomString(12);
+
+                    $server = null;
+                    $provisionResult = ['success' => false, 'message' => 'No se ejecutó el aprovisionamiento.'];
+
+                    // 1. Determinar qué servidor usar (Fijo vs Balanceo)
+                    if (!empty($product->server_id)) {
+                        $server = $product->server;
+                    } else {
+                        $server = \app\models\Servers::find()->where(['status' => 1])->one();
+                    }
+
+                    // 2. Ejecutar Aprovisionamiento si hay servidor
+                    if (!$server) {
+                        Yii::error("No hay servidores activos para aprovisionar el dominio {$domain} en la orden {$order->code}.");
+                        continue;
+                    } else {
+                        // Enrutamiento de Panel
+                        if ($server->type == 'virtualmin') {
+                            $provisionResult = Yii::$app->virtualmin->createAccountDinamic(
+                                $server->username,
+                                $server->auth_token,
+                                $server->hostname,
+                                $domain,
+                                $panelPass,
+                                $panelUser,
+                                $product->server_package // Viene de $product, no de $service
+                            );
+                        } elseif ($server->type == 'cyberpanel') {
+                            $provisionResult = \app\components\CyberPanel::createAccount(
+                                $server->id,
+                                $domain,
+                                $product->server_package,
+                                $customer->email,
+                                $panelPass,
+                                $panelUser
+                            );
+                        }
+                    }
+
+                    // 3. Registrar el servicio en la base de datos si fue exitoso
                     if ($provisionResult['success']) {
-                        $newService = new \app\models\CustomerServices();
+                        $newService = new CustomerServices();
                         $newService->customer_id = $customer->id;
                         $newService->product_id = $product->id;
-                        $newService->domain = $item->domain_name;
-                        $newService->server_id = $product->server_id;
+                        $newService->domain = $domain;
+                        // OJO AQUÍ: Guardamos el ID del servidor que REALMENTE se usó (ideal para el balanceo)
+                        $newService->server_id = $server->id;
                         $newService->username_service = $panelUser;
-                        $newService->password_service = $panelPass; 
+                        $newService->password_service = $panelPass;
                         $newService->created_at = date('Y-m-d');
-                        
-                        $cycle = $product->billing_cycle ?? 'yearly';
-                        $newService->next_due_date = date('Y-m-d', strtotime(($cycle == 'monthly' ? '+1 month' : '+1 year')));
+                        $newService->next_due_date = date('Y-m-d', strtotime(($product->billing_cycle == 'monthly' ? '+1 month' : '+1 year')));
                         $newService->status = 1;
 
-                        if ($newService->save()) {
-                            Yii::info("Servicio aprovisionado: {$item->domain_name}");
-                        } else {
-                            Yii::error("Error guardando servicio local: " . json_encode($newService->errors));
+                        if (!$newService->save()) {
+                            Yii::error("Se creó en el servidor pero falló al guardar en BD local: " . json_encode($newService->getErrors()));
                         }
                     } else {
-                        Yii::error("Fallo aprovisionamiento CyberPanel: " . $provisionResult['message']);
-                        Yii::$app->session->setFlash('warning', 'Pago recibido, retraso activando el hosting.');
+                        Yii::error("Fallo aprovisionamiento en servidor {$server->hostname} para {$domain}: " . json_encode($provisionResult));
                     }
-                }
-
-                // CASO C: Registro de dominio
-                if($item->action_type == 'register') {
-                    $cycle = $item->product->billing_cycle ?? 'yearly';
-                    $service = new CustomerServices();
-                    $service->customer_id = $order->customer_id;
-                    $service->product_id = $item->product->id;
-                    $service->domain = $item->domain_name;
-                    $service->start_date = date('Y-m-d');
-                    $service->next_due_date = date('Y-m-d', strtotime(($cycle == 'monthly') ? '+1 month' : '+1 year'));
-                    $service->status = 1;
-                    $service->created_at = date('Y-m-d');
-                    $service->save(false);
                 }
             }
 
-            // Enviar confirmación de pago al usuario.
+            // ENVIAR CONFIRMACIÓN
             $this->sendPaymentConfirmationEmail($order);
-            Yii::$app->session->setFlash('success', '¡Pago recibido correctamente!');
         }
     }
 
-    // ... tus funciones sendUnsuspensionEmail y sendPaymentConfirmationEmail se mantienen exactamente iguales abajo ...
+    /**
+     * LAS FUNCIONES QUE FALTABAN
+     */
+    private function sendUnsuspensionEmail($service)
+    {
+        try {
+            $customer = $service->customer;
+            Yii::$app->mailer->compose(['html' => 'unsuspended_account-html'], [
+                'business_name' => $customer->business_name,
+                'domain' => $service->domain,
+            ])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setTo($customer->email)
+                ->setSubject("✅ Servicio reactivado: {$service->domain}")
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->send();
+        } catch (\Exception $e) {
+            Yii::error("Error reactivación email: " . $e->getMessage());
+        }
+    }
+
+    private function sendPaymentConfirmationEmail($order)
+    {
+        try {
+            $customer = $order->customer;
+            $itemsHtml = "";
+            foreach ($order->orderItems as $item) {
+                // Adaptamos el valor a mostrar según la moneda para el correo
+                $val = ($order->currency === 'USD' && $order->exchange_rate !== NULL) ? ($item->total_usd ?? $item->total) : $item->total;
+                $itemsHtml .= "<tr><td style='padding:8px; border-bottom:1px solid #eee;'>{$item->service_name}</td><td style='padding:8px; border-bottom:1px solid #eee; text-align:right;'>" . Yii::$app->formatter->asCurrency($val) . " {$order->currency}</td></tr>";
+            }
+
+            Yii::$app->mailer->compose(['html' => 'payment_confirmation-html'], [
+                'business_name' => $customer->business_name,
+                'order_code' => $order->code,
+                'payment_date' => date('d/m/Y H:i'),
+                'payment_method' => $order->payment_method,
+                'itemsHtml' => $itemsHtml,
+                'total' => Yii::$app->formatter->asCurrency(($order->currency === 'USD' ? $order->total_usd : $order->total)) . " {$order->currency}"
+            ])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setTo($customer->email)
+                ->setSubject("✅ Pago Recibido - Orden {$order->code}")
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->send();
+        } catch (\Exception $e) {
+            Yii::error("Error recibo pago email: " . $e->getMessage());
+        }
+    }
 }

@@ -16,6 +16,8 @@ use Yii;
  * @property int|null $period
  * @property float $unit_price
  * @property float $total
+ * @property float|null $unit_price_usd
+ * @property float|null $total_usd
  *
  * @property Orders $order
  */
@@ -31,6 +33,7 @@ class OrderItems extends \yii\db\ActiveRecord
     const ACTION_TYPE_PENALTY = 'penalty';
     const ACTION_TYPE_HOSTING_SETUP = 'hosting_setup';
     const ACTION_TYPE_PAYMENT = 'payment';
+    const ACTION_TYPE_FEE = 'fee';
 
     /**
      * {@inheritdoc}
@@ -46,13 +49,13 @@ class OrderItems extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['domain_name'], 'default', 'value' => null],
+            [['domain_name', 'unit_price_usd', 'total_usd'], 'default', 'value' => null],
             [['action_type'], 'default', 'value' => 'register'],
             [['period'], 'default', 'value' => 1],
             [['order_id', 'service_id', 'service_name', 'unit_price', 'total'], 'required'],
             [['order_id', 'service_id', 'period'], 'integer'],
             [['action_type'], 'string'],
-            [['unit_price', 'total'], 'number'],
+            [['unit_price', 'total', 'unit_price_usd', 'total_usd'], 'number'],
             [['service_name', 'domain_name'], 'string', 'max' => 255],
             ['action_type', 'in', 'range' => array_keys(self::optsActionType())],
             [['order_id'], 'exist', 'skipOnError' => true, 'targetClass' => Orders::class, 'targetAttribute' => ['order_id' => 'id']],
@@ -74,6 +77,8 @@ class OrderItems extends \yii\db\ActiveRecord
             'period' => 'Period',
             'unit_price' => 'Unit Price',
             'total' => 'Total',
+            'unit_price_usd' => 'Unit Price Usd',
+            'total_usd' => 'Total Usd',
         ];
     }
 
@@ -110,6 +115,7 @@ class OrderItems extends \yii\db\ActiveRecord
             self::ACTION_TYPE_PENALTY => 'penalty',
             self::ACTION_TYPE_HOSTING_SETUP => 'hosting_setup',
             self::ACTION_TYPE_PAYMENT => 'payment',
+            self::ACTION_TYPE_FEE => 'fee'
         ];
     }
 
@@ -172,30 +178,42 @@ class OrderItems extends \yii\db\ActiveRecord
     {
         $this->action_type = self::ACTION_TYPE_PENALTY;
     }
-    
+
+    public function setActionTypeToHostingsetup()
+    {
+        $this->action_type = self::ACTION_TYPE_HOSTING_SETUP;
+    }
+
     /** 
      * @return bool 
-     */ 
-    public function isActionTypeHostingsetup() 
-    { 
-        return $this->action_type === self::ACTION_TYPE_HOSTING_SETUP; 
-    } 
- 
-    public function setActionTypeToHostingsetup() 
-    { 
-        $this->action_type = self::ACTION_TYPE_HOSTING_SETUP; 
-    } 
- 
-    /** 
-     * @return bool 
-     */ 
-    public function isActionTypePayment() 
-    { 
-        return $this->action_type === self::ACTION_TYPE_PAYMENT; 
-    } 
-    
-    public function setActionTypeToPayment() 
-    { 
-        $this->action_type = self::ACTION_TYPE_PAYMENT; 
+     */
+    public function isActionTypePayment()
+    {
+        return $this->action_type === self::ACTION_TYPE_PAYMENT;
+    }
+
+    public function setActionTypeToPayment()
+    {
+        $this->action_type = self::ACTION_TYPE_PAYMENT;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isActionTypeHostingsetup()
+    {
+        return $this->action_type === self::ACTION_TYPE_HOSTING_SETUP;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isActionTypeFee()
+    {
+        return $this->action_type === self::ACTION_TYPE_FEE;
+    }
+    public function setActionTypeToFee()
+    {
+        $this->action_type = self::ACTION_TYPE_FEE;
     }
 }

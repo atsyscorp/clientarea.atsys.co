@@ -6,8 +6,8 @@ return [
     'senderName' => 'Área de clientes ATSYS',
     'user.passwordResetTokenExpire' => 3600,
     'paginationStyles' => [
-    	'activePageCssClass' => 'page-item active',
-        'options' => ['class'=>'pagination'],   // set clas name used in ui list of pagination
+        'activePageCssClass' => 'page-item active',
+        'options' => ['class' => 'pagination'],   // set clas name used in ui list of pagination
         'nextPageCssClass' => 'page-item',    // Set CSS class for the “next” page button
         'prevPageCssClass' => 'page-item',    // Set CSS class for the “previous” page button
         'firstPageCssClass' => 'page-item',    // Set CSS class for the “first” page button
@@ -15,7 +15,7 @@ return [
         'maxButtonCount' => 10,    // Set maximum number of page buttons that can be displayed
         'pageCssClass' => 'page-item',
         'linkOptions' => [
-        	'class' => 'page-link'
+            'class' => 'page-link'
         ]
     ],
     'departmentEmails' => [
@@ -33,7 +33,7 @@ return [
         'phoneId' => '974241165778303',
         'businessId' => '1885925668728489'
     ],
-    'paypalClientId' => 'AU_cSBGjJ2xkMEpexON_CoHaM-FmFz1fIb2Rpl3hkLeUMM-PzZHSbQaXAzIiRpyh6C_oieRSL1S_s01P',
-    'paypalSecret' => 'EDYeF8tGl-TuXU5EnH5cQxXgu21AYEfsiJt-5z8ajGdoGu51cv2peIJzWyeZOdlkNK54lcUZxkQkZRTB',
-    'paypalMode' => 'sandbox',
+    'paypalClientId' => 'Abh70Rn7NoOa03UwKNXE8_3KivsAHhwuWVSLEcmnpygiwVSi5urBy45O83KzARZA7ME2ch44MOsbplhn',
+    'paypalSecret' => 'EA8eHhWu8xk4A1lF0PWuM7kCcLn4SWvGtmFg9QkM29mrUATFvZ3dG6UU8zylvTOPYSV1vvMIOKzNUCvg',
+    'paypalMode' => 'live',
 ];

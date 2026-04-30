@@ -34,7 +34,7 @@ class WorkOrdersController extends Controller
     public function actionIndex()
     {
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
-        if(!$isAdmin) {
+        if (!$isAdmin) {
             $user = Yii::$app->user->identity;
             if ($user->role === \app\models\User::ROLE_CLIENT && !$user->customer) {
                 return $this->redirect('/customers/create');
@@ -59,7 +59,7 @@ class WorkOrdersController extends Controller
         if (!$user->isAdmin) {
             $myCustomer = \app\models\Customers::findOne(['user_id' => $user->id]);
             if (!$myCustomer || $model->customer_id != $myCustomer->id) {
-                 throw new \yii\web\ForbiddenHttpException('No tienes permiso para ver este documento.');
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para ver este documento.');
             }
         }
 
@@ -71,23 +71,23 @@ class WorkOrdersController extends Controller
     {
         $model = $this->findModel($id);
         $user = Yii::$app->user->identity;
-        
+
         if (!$user->isAdmin) {
             $myCustomer = \app\models\Customers::findOne(['user_id' => $user->id]);
             if (!$myCustomer || $model->customer_id != $myCustomer->id) {
-                 throw new \yii\web\ForbiddenHttpException();
+                throw new \yii\web\ForbiddenHttpException();
             }
         }
 
         if ($model->status == WorkOrders::STATUS_PENDING) {
             $model->status = WorkOrders::STATUS_APPROVED;
             if ($model->save(false)) {
-                
+
                 // 3. NOTIFICACIÓN AL ADMIN (hola@atsys.co)
                 try {
 
                     // Si existe el campo de una solicitud, debe eliminarse
-                    if(Yii::$app->request->post('previousOrder')) {
+                    if (Yii::$app->request->post('previousOrder')) {
                         WorkOrders::deleteAll([
                             'id' => Yii::$app->request->post('previousOrder')
                         ]);
@@ -108,10 +108,10 @@ class WorkOrdersController extends Controller
                         'content' => $htmlContent,
                         'color' => '#10b981' // Verde Éxito
                     ])
-                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                    ->setTo(Yii::$app->params['adminEmail'])
-                    ->setSubject("✅ APROBADA: Orden " . $model->code . " - " . $model->customer->business_name)
-                    ->send();
+                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                        ->setTo(Yii::$app->params['adminEmail'])
+                        ->setSubject("✅ APROBADA: Orden " . $model->code . " - " . $model->customer->business_name)
+                        ->send();
                 } catch (\Exception $e) {
                     // Si falla el correo, solo lo registramos en logs para no asustar al cliente
                     Yii::error("Error enviando notificación de aprobación: " . $e->getMessage());
@@ -123,25 +123,25 @@ class WorkOrdersController extends Controller
 
         return $this->redirect(['view', 'id' => $model->id]);
     }
-    
+
     // Acciones del Cliente: Rechazar
     public function actionReject($id)
     {
         $model = $this->findModel($id);
         $user = Yii::$app->user->identity;
-        
+
         // SEGURIDAD CORREGIDA
         if (!$user->isAdmin) {
             $myCustomer = \app\models\Customers::findOne(['user_id' => $user->id]);
             if (!$myCustomer || $model->customer_id != $myCustomer->id) {
-                 throw new \yii\web\ForbiddenHttpException();
+                throw new \yii\web\ForbiddenHttpException();
             }
         }
-        
+
         if ($model->status == WorkOrders::STATUS_PENDING) {
             $model->status = WorkOrders::STATUS_REJECTED;
             if ($model->save(false)) {
-                
+
                 // 3. NOTIFICACIÓN AL ADMIN (hola@atsys.co)
                 try {
                     $htmlContent = "
@@ -158,10 +158,10 @@ class WorkOrdersController extends Controller
                         'content' => $htmlContent,
                         'color' => '#ef4444' // Rojo Error
                     ])
-                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                    ->setTo(Yii::$app->params['adminEmail'])
-                    ->setSubject("❌ RECHAZADA: Orden " . $model->code . " - " . $model->customer->business_name)
-                    ->send();
+                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                        ->setTo(Yii::$app->params['adminEmail'])
+                        ->setSubject("❌ RECHAZADA: Orden " . $model->code . " - " . $model->customer->business_name)
+                        ->send();
                 } catch (\Exception $e) {
                     Yii::error("Error enviando notificación de rechazo: " . $e->getMessage());
                 }
@@ -173,7 +173,8 @@ class WorkOrdersController extends Controller
         return $this->redirect(['view', 'id' => $model->id]);
     }
 
-    public function actionRejectRequest($id) {
+    public function actionRejectRequest($id)
+    {
         $model = $this->findModel($id);
         $model->delete();
         Yii::$app->session->setFlash('success', 'Solicitud eliminada con éxito.');
@@ -191,7 +192,7 @@ class WorkOrdersController extends Controller
     private function getPdfStyles()
     {
         // Define aquí tus colores
-        $color_primary = '#134C42'; 
+        $color_primary = '#134C42';
         $color_text = '#333333';
         $color_gray = '#666666';
 
@@ -234,15 +235,15 @@ class WorkOrdersController extends Controller
     private function createPdfObject($model, $destination = Pdf::DEST_BROWSER)
     {
         return new Pdf([
-            'mode' => Pdf::MODE_UTF8, 
-            'format' => Pdf::FORMAT_A4, 
+            'mode' => Pdf::MODE_UTF8,
+            'format' => Pdf::FORMAT_A4,
             'destination' => $destination,
             'content' => $this->renderPartial('_pdf', ['model' => $model]),
             'cssInline' => $this->getPdfStyles(), // Usamos el CSS centralizado
             'options' => ['title' => 'Orden ' . $model->code],
-            'methods' => [ 
-                'SetHeader'=>['','ATSYS | Orden de Trabajo',''], 
-                'SetFooter'=>['{PAGENO}'],
+            'methods' => [
+                'SetHeader' => ['', 'ATSYS | Orden de Trabajo', ''],
+                'SetFooter' => ['{PAGENO}'],
             ]
         ]);
     }
@@ -250,10 +251,10 @@ class WorkOrdersController extends Controller
     public function actionPdf($id)
     {
         $model = $this->findModel($id);
-        
+
         // Validación de seguridad...
         if (!Yii::$app->user->identity->isAdmin && $model->customer_id != Yii::$app->user->id) {
-             throw new \yii\web\ForbiddenHttpException();
+            throw new \yii\web\ForbiddenHttpException();
         }
 
         // Una sola línea para configurar todo
@@ -268,7 +269,7 @@ class WorkOrdersController extends Controller
     public function actionSend($id)
     {
         if (!Yii::$app->user->identity->isAdmin) {
-             throw new \yii\web\ForbiddenHttpException();
+            throw new \yii\web\ForbiddenHttpException();
         }
 
         $model = $this->findModel($id);
@@ -286,7 +287,7 @@ class WorkOrdersController extends Controller
                 ->setBcc(Yii::$app->params['adminEmail'])
                 ->setSubject("Nueva Orden de Trabajo: " . $model->title)
                 ->attachContent($pdfContent, [
-                    'fileName' => $model->code . '.pdf', 
+                    'fileName' => $model->code . '.pdf',
                     'contentType' => 'application/pdf'
                 ])
                 ->send();
@@ -324,7 +325,7 @@ class WorkOrdersController extends Controller
                 ->setBcc(Yii::$app->params['adminEmail'])
                 ->setSubject("Nueva Orden de Trabajo: " . $model->title)
                 ->attachContent($pdfContent, [
-                    'fileName' => $model->code . '.pdf', 
+                    'fileName' => $model->code . '.pdf',
                     'contentType' => 'application/pdf'
                 ])
                 ->send();
@@ -340,7 +341,7 @@ class WorkOrdersController extends Controller
     {
         // Solo Admin puede crear
         if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
-             throw new \yii\web\ForbiddenHttpException();
+            throw new \yii\web\ForbiddenHttpException();
         }
 
         $model = new WorkOrders();
@@ -374,7 +375,7 @@ class WorkOrdersController extends Controller
     public function actionApproveRequest($id)
     {
         if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
-             throw new \yii\web\ForbiddenHttpException();
+            throw new \yii\web\ForbiddenHttpException();
         }
 
         $model = $this->findModel($id);
@@ -387,14 +388,14 @@ class WorkOrdersController extends Controller
         if ($this->request->isPost) {
             $model->original_request = $model->getOldAttribute('requirements');
             if ($model->load($this->request->post())) {
-                $model->is_request = 0; 
-                $model->status = WorkOrders::STATUS_PENDING; 
-                
+                $model->is_request = 0;
+                $model->status = WorkOrders::STATUS_PENDING;
+
                 $model->code = preg_replace('/^OTR-/', 'OT-', $model->code);
-                
+
                 if ($model->save()) {
                     $send = $this->pdfAndEmailOrder($model);
-                    
+
                     if ($send === true) {
                         Yii::$app->session->setFlash('success', 'Solicitud aprobada. El código cambió a ' . $model->code . ' y fue enviada al cliente.');
                     } else {
@@ -415,7 +416,7 @@ class WorkOrdersController extends Controller
     {
         // Solo Admin puede actualizar
         if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
-             throw new \yii\web\ForbiddenHttpException();
+            throw new \yii\web\ForbiddenHttpException();
         }
 
         $model = $this->findModel($id);
@@ -432,7 +433,8 @@ class WorkOrdersController extends Controller
         ]);
     }
 
-    public function actionRequest() {
+    public function actionRequest()
+    {
 
         // Solo para clientes
         if (Yii::$app->user->isGuest || Yii::$app->user->identity->isAdmin) {
@@ -443,7 +445,7 @@ class WorkOrdersController extends Controller
 
         if (!Yii::$app->user->identity->isAdmin) {
             $customer_id = Yii::$app->user->identity->getRealCustomerId();
-            
+
             if ($customer_id) {
                 $model->customer_id = $customer_id;
             } else {
@@ -479,19 +481,19 @@ class WorkOrdersController extends Controller
     public function actionAddUpdate($id)
     {
         if (!Yii::$app->user->identity->isAdmin) {
-             throw new \yii\web\ForbiddenHttpException();
+            throw new \yii\web\ForbiddenHttpException();
         }
 
         $workOrder = $this->findModel($id);
         $update = new WorkOrderUpdates();
-        
+
         if ($this->request->isPost) {
             $update->load($this->request->post());
             $update->work_order_id = $workOrder->id;
             $update->created_by = Yii::$app->user->id;
-            
+
             if ($update->save()) {
-                
+
                 // Lógica opcional de notificación
                 if ($update->notify_email && $update->allow_reply == 1) {
                     try {
@@ -501,16 +503,17 @@ class WorkOrdersController extends Controller
                                           <blockquote style='background:#f9f9f9; padding:10px; border-left:3px solid #134C42;'>
                                             " . nl2br($update->description) . "
                                           </blockquote>
-                                          ".(($update->allow_reply == 1) ? '<p>Este avance incluye una solicitud de respuesta de tu parte. Por favor, ingresa a la orden de trabajo para ver los detalles y responder.</p><br><br>' : '')."
+                                          " . (($update->allow_reply == 1) ? '<p>Este avance incluye una solicitud de respuesta de tu parte. Por favor, ingresa a la orden de trabajo para ver los detalles y responder.</p><br><br>' : '') . "
                                           <p><a href='https://clientarea.atsys.co/work-orders/view?id={$workOrder->id}' style='background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;'>Ver en el área de clientes</a></p>",
                             'color' => '#134C42'
                         ])
-                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                        ->setTo($workOrder->customer->email)
-                        ->setBcc(Yii::$app->params['adminEmail'])
-                        ->setSubject("Avance: " . $workOrder->title)
-                        ->send();
-                    } catch (\Exception $e) {} // Silencioso
+                            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                            ->setTo($workOrder->customer->email)
+                            ->setBcc(Yii::$app->params['adminEmail'])
+                            ->setSubject("Avance: " . $workOrder->title)
+                            ->send();
+                    } catch (\Exception $e) {
+                    } // Silencioso
                 }
 
                 Yii::$app->session->setFlash('success', 'Avance registrado.');
@@ -532,19 +535,37 @@ class WorkOrdersController extends Controller
             Yii::$app->session->setFlash('warning', 'El anticipo para esta orden ya fue generado y enviado el ' . Yii::$app->formatter->asDatetime($workOrder->down_payment_sent_at));
             return $this->redirect(['view', 'id' => $id]);
         }
-        
+
         if (!$workOrder->customer_id) {
             Yii::$app->session->setFlash('error', 'Esta orden de trabajo no tiene un cliente asociado.');
             return $this->redirect(['view', 'id' => $id]);
         }
 
         // 1. Definir los Montos a Cobrar (50% de anticipo)
-        $amountToPayCop = $workOrder->total_cost * 0.50; 
-        
+        $amountToPayCop = $workOrder->total_cost * 0.50;
+
         // Si la orden está en USD, calculamos también la mitad del valor en dólares
         $amountToPayUsd = ($workOrder->currency === 'USD') ? ($workOrder->total_cost_usd * 0.50) : null;
-        
-        $concept = "Anticipo 50% - OT #" . $workOrder->id;
+
+        $concept = "Anticipo 50% - " . $workOrder->code;
+
+        // Variables para la comisión (Inicializadas en 0)
+        $feeUsd = 0;
+        $feeCop = 0;
+
+        if ($workOrder->currency === 'USD') {
+            $paypalPercentage = 0.054; // 5.4%
+            $paypalFixed = 0.30;       // $0.30 USD
+
+            // Aplicamos la fórmula matemática para obtener el Bruto real a cobrar
+            $grossUsd = ($amountToPayUsd + $paypalFixed) / (1 - $paypalPercentage);
+
+            // La diferencia es la comisión exacta que le sumaremos como ítem
+            $feeUsd = round($grossUsd - $amountToPayUsd, 2);
+
+            // Calculamos su equivalente en COP usando la TRM pactada
+            $feeCop = round($feeUsd * $workOrder->exchange_rate, 2);
+        }
 
         $transaction = Yii::$app->db->beginTransaction();
         try {
@@ -552,56 +573,70 @@ class WorkOrdersController extends Controller
             $order = new \app\models\Orders();
             $order->code = 'OT-' . $workOrder->id . '-' . date('His');
             $order->customer_id = $workOrder->customer_id;
-            
-            // Mantenemos la contabilidad base en pesos
-            $order->subtotal = $amountToPayCop; 
-            $order->total = $amountToPayCop;
-            
-            // --- INTEGRACIÓN PAYPAL: HEREDAR MONEDA ---
-            // IMPORTANTE: Asegúrate de que la tabla `orders` también tenga 
-            // las columnas `currency`, `exchange_rate` y `total_usd` (igual que work_orders)
+
+            // Sumamos el servicio + la comisión al total de la factura
+            $order->subtotal = $amountToPayCop + $feeCop;
+            $order->total = $amountToPayCop + $feeCop;
+
             $order->currency = $workOrder->currency ?? 'COP';
             if ($order->currency === 'USD') {
                 $order->exchange_rate = $workOrder->exchange_rate;
-                $order->total_usd = $amountToPayUsd;
-                // Si tienes un subtotal_usd en la tabla orders, agrégalo aquí:
-                // $order->subtotal_usd = $amountToPayUsd; 
+                $order->total_usd = $amountToPayUsd + $feeUsd;
             }
-            // ------------------------------------------
 
-            $order->status = 0; 
+            $order->status = 0;
             $order->created_at = date('Y-m-d H:i:s');
-            
-            if (!$order->save()) throw new \Exception('Error al crear la orden de pago: ' . json_encode($order->getErrors()));
 
-            // B. Crear el Ítem del Detalle
-            $item = new \app\models\OrderItems();
-            $item->order_id = $order->id;
-            $item->service_id = 9999;
-            $item->service_name = $concept;
-            $item->unit_price = $amountToPayCop;
-            $item->total = $amountToPayCop;
-            
-            // Si tu tabla order_items tiene soporte para USD, lo llenamos:
-            if ($order->currency === 'USD' && $item->hasAttribute('total_usd')) {
-                $item->unit_price_usd = $amountToPayUsd;
-                $item->total_usd = $amountToPayUsd;
+            if (!$order->save())
+                throw new \Exception('Error al crear la orden de pago: ' . json_encode($order->getErrors()));
+
+            // B. Crear el Ítem 1: El Anticipo del Proyecto
+            $item1 = new \app\models\OrderItems();
+            $item1->order_id = $order->id;
+            $item1->service_id = 9999;
+            $item1->service_name = $concept;
+            $item1->unit_price = $amountToPayCop;
+            $item1->total = $amountToPayCop;
+
+            // CORRECCIÓN 1: Usamos subtotal_usd según tu BD
+            if ($order->currency === 'USD') {
+                $item1->unit_price_usd = $amountToPayUsd;
+                $item1->total_usd = $amountToPayUsd;
+            }
+            $item1->action_type = 'payment';
+
+            if (!$item1->save())
+                throw new \Exception('Error al crear ítem de anticipo: ' . json_encode($item1->getErrors()));
+
+            // C. Crear el Ítem 2: Recargo de PayPal (SOLO SI ES USD)
+            if ($order->currency === 'USD' && $feeUsd > 0) {
+                $item2 = new \app\models\OrderItems();
+                $item2->order_id = $order->id;
+                $item2->service_id = 9998; // ID reservado para comisiones
+                $item2->service_name = "Recargo Procesamiento Internacional (PayPal)";
+                $item2->unit_price = $feeCop;
+                $item2->total = $feeCop;
+
+                // CORRECCIÓN 2: Ajustamos a la BD
+                $item2->unit_price_usd = $feeUsd;
+                $item2->total_usd = $feeUsd;
+                $item2->action_type = 'payment'; // Usamos 'payment' porque sí está en tu ENUM
+
+                if (!$item2->save())
+                    throw new \Exception('Error al crear ítem de comisión: ' . json_encode($item2->getErrors()));
             }
 
-            $item->action_type = 'payment'; 
-            
-            if (!$item->save()) throw new \Exception('Error al crear el detalle del ítem: ' . json_encode($item->getErrors()));
-
-            // C. ACTUALIZAR LA ORDEN DE TRABAJO
+            // D. ACTUALIZAR LA ORDEN DE TRABAJO
             $workOrder->down_payment_sent_at = date('Y-m-d H:i:s');
-            if (!$workOrder->save(false)) throw new \Exception('Error actualizando estado de OT.');
+            if (!$workOrder->save(false))
+                throw new \Exception('Error actualizando estado de OT.');
 
             $transaction->commit();
 
-            // D. ENVIAR EL EMAIL DE COBRO
+            // E. ENVIAR EL EMAIL DE COBRO
             $this->sendPaymentRequestEmail($order, $workOrder);
 
-            Yii::$app->session->setFlash('success', 'Orden de pago generada y correo enviado al cliente.');
+            Yii::$app->session->setFlash('success', 'Orden de pago generada con recargo internacional y enviada al cliente.');
             return $this->redirect(['view', 'id' => $workOrder->id]);
 
         } catch (\Exception $e) {
@@ -619,21 +654,26 @@ class WorkOrdersController extends Controller
         try {
             $customer = $order->customer;
             $paymentLink = \yii\helpers\Url::to(['orders/view', 'id' => $order->id], true); // Link absoluto
-            
-            $subject = "Pago Requerido - Orden de Trabajo #{$workOrder->id}";
+
+            $isUsd = $workOrder->currency === 'USD';
+            $currencySuffix = $isUsd ? ' USD' : ' COP';
+            $displayTotal = $isUsd ? ($order->total_usd ?? $order->total) : $order->total;
+
+            $subject = "Pago Requerido - Orden de Trabajo {$workOrder->code}";
             Yii::$app->mailer->compose([
                 'html' => 'payment_request-html'
-            ],[
+            ], [
                 'business_name' => $customer->business_name,
-                'work_order_id' => $workOrder->id,
-                'order_total' => Yii::$app->formatter->asCurrency($order->total),
-                'paymentLink' => $paymentLink
+                'work_order_id' => $workOrder->code,
+                'order_total' => Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix,
+                'paymentLink' => $paymentLink,
+                'payment_method' => ($isUsd) ? 'PayPal' : 'Wompi (Nequi, Tarjetas, PSE)'
             ])
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-            ->setTo($customer->email)
-            ->setBcc(Yii::$app->params['adminEmail'])
-            ->setSubject($subject)
-            ->send();
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setTo($customer->email)
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->setSubject($subject)
+                ->send();
         } catch (\Exception $e) {
             Yii::error("Error enviando email de cobro OT: " . $e->getMessage());
         }
@@ -642,7 +682,7 @@ class WorkOrdersController extends Controller
     public function actionClose($id)
     {
         $model = $this->findModel($id);
-        
+
         // Verificamos que sea POST y que la orden esté en estado correcto
         if ($this->request->isPost && $model->status === WorkOrders::STATUS_APPROVED) {
 
@@ -650,7 +690,7 @@ class WorkOrdersController extends Controller
             $model->completed_at = date('Y-m-d H:i:s');
 
             if ($model->save()) {
-                
+
                 // Lógica de Notificación
                 if ($this->request->post('notify_client')) {
                     Yii::$app->mailer->compose(['html' => 'workOrderClosed-html'], ['model' => $model])
@@ -659,7 +699,7 @@ class WorkOrdersController extends Controller
                         ->setBcc(Yii::$app->params['adminEmail'])
                         ->setSubject('¡Trabajo Finalizado! Orden #' . $model->code)
                         ->send();
-                        
+
                     Yii::$app->session->setFlash('success', 'Orden cerrada y notificación enviada.');
                 } else {
                     Yii::$app->session->setFlash('success', 'Orden cerrada correctamente (sin notificación).');
@@ -713,25 +753,27 @@ class WorkOrdersController extends Controller
         $update->replied_by = Yii::$app->user->id; // Aquí queda el rastro exacto de quién respondió (Ideal para las subcuentas)
 
         if ($update->save(false)) { // false evita validaciones extrañas del modelo si no tienes rules strictas configuradas para estos campos
-            
+
             Yii::$app->session->setFlash('success', 'Tu respuesta ha sido registrada correctamente en la bitácora.');
 
             // 5. Notificación al equipo de ATSYS
             $workOrder = \app\models\WorkOrders::findOne($id);
-            
+
             if ($workOrder) {
                 try {
-                    Yii::$app->mailer->compose([
-                        'html' => 'workOrderReply-html'
-                    ],
-                    [
-                        'model' => $workOrder,
-                        'update' => $update,
-                    ])
-                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                    ->setTo(Yii::$app->params['adminEmail'])
-                    ->setSubject('Nueva respuesta del cliente - ' . $workOrder->code)
-                    ->send();
+                    Yii::$app->mailer->compose(
+                        [
+                            'html' => 'workOrderReply-html'
+                        ],
+                        [
+                            'model' => $workOrder,
+                            'update' => $update,
+                        ]
+                    )
+                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                        ->setTo(Yii::$app->params['adminEmail'])
+                        ->setSubject('Nueva respuesta del cliente - ' . $workOrder->code)
+                        ->send();
                 } catch (\Exception $e) {
                     // Si falla el correo/webhook, no bloqueamos al cliente, solo registramos el error en los logs
                     Yii::error('Error enviando notificación de respuesta OT: ' . $e->getMessage());

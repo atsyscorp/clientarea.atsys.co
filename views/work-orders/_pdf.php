@@ -23,7 +23,8 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
     <tr>
         <td width="60%">
             <div class="company-name">
-                <img src="<?= Yii::getAlias('@webroot') . '/images/atsys-logo-src-clear-2026.png' ?>" alt="ATSYS" class="company-logo" style="width:110px;">
+                <img src="<?= Yii::getAlias('@webroot') . '/images/atsys-logo-src-clear-2026.png' ?>" alt="ATSYS"
+                    class="company-logo" style="width:110px;">
             </div>
             <div class="company-slogan">Trascendemos</div>
         </td>
@@ -122,7 +123,7 @@ $displayTotal = $isUsd ? ($model->total_cost_usd ?? round($model->total_cost / $
             <div class="total-amount">
                 <?= Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix ?>
             </div>
-            
+
             <?php if ($isUsd && !empty($model->exchange_rate)): ?>
                 <div style="font-size: 10px; color: #666; margin-top: 5px;">
                     Tasa de cambio pactada (TRM): <?= Yii::$app->formatter->asCurrency($model->exchange_rate) ?> COP
