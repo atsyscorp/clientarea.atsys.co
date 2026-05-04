@@ -117,16 +117,20 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
                                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                             <div>
-                                <h3 class="font-bold">Aviso de Fin de Semana</h3>
-                                <div class="text-xs">Para garantizar la activación inmediata de tu servicio durante el fin de
-                                    semana, por favor realiza una transferencia directa escaneando el código QR.</div>
+                                <?php /*
+                                                     <h3 class="font-bold">Aviso de Fin de Semana</h3>
+                                                     <div class="text-xs">Para garantizar la activación inmediata de tu servicio durante el fin de
+                                                         semana, por favor realiza una transferencia directa escaneando el código QR.</div>
+                                                     */ ?>
+                                <h3 class="font-bold">Aviso importante</h3>
+                                <div class="text-xs">Wompi está desactivado temporalmente hasta nuevo aviso, por favor realiza una
+                                    transferencia directa escaneando el código QR.</div>
                             </div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-base-50 p-6 rounded-2xl border border-base-200">
                             <div class="flex flex-col justify-center items-center">
                                 <h4 class="font-bold text-lg text-primary mb-4">Escanea para pagar</h4>
-                                <!-- Reemplaza 'qr-atsys.png' con el nombre de tu imagen real -->
                                 <img src="<?= Yii::getAlias('@web') ?>/images/qr-atsys.jpg" alt="Código QR ATSYS"
                                     class="w-48 h-48 object-cover rounded-xl shadow-md border-2 border-primary/20">
                                 <p class="text-xs text-center mt-3 opacity-70">Llave Bre-B 0090212060</p>
@@ -151,8 +155,11 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
 
                                 <div class="mt-6">
                                     <!-- Botón para reportar el pago. Puedes apuntar a tu sistema de tickets o a un modal -->
-                                    <a href="<?= Url::to(['/tickets/create', 'subject' => 'Reporte de Pago OT-' . $model->id]) ?>"
-                                        class="btn btn-outline btn-primary btn-block">
+                                    <a href="<?= Url::to([
+                                        '/tickets/create',
+                                        'subject' => 'Reporte de Pago OT-' . $model->id,
+                                        'department' => 'commercial'
+                                    ]) ?>" class="btn btn-outline btn-primary btn-block">
                                         Ya pagué, enviar comprobante
                                     </a>
                                 </div>

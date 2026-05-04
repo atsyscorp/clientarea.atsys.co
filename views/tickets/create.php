@@ -175,7 +175,12 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     \app\models\Tickets::getDepartmentList(),
                     [
                         'class' => 'select select-bordered w-full',
-                        'prompt' => 'Seleccione un departamento...'
+                        'prompt' => 'Seleccione un departamento...',
+                        'options' => [
+                            Yii::$app->request->get('department', 0) => [
+                                'selected' => true
+                            ]
+                        ]
                     ]
                 )->label(false) ?>
             </div>

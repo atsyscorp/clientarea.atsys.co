@@ -43,7 +43,8 @@ class OrdersController extends Controller
         $dayOfWeek = (int) $date->format('N');
 
         // Consideramos "Fin de semana" desde el Viernes (5) hasta el Domingo (7)
-        $isWeekend = ($dayOfWeek >= 5 && $dayOfWeek <= 7);
+        //$isWeekend = ($dayOfWeek >= 5 && $dayOfWeek <= 7);
+        $isWeekend = true;
         // -----------------------------------------
 
         $viewParams = [
