@@ -202,9 +202,9 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     $avatarFirst = '👤';
 
                     if ($isSupportFirst) {
-                        $nameFirst = 'Soporte ATSYS';
+                        $nameFirst = ($model->department === 'support') ? 'Soporte' : (($model->department === 'sales') ? 'Comercial' : 'ATSYS');
                         $avatarFirst = '🛡️';
-                        $badgeRolFirst = '<span class="badge badge-primary badge-xs ml-2">Soporte</span>';
+                        $badgeRolFirst = '<span class="badge badge-primary badge-xs ml-2">' . $nameFirst . '</span>';
                     } else {
                         // Intentamos obtener el usuario que envió la respuesta
                         $senderUserFirst = $firstReply->user;
@@ -279,9 +279,9 @@ $this->registerJs($js, \yii\web\View::POS_END);
                         $avatar = '👤';
 
                         if ($isSupport) {
-                            $name = 'Soporte ATSYS';
+                            $name = ($model->department === 'support') ? 'Soporte' : (($model->department === 'sales') ? 'Comercial' : 'ATSYS');
                             $avatar = '🛡️';
-                            $badgeRol = '<span class="badge badge-primary badge-xs ml-2">Soporte</span>';
+                            $badgeRol = '<span class="badge badge-primary badge-xs ml-2">' . ucfirst($name) . '</span>';
                         } else {
                             $senderUser = $reply->user;
 
