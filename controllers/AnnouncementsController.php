@@ -4,6 +4,7 @@ namespace app\controllers;
 
 use Yii;
 use app\models\Announcements;
+use app\models\Customers;
 use yii\data\ActiveDataProvider;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -32,7 +33,7 @@ class AnnouncementsController extends Controller
                     ],
                     [
                         'allow' => true,
-                        'actions' => ['create', 'update', 'delete'], 
+                        'actions' => ['create', 'update', 'delete', 'send-mail'],
                         'roles' => ['@'],
                         'matchCallback' => function ($rule, $action) {
                             return !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
@@ -105,7 +106,7 @@ class AnnouncementsController extends Controller
     public function actionReact()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
+
         $announcementId = Yii::$app->request->post('id');
         $type = Yii::$app->request->post('type'); // 'like', 'love', etc.
         $userId = Yii::$app->user->id;
@@ -123,8 +124,9 @@ class AnnouncementsController extends Controller
                 return ['status' => 'removed'];
             } else {
                 // Si es diferente, ACTUALIZAMOS (de Like a Love, por ejemplo)
-                Yii::$app->db->createCommand()->update('announcement_reactions', 
-                    ['reaction_type' => $type], 
+                Yii::$app->db->createCommand()->update(
+                    'announcement_reactions',
+                    ['reaction_type' => $type],
                     ['id' => $existing['id']]
                 )->execute();
                 return ['status' => 'updated'];
@@ -146,17 +148,17 @@ class AnnouncementsController extends Controller
     public function actionCreate()
     {
         $model = new Announcements();
-        
+
         // Valores por defecto
         $model->is_active = 1;
-        $model->type = 'info'; 
+        $model->type = 'info';
 
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
-                
+
                 // Asignar creador automáticamente
                 $model->created_by = Yii::$app->user->id;
-                
+
                 if ($model->save()) {
                     Yii::$app->session->setFlash('success', 'Comunicado publicado correctamente.');
                     return $this->redirect(['index']);
@@ -181,7 +183,7 @@ class AnnouncementsController extends Controller
         if ($this->request->isPost && $model->load($this->request->post())) {
             // Opcional: Actualizar updated_at si no lo hace la BD automáticamente
             // $model->updated_at = date('Y-m-d H:i:s');
-            
+
             if ($model->save()) {
                 Yii::$app->session->setFlash('success', 'Comunicado actualizado.');
                 return $this->redirect(['index']);
@@ -215,5 +217,52 @@ class AnnouncementsController extends Controller
         }
 
         throw new NotFoundHttpException('La página solicitada no existe.');
+    }
+
+    public function actionSendMail($id)
+    {
+        $model = $this->findModel($id);
+
+        // Iterar usando cursores por lotes (batch) para no saturar la memoria
+        $clientsQuery = Customers::find();
+
+        $enviados = 0;
+        $errores = 0;
+
+        foreach ($clientsQuery->each(10) as $client) {
+            try {
+                // Asegúrate de que Yii::$app->params['adminEmail'] esté configurado 
+                // con el correo administrativo oficial (ej. gerencia@atsys.co)
+                $sent = Yii::$app->mailer->compose([
+                    'html' => 'clean',
+                ], [
+                    'model' => $model
+                ])
+                    ->setFrom([Yii::$app->params['adminEmail'] => Yii::$app->name])
+                    ->setTo($client->email)
+                    ->setBcc([Yii::$app->params['adminEmail']])
+                    ->setSubject("Comunicado - " . $model->title)
+                    ->send();
+
+                if ($sent) {
+                    $enviados++;
+                } else {
+                    $errores++;
+                }
+            } catch (\Exception $e) {
+                // Registrar el error silenciosamente en los logs de Yii
+                Yii::error("Fallo al enviar comunicado a {$client->email}: " . $e->getMessage(), 'email');
+                $errores++;
+            }
+        }
+
+        // Feedback detallado en la interfaz
+        if ($errores > 0) {
+            Yii::$app->session->setFlash('warning', "Envío completado: {$enviados} exitosos, {$errores} con errores. Revisa los logs.");
+        } else {
+            Yii::$app->session->setFlash('success', "Comunicado enviado exitosamente a todos los clientes ({$enviados}).");
+        }
+
+        return $this->redirect(['index']);
     }
 }
