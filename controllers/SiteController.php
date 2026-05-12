@@ -394,4 +394,17 @@ class SiteController extends Controller
         Yii::$app->queue->push($job);
         echo "Job enviado a la cola correctamente.";
     }
+
+    public function actionUpdateTheme()
+    {
+        if (Yii::$app->request->isPost && !Yii::$app->user->isGuest) {
+            $theme = Yii::$app->request->post('theme');
+            $user = Yii::$app->user->identity;
+            $user->theme_preference = $theme;
+            if ($user->save(false)) {
+                return $this->asJson(['success' => true]);
+            }
+        }
+        return $this->asJson(['success' => false]);
+    }
 }

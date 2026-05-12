@@ -60,6 +60,9 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
 
+    const currentHtmlTheme = document.documentElement.getAttribute('data-theme');
+    const isDarkMode = currentHtmlTheme === 'dark';
+
     const getCsrf = () => {
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         const param = document.querySelector('meta[name="csrf-param"]')?.getAttribute('content');
@@ -73,10 +76,10 @@ document.addEventListener("DOMContentLoaded", function() {
         menubar: false,
         statusbar: false,
         language: 'es',
+        skin: isDarkMode ? 'oxide-dark' : 'oxide',
+        content_css: isDarkMode ? 'dark' : 'default',
         plugins: 'lists link autolink fullscreen image code',
         toolbar: 'bold italic underline | bullist numlist | link image | removeformat | fullscreen | blockquote',
-        skin: 'oxide',
-        content_css: 'default',
         branding: false,
         setup: function (editor) {
             editor.on('change', function () {
@@ -194,7 +197,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     $isSupportFirst = ($firstReply->sender_type === 'admin');
                     $alignmentFirst = $isSupportFirst ? 'chat-end' : 'chat-start';
                     $darkLinkFirst = $isSupportFirst ? true : false;
-                    $bubbleColorFirst = $isSupportFirst ? 'chat-bubble-primary text-primary-content' : 'bg-white text-base-content border border-base-300';
+                    $bubbleColorFirst = $isSupportFirst ? 'chat-bubble-primary text-primary-content' : 'dark:bg-base-300 dark:text-base-content bg-white text-base-content border border-base-300';
 
                     // --- LÓGICA DE IDENTIFICACIÓN: PRIMER MENSAJE ---
                     $nameFirst = 'Usuario Desconocido';
@@ -271,7 +274,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                         $isSupport = ($reply->sender_type === 'admin');
                         $alignment = $isSupport ? 'chat-end' : 'chat-start';
                         $darkLink = $isSupport ? true : false;
-                        $bubbleColor = $isSupport ? 'chat-bubble-primary text-primary-content' : 'bg-white text-base-content border border-base-300';
+                        $bubbleColor = $isSupport ? 'chat-bubble-primary text-primary-content' : 'dark:bg-base-300 dark:text-base-content bg-white text-base-content border border-base-300';
 
                         // --- LÓGICA DE IDENTIFICACIÓN: RESPUESTAS ---
                         $name = 'Usuario Desconocido';

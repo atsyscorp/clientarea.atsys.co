@@ -1,11 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // AQUÍ es donde Tailwind busca qué clases usaste.
-  // Si estas rutas no coinciden, tu CSS saldrá vacío.
   content: [
     "./views/**/*.php",
     "./widgets/**/*.php",
-    "./layouts/**/*.php",
+    "./views/layouts/**/*.php",
     "./web/js/**/*.js",
   ],
   safelist: [
@@ -22,36 +20,50 @@ module.exports = {
     extend: {},
   },
   plugins: [
-    require("daisyui"), // Activamos el plugin
+    require("daisyui"),
   ],
-  // Configuración opcional de DaisyUI
   daisyui: {
     themes: [
       {
-        atsys_theme: { // Nombre de tu tema personalizado
-
-          // TU COLOR PRINCIPAL (El que quieres cambiar)
-          "primary": "#134C42",  // <--- Pon aquí tu código HEX (ej: Azul índigo)
-          "primary-content": "#ffffff", // Color del texto sobre el botón primario (Blanco)
-
-          "secondary": "#D926A9", // Color secundario (Opcional)
-          "accent": "#1FB2A6",    // Color de acento (Opcional)
-
-          "neutral": "#2a323c",   // Color oscuro para textos/fondos neutros
-          "base-100": "#ffffff",  // Color de fondo de la página (Blanco)
-          "base-200": "#F2F2F2",  // Color de fondo secundario (Gris muy claro)
-          "base-300": "#E5E6E6",  // Color de bordes
-
+        atsys_theme: {
+          "color-scheme": "light",
+          "primary": "#134C42",
+          "primary-content": "#ffffff",
+          "secondary": "#D926A9",
+          "accent": "#1FB2A6",
+          "neutral": "#2a323c",
+          "base-100": "#ffffff",
+          "base-200": "#F2F2F2",
+          "base-300": "#E5E6E6",
           "info": "#3ABFF8",
           "success": "#36D399",
           "warning": "#FBBD23",
           "error": "#F87272",
-        },
+        }
       },
-      "light", // Tema de respaldo
+      {
+        atsys_dark: {
+          "color-scheme": "dark",
+          "primary": "#134C42",
+          "primary-content": "#ffffff",
+          "secondary": "#1a5e52",
+          "accent": "#2dd4bf",
+          "neutral": "#111827",
+          "neutral-content": "#9ca3af",
+          "base-100": "#0d1117",
+          "base-200": "#161b22",
+          "base-300": "#21262d",
+          "base-content": "#ebedef",
+          "info": "#3abff8",
+          "success": "#36d399",
+          "warning": "#fbbd23",
+          "error": "#f87272",
+        }
+      },
+      "light",
     ],
-    base: true,        // Aplica estilos base al <body>
-    styled: true,      // Aplica estilos a componentes
-    utils: true,       // Agrega clases de utilidad responsive
+    base: true,
+    styled: true,
+    utils: true,
   },
 }

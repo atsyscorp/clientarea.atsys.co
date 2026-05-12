@@ -11,20 +11,70 @@ AppAsset::register($this);
 // Nos aseguramos de tener el meta viewport para móviles
 $this->registerCsrfMetaTags();
 $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, initial-scale=1, shrink-to-fit=no']);
+$currentTheme = (!Yii::$app->user->isGuest)
+    ? Yii::$app->user->identity->theme_preference
+    : 'light';
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>
-<html lang="<?= Yii::$app->language ?>" data-theme="atsys_theme">
+<html lang="<?= Yii::$app->language ?>" data-theme="<?= Html::encode($currentTheme) ?>">
 
 <head>
     <meta charset="<?= Yii::$app->charset ?>">
     <title><?= Html::encode($this->title) ?></title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#134C42">
+    <style>
+        .swap {
+            position: relative;
+            display: inline-grid;
+            user-select: none;
+            place-content: center;
+            cursor: pointer;
+        }
+
+        .swap>* {
+            grid-column-start: 1;
+            grid-row-start: 1;
+            transition-duration: 300ms;
+            transition-property: transform, opacity;
+        }
+
+        .swap input {
+            appearance: none;
+            opacity: 0;
+            position: absolute;
+        }
+
+        .swap .swap-on,
+        .swap .swap-indeterminate {
+            opacity: 0;
+        }
+
+        .swap input:checked~.swap-on {
+            opacity: 1;
+        }
+
+        .swap input:checked~.swap-off {
+            opacity: 0;
+        }
+
+        .swap-rotate .swap-on {
+            transform: rotate(45deg);
+        }
+
+        .swap-rotate input:checked~.swap-on {
+            transform: rotate(0deg);
+        }
+
+        .swap-rotate input:checked~.swap-off {
+            transform: rotate(-45deg);
+        }
+    </style>
     <?php $this->head() ?>
 </head>
 
-<body>
+<body class="bg-base-100 text-base-content min-h-screen">
     <?php $this->beginBody() ?>
 
     <div class="drawer lg:drawer-open"> <input id="my-drawer" type="checkbox" class="drawer-toggle" />
@@ -46,8 +96,141 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                         <li><a href="/">Inicio</a></li>
                     </ul>
                 </div>
-                <div class="flex-none hidden lg:block">
-                    <ul class="menu menu-horizontal">
+
+                <div class="flex-none hidden lg:flex items-center gap-2 mr-4">
+
+                    <label class="btn btn-ghost btn-circle">
+                        <input type="checkbox" id="theme-toggle" class="hidden" <?= $currentTheme === 'dark' ? 'checked' : '' ?> />
+
+                        <svg
+                            class="fill-current w-5 h-5 swap-on <?= $currentTheme === 'dark' ? '' : 'hidden' ?>"
+                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path
+                                d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z" />
+                        </svg>
+
+                        <svg
+                            class="fill-current w-5 h-5 swap-off <?= $currentTheme === 'dark' ? 'hidden' : '' ?>"
+                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path
+                                d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z" />
+                        </svg>
+                    </label>
+
+                    <script>
+                        document.getElementById('theme-toggle').addEventListener('change', (e) => {
+                            const isDark = e.target.checked;
+                            const newTheme = isDark ? 'dark' : 'light';
+
+                            // 1. Cambio visual inmediato
+                            document.documentElement.setAttribute('data-theme', newTheme);
+
+                            // 2. Ocultar/Mostrar íconos manualmente (evitando el crash)
+                            const sun = document.querySelector('.swap-on');
+                            const moon = document.querySelector('.swap-off');
+                            if(sun && moon) {
+                                sun.classList.toggle('hidden', !isDark);
+                                moon.classList.toggle('hidden', isDark);
+                            }
+
+                            if (typeof tinymce !== 'undefined' && tinymce.activeEditor) {
+                                // Guardamos lo que el usuario haya escrito
+                                const currentContent = tinymce.activeEditor.getContent();
+                                // Guardamos el ID del textarea
+                                const editorId = tinymce.activeEditor.id; 
+                                
+                                // Destruimos la instancia actual
+                                tinymce.remove(); 
+                                
+                                // Volvemos a inicializar con el nuevo tema
+                                tinymce.init({
+                                    selector: '#' + editorId,
+                                    height: 300,
+                                    menubar: false,
+                                    statusbar: false,
+                                    language: 'es',
+                                    skin: isDark ? 'oxide-dark' : 'oxide',
+                                    content_css: isDark ? 'dark' : 'default',
+                                    plugins: 'lists link autolink fullscreen image code',
+                                    toolbar: 'bold italic underline | bullist numlist | link image | removeformat | fullscreen | blockquote',
+                                    branding: false,
+                                    setup: function (editor) {
+                                        editor.on('change', function () {
+                                            editor.save();
+                                        });
+                                    },
+                                    paste_data_images: true,
+                                    automatic_uploads: true,
+                                    paste_preprocess: (plugin, args) => {
+                                        if (args.content.indexOf('src="data:image') !== -1) {
+                                            args.content = args.content.replace(/<img[^>]*src="data:image[^>]*>/gi, ' [Imagen bloqueada: Por favor usa el botón de subir imagen] ');
+                                            alert("No se permite pegar imágenes directamente. Por favor, usa la opción de 'Insertar Imagen'.");
+                                        }
+                                    },
+                                    images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
+                                        const xhr = new XMLHttpRequest();
+                                        xhr.withCredentials = false;
+                                        var data = {};
+                                        xhr.open('POST', '/tickets/upload-image', true);
+
+                                        const csrf = getCsrf();
+                                        if (csrf.token) {
+                                            xhr.setRequestHeader("X-CSRF-Token", csrf.token);
+                                        }
+
+                                        xhr.upload.onprogress = (e) => {
+                                            progress(e.loaded / e.total * 100);
+                                        };
+
+                                        xhr.onload = () => {
+                                            if (xhr.status < 200 || xhr.status >= 300) {
+                                                reject('Error del servidor (Código: ' + xhr.status + ')');
+                                                return;
+                                            }
+
+                                            const json = JSON.parse(xhr.responseText);
+
+                                            if (json && json.error) {
+                                                reject(json.error); 
+                                                return;
+                                            }
+
+                                            if (!json || typeof json.location != 'string') {
+                                                reject('Respuesta del servidor inválida');
+                                                return;
+                                            }
+
+                                            resolve(json.location);
+                                        };
+
+                                        xhr.onerror = () => {
+                                            reject('Error de red o conexión fallida.');
+                                        };
+
+                                        const formData = new FormData();
+                                        if (csrf.param) {
+                                            formData.append(csrf.param, csrf.token);
+                                        }
+                                        formData.append('file', blobInfo.blob(), blobInfo.filename());
+                                        xhr.send(formData);
+                                    })
+                                });
+                            }
+                            // --------------------------------------------------
+
+                            // 3. Persistencia
+                            const formData = new FormData();
+                            formData.append('theme', newTheme);
+                            formData.append('<?= Yii::$app->request->csrfParam ?>', '<?= Yii::$app->request->csrfToken ?>');
+
+                            fetch('<?= \yii\helpers\Url::to(['/site/update-theme']) ?>', {
+                                method: 'POST',
+                                body: formData
+                            });
+                        });
+                    </script>
+
+                    <ul class="menu menu-horizontal px-0">
                         <li><a href="/profile">Perfil</a></li>
                     </ul>
                 </div>
@@ -397,7 +580,6 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
             });
         </script>
     <?php endif; ?>
-
     <?php $this->endBody() ?>
 </body>
 
