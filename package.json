@@ -8,17 +8,15 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npx tailwindcss -i ./web/css/site_src.css -o ./web/css/site.css -c ./tailwind.config.js --watch"
+    "build": "npx @tailwindcss/cli -i ./web/css/site_src.css -o ./web/css/site.css --watch"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "autoprefixer": "^10.4.23",
+    "daisyui": "^5.5.19",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17"
-  },
-  "dependencies": {
-    "daisyui": "^4.12.10"
   }
 }

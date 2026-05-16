@@ -4,7 +4,7 @@ module.exports = {
     "./views/**/*.php",
     "./widgets/**/*.php",
     "./views/layouts/**/*.php",
-    "./web/js/**/*.js",
+    "./web/js/**/*.js"
   ],
   safelist: [
     'chat',
@@ -25,7 +25,7 @@ module.exports = {
   daisyui: {
     themes: [
       {
-        atsys_theme: {
+        light: {
           "color-scheme": "light",
           "primary": "#134C42",
           "primary-content": "#ffffff",
@@ -42,7 +42,7 @@ module.exports = {
         }
       },
       {
-        atsys_dark: {
+        dark: {
           "color-scheme": "dark",
           "primary": "#134C42",
           "primary-content": "#ffffff",
@@ -60,7 +60,6 @@ module.exports = {
           "error": "#f87272",
         }
       },
-      "light",
     ],
     base: true,
     styled: true,
