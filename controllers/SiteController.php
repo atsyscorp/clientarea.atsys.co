@@ -290,7 +290,15 @@ class SiteController extends Controller
             $customer = $user->customer;
         }
 
-        if ($this->request->isPost) {
+        if ($this->request->isPost && $model->load(Yii::$app->request->post())) {
+            if(!$model->save()) {
+                Yii::$app->session->setFlash('error', 'No pudimos actualizar tu perfil: ' . json_encode($model->getErrors()));
+            } else {
+                Yii::$app->session->setFlash('success', 'Perfil actualizado correctamente.');
+                Yii::$app->session->remove('whatsapp_otp');
+                Yii::$app->session->remove('whatsapp_mobile');
+            }
+            /*
             if (Yii::$app->session->has('whatsapp_otp') && Yii::$app->session->has('whatsapp_mobile')) {
 
                 if (Yii::$app->request->post('ProfileForm')['otp'] == Yii::$app->session['whatsapp_otp']) {
@@ -324,6 +332,8 @@ class SiteController extends Controller
                 }
 
             }
+            */
+
             return $this->refresh();
         }
 

@@ -97,7 +97,7 @@ $("#profile-form").on("beforeSubmit", function (e) {
                                     'autocomplete' => 'off',
                                 ]
                             ]) ?>
-                            <small>Se enviará un código de verificación al nuevo número de teléfono para confirmar el cambio.</small>
+                            <?php /*<small>Se enviará un código de verificación al nuevo número de teléfono para confirmar el cambio.</small>*/ ?>
                         </div>
                         <?php } ?>
 

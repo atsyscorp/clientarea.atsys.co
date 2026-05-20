@@ -23,6 +23,7 @@ class ProfileForm extends Model
     {
         $this->_user = $user;
         $this->username = $user->username; // O 'name', según tu tabla
+        $this->mobile = $user->mobile;
         $this->email = $user->email;
         parent::__construct($config);
     }
@@ -76,6 +77,9 @@ class ProfileForm extends Model
             $user->setPassword($this->password);
         }
 
+        $user->mobile = $this->mobile;
+
+        /*
         if ($this->mobile != $user->mobile) {
 
             if (!$this->otpVerified) {
@@ -100,6 +104,7 @@ class ProfileForm extends Model
             }
 
         }
+        */
 
         return $user->save();
     }
