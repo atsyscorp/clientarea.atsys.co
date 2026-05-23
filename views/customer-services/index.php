@@ -86,8 +86,13 @@ $this->title = $isAdmin ? 'Gestión Global de Servicios' : 'Mis Servicios Contra
 
                     [
                         'class' => 'yii\grid\ActionColumn',
-                        'template' => '{update} {delete}',
+                        'template' => '{view} {update} {delete}',
                         'buttonOptions' => ['class' => 'btn btn-ghost btn-xs'],
+                        'visibleButtons' => [
+                            'view' => function ($model, $key, $index) {
+                                return $model->product->type == 'hosting';
+                            }
+                        ]
                     ],
                 ],
             ]); ?>
@@ -314,6 +319,11 @@ $this->title = $isAdmin ? 'Gestión Global de Servicios' : 'Mis Servicios Contra
                         </div>
                         */ ?>
 
+                        <?php if ($model->product->type == 'hosting'): ?>
+                            <div class="card-actions justify-end mt-4">
+                                <?= Html::a('Ver Detalle / Consumo ↗', ['view', 'id' => $model->id], ['class' => 'btn btn-primary btn-sm btn-outline shadow-sm']) ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 

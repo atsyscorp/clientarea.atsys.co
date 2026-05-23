@@ -8,7 +8,7 @@
  * https://raw.githubusercontent.com/apache/httpd/refs/heads/trunk/docs/conf/mime.types
  * This file has been placed in the public domain for unlimited redistribution.
  *
- * All extra changes made to this file must be comitted to /build/controllers/MimeTypeController.php
+ * All extra changes made to this file must be committed to /build/controllers/MimeTypeController.php
  * otherwise they will be lost on next build.
  */
 $mimeTypes = [
@@ -316,6 +316,10 @@ $mimeTypes = [
     'hal' => 'application/vnd.hal+xml',
     'hbci' => 'application/vnd.hbci',
     'hdf' => 'application/x-hdf',
+    'heic' => 'image/heic',
+    'heics' => 'image/heic-sequence',
+    'heif' => 'image/heif',
+    'heifs' => 'image/heif-sequence',
     'hh' => 'text/x-c',
     'hlp' => 'application/winhlp',
     'hpgl' => 'application/vnd.hp-hpgl',
@@ -759,6 +763,8 @@ $mimeTypes = [
     'spq' => 'application/scvp-vp-request',
     'spx' => 'audio/ogg',
     'sql' => 'application/x-sql',
+    'sqlite' => 'application/vnd.sqlite3',
+    'sqlite3' => 'application/vnd.sqlite3',
     'src' => 'application/x-wais-source',
     'srt' => 'application/x-subrip',
     'sru' => 'application/sru+xml',

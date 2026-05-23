@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", function() {
         return { token, param };
     };
 
+    const isDarkMode = document.documentElement.classList.contains('dark');
     tinymce.remove('#tickets-message'); // Limpieza preventiva por si usas Pjax
     tinymce.init({
         selector: '#tickets-message', // Debe coincidir con el ID de arriba
@@ -36,8 +37,8 @@ document.addEventListener("DOMContentLoaded", function() {
         language: 'es', // Intenta cargar español, si falla usará inglés
         plugins: 'lists link autolink fullscreen image code', // Plugins básicos
         toolbar: 'bold italic underline | bullist numlist | link image | removeformat | fullscreen | blockquote', // Herramientas limpias
-        skin: 'oxide', // Tema claro estándar
-        content_css: 'default',
+        skin: isDarkMode ? 'oxide-dark' : 'oxide',
+        content_css: isDarkMode ? 'dark' : 'default',
         branding: false, // Quitar marca "Powered by TinyMCE"
         setup: function (editor) {
             // Esto asegura que el valor se guarde en el textarea al enviar el formulario

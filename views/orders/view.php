@@ -81,7 +81,8 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
                         <tr>
                             <td class="pl-0 text-right text-xl font-bold pt-4 text-base-content">TOTAL A PAGAR</td>
                             <td class="pr-0 text-right text-2xl font-black text-primary pt-4">
-                                <?= Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix ?>
+                                <span id="total-cop-display" class="total-display"><?= Yii::$app->formatter->asCurrency($model->total) ?> COP</span>
+                                <span id="total-usd-display" class="total-display hidden"><?= Yii::$app->formatter->asCurrency($totalUsd) ?> USD</span>
                             </td>
                         </tr>
                     </tfoot>
@@ -90,116 +91,125 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
         </div>
     </div>
 
+    <?php if ($model->status == 0): // Solo si está PENDIENTE ?>
+        <!-- Selector de moneda / Pasarelas de Pago -->
+        <div class="tabs tabs-boxed mb-6 justify-center bg-base-200 p-1 rounded-xl max-w-md mx-auto no-print">
+            <a id="tab-cop" class="tab tab-lg font-bold px-8 transition-all duration-200">🇨🇴 COP (Wompi, QR)</a>
+            <a id="tab-usd" class="tab tab-lg font-bold px-8 transition-all duration-200">🇺🇸 USD (PayPal)</a>
+        </div>
+    <?php endif; ?>
+
     <div class="card bg-base-100 shadow-xl mt-6 border border-base-200 relative z-0">
         <div class="card-body">
             <?php if ($model->status == 0): // Solo si está PENDIENTE ?>
 
-                <h3 class="font-bold text-lg mb-2">Finalizar Pago Seguro</h3>
-                <p class="text-sm mb-6 opacity-70">
-                    <?php if (!$isUsd): ?>
-                        <?php if (isset($isWeekend) && $isWeekend): ?>
-                        <?php else: ?>
-                            Aceptamos tarjetas de crédito/débito, PSE, Nequi y Bancolombia.
-                            <br>La transacción es procesada de forma segura por Wompi.
-                        <?php endif; ?>
-                    <?php else: ?>
-                        Aceptamos tarjetas de crédito/débito internacionales y saldo de PayPal.
-                        <br>La transacción es procesada de forma segura por PayPal.
-                    <?php endif; ?>
-                </p>
+                <div id="payment-cop-sec" class="payment-section">
+                    <h3 class="font-bold text-lg mb-2">Finalizar Pago Seguro en COP</h3>
+                    <p class="text-sm mb-6 opacity-70">
+                        Aceptamos tarjetas de crédito/débito, PSE, Nequi y Bancolombia.<br>
+                        La transacción es procesada de forma segura por Wompi.
+                    </p>
 
-                <?php if (!$isUsd && isset($wompi)): ?>
-                    <?php if ((isset($isWeekend) && $isWeekend)): ?>
-                        <div class="alert alert-warning shadow-lg mb-6 bg-warning/10 border border-warning/20">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 text-warning" fill="none"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <div>
-                                <?php /*
-                                                     <h3 class="font-bold">Aviso de Fin de Semana</h3>
-                                                     <div class="text-xs">Para garantizar la activación inmediata de tu servicio durante el fin de
-                                                         semana, por favor realiza una transferencia directa escaneando el código QR.</div>
-                                                     */ ?>
-                                <h3 class="font-bold">Aviso importante</h3>
-                                <div class="text-xs">Wompi está desactivado temporalmente hasta nuevo aviso, por favor realiza una
-                                    transferencia directa escaneando el código QR.</div>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-base-50 p-6 rounded-2xl border border-base-200">
-                            <div class="flex flex-col justify-center items-center">
-                                <h4 class="font-bold text-lg text-primary mb-4">Escanea para pagar</h4>
-                                <img src="<?= Yii::getAlias('@web') ?>/images/qr-atsys.jpg" alt="Código QR ATSYS"
-                                    class="w-48 h-48 object-cover rounded-xl shadow-md border-2 border-primary/20">
-                                <p class="text-xs text-center mt-3 opacity-70">Llave Bre-B 0090212060</p>
-                            </div>
-
-                            <div class="flex flex-col justify-center">
-                                <h4 class="font-bold text-lg mb-3">O transfiere a:</h4>
-                                <ul class="space-y-3 font-mono text-sm">
-                                    <li class="p-3 bg-base-100 rounded-lg border border-base-200">
-                                        <span class="opacity-60 block text-xs">Banco:</span>
-                                        <strong>Bancolombia Ahorros</strong>
-                                    </li>
-                                    <li class="p-3 bg-base-100 rounded-lg border border-base-200">
-                                        <span class="opacity-60 block text-xs">Número de Cuenta:</span>
-                                        <strong>639-685573-29</strong>
-                                    </li>
-                                    <li class="p-3 bg-base-100 rounded-lg border border-base-200">
-                                        <span class="opacity-60 block text-xs">A nombre de:</span>
-                                        <strong>Arkitech Systems SAS<br>NIT: 901.005.699-9</strong>
-                                    </li>
-                                </ul>
-
-                                <div class="mt-6">
-                                    <!-- Botón para reportar el pago. Puedes apuntar a tu sistema de tickets o a un modal -->
-                                    <a href="<?= Url::to([
-                                        '/tickets/create',
-                                        'subject' => 'Reporte de Pago OT-' . $model->id,
-                                        'department' => 'commercial'
-                                    ]) ?>" class="btn btn-outline btn-primary btn-block">
-                                        Ya pagué, enviar comprobante
-                                    </a>
+                    <?php if (isset($wompi)): ?>
+                        <?php if ((isset($isWeekend) && $isWeekend)): ?>
+                            <div class="alert alert-warning shadow-lg mb-6 bg-warning/10 border border-warning/20">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 text-warning" fill="none"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div>
+                                    <h3 class="font-bold">Aviso importante</h3>
+                                    <div class="text-xs">Wompi está desactivado temporalmente hasta nuevo aviso, por favor realiza una
+                                        transferencia directa escaneando el código QR.</div>
                                 </div>
                             </div>
-                        </div>
-                    <?php else: ?>
-                        <!-- FORMULARIO WOMPI (COP) -->
-                        <form action="https://checkout.wompi.co/p/" method="GET">
-                            <input type="hidden" name="public-key" value="<?= $wompi['publicKey'] ?>" />
-                            <input type="hidden" name="currency" value="<?= $wompi['currency'] ?>" />
-                            <input type="hidden" name="amount-in-cents" value="<?= $wompi['amountInCents'] ?>" />
-                            <input type="hidden" name="reference" value="<?= $wompi['reference'] ?>" />
-                            <input type="hidden" name="signature:integrity" value="<?= $wompi['signature'] ?>" />
-                            <input type="hidden" name="redirect-url" value="<?= $wompi['redirectUrl'] ?>" />
-                            <input type="hidden" name="customer-data:email" value="<?= $model->customer->email ?>" />
-                            <input type="hidden" name="customer-data:full-name" value="<?= $model->customer->business_name ?>" />
-                            <input type="hidden" name="customer-data:phone-number" value="<?= $model->customer->primary_phone ?>" />
-                            <input type="hidden" name="customer-data:legal-id" value="<?= $model->customer->document_number ?>" />
-                            <input type="hidden" name="customer-data:legal-id-type" value="CC" />
 
-                            <button type="submit" class="btn btn-primary btn-block btn-lg shadow-lg animate-pulse gap-2 text-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                    stroke="currentColor" class="w-6 h-6">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                                </svg>
-                                Pagar <?= Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix ?> con Wompi
-                            </button>
-                        </form>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-base-50 p-6 rounded-2xl border border-base-200">
+                                <div class="flex flex-col justify-center items-center">
+                                    <h4 class="font-bold text-lg text-primary mb-4">Escanea para pagar</h4>
+                                    <img src="<?= Yii::getAlias('@web') ?>/images/qr-atsys.jpg" alt="Código QR ATSYS"
+                                        class="w-48 h-48 object-cover rounded-xl shadow-md border-2 border-primary/20">
+                                    <p class="text-xs text-center mt-3 opacity-70">Llave Bre-B 0090212060</p>
+                                </div>
+
+                                <div class="flex flex-col justify-center">
+                                    <h4 class="font-bold text-lg mb-3">O transfiere a:</h4>
+                                    <ul class="space-y-3 font-mono text-sm">
+                                        <li class="p-3 bg-base-100 rounded-lg border border-base-200">
+                                            <span class="opacity-60 block text-xs">Banco:</span>
+                                            <strong>Bancolombia Ahorros</strong>
+                                        </li>
+                                        <li class="p-3 bg-base-100 rounded-lg border border-base-200">
+                                            <span class="opacity-60 block text-xs">Número de Cuenta:</span>
+                                            <strong>639-685573-29</strong>
+                                        </li>
+                                        <li class="p-3 bg-base-100 rounded-lg border border-base-200">
+                                            <span class="opacity-60 block text-xs">A nombre de:</span>
+                                            <strong>Arkitech Systems SAS<br>NIT: 901.005.699-9</strong>
+                                        </li>
+                                    </ul>
+
+                                    <div class="mt-6">
+                                        <a href="<?= Url::to([
+                                            '/tickets/create',
+                                            'subject' => 'Reporte de Pago OT-' . $model->id,
+                                            'department' => 'commercial'
+                                        ]) ?>" class="btn btn-outline btn-primary btn-block">
+                                            Ya pagué, enviar comprobante
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php else: ?>
+                            <!-- FORMULARIO WOMPI (COP) -->
+                            <form action="https://checkout.wompi.co/p/" method="GET">
+                                <input type="hidden" name="public-key" value="<?= $wompi['publicKey'] ?>" />
+                                <input type="hidden" name="currency" value="<?= $wompi['currency'] ?>" />
+                                <input type="hidden" name="amount-in-cents" value="<?= $wompi['amountInCents'] ?>" />
+                                <input type="hidden" name="reference" value="<?= $wompi['reference'] ?>" />
+                                <input type="hidden" name="signature:integrity" value="<?= $wompi['signature'] ?>" />
+                                <input type="hidden" name="redirect-url" value="<?= $wompi['redirectUrl'] ?>" />
+                                <input type="hidden" name="customer-data:email" value="<?= $model->customer->email ?>" />
+                                <input type="hidden" name="customer-data:full-name" value="<?= $model->customer->business_name ?>" />
+                                <input type="hidden" name="customer-data:phone-number" value="<?= $model->customer->primary_phone ?>" />
+                                <input type="hidden" name="customer-data:legal-id" value="<?= $model->customer->document_number ?>" />
+                                <input type="hidden" name="customer-data:legal-id-type" value="CC" />
+
+                                <button type="submit" class="btn btn-primary btn-block btn-lg shadow-lg animate-pulse gap-2 text-white">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                        stroke="currentColor" class="w-6 h-6">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                                    </svg>
+                                    Pagar <?= Yii::$app->formatter->asCurrency($model->total) ?> COP con Wompi
+                                </button>
+                            </form>
+                        <?php endif; ?>
                     <?php endif; ?>
-                <?php elseif ($isUsd && isset($paypal)): ?>
-                    <!-- CONTENEDOR BOTONES PAYPAL (USD) -->
-                    <div id="paypal-button-container" style="min-height: 150px;"></div>
+                </div>
 
-                    <!-- NUEVO CONTENEDOR DE CARGA (Oculto por defecto) -->
-                    <div id="paypal-processing" style="display: none;" class="text-center py-4">
-                        <span class="loading loading-spinner loading-lg text-primary"></span>
-                        <p class="mt-2 text-sm opacity-70">Procesando pago...</p>
-                    </div>
-                <?php endif; ?>
+                <div id="payment-usd-sec" class="payment-section hidden">
+                    <h3 class="font-bold text-lg mb-2">Finalizar Pago Seguro en USD</h3>
+                    <p class="text-sm mb-6 opacity-70">
+                        Aceptamos tarjetas de crédito/débito internacionales y saldo de PayPal.<br>
+                        La transacción es procesada de forma segura por PayPal.
+                        <?php if (!empty($exchangeRate)): ?>
+                            <br><span class="text-xs opacity-60">Tasa de cambio aplicada (TRM): <?= Yii::$app->formatter->asCurrency($exchangeRate) ?> COP</span>
+                        <?php endif; ?>
+                    </p>
+
+                    <?php if (isset($paypal)): ?>
+                        <!-- CONTENEDOR BOTONES PAYPAL (USD) -->
+                        <div id="paypal-button-container" style="min-height: 150px;"></div>
+
+                        <!-- NUEVO CONTENEDOR DE CARGA (Oculto por defecto) -->
+                        <div id="paypal-processing" style="display: none;" class="text-center py-4">
+                            <span class="loading loading-spinner loading-lg text-primary"></span>
+                            <p class="mt-2 text-sm opacity-70">Procesando pago...</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
             <?php elseif ($model->status == 1): ?>
 
@@ -222,8 +232,55 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
 </div>
 
 <?php
+/* --- SCRIPT DE TABS --- */
+$jsTabs = <<<JS
+document.addEventListener("DOMContentLoaded", function() {
+    const tabCop = document.getElementById('tab-cop');
+    const tabUsd = document.getElementById('tab-usd');
+    const secCop = document.getElementById('payment-cop-sec');
+    const secUsd = document.getElementById('payment-usd-sec');
+    const dispCop = document.getElementById('total-cop-display');
+    const dispUsd = document.getElementById('total-usd-display');
+
+    function selectCop() {
+        if(tabCop && tabUsd) {
+            tabCop.classList.add('tab-active', 'btn-primary', 'text-white');
+            tabUsd.classList.remove('tab-active', 'btn-primary', 'text-white');
+        }
+        if(secCop) secCop.classList.remove('hidden');
+        if(secUsd) secUsd.classList.add('hidden');
+        if(dispCop) dispCop.classList.remove('hidden');
+        if(dispUsd) dispUsd.classList.add('hidden');
+    }
+
+    function selectUsd() {
+        if(tabCop && tabUsd) {
+            tabUsd.classList.add('tab-active', 'btn-primary', 'text-white');
+            tabCop.classList.remove('tab-active', 'btn-primary', 'text-white');
+        }
+        if(secUsd) secUsd.classList.remove('hidden');
+        if(secCop) secCop.classList.add('hidden');
+        if(dispUsd) dispUsd.classList.remove('hidden');
+        if(dispCop) dispCop.classList.add('hidden');
+    }
+
+    if (tabCop && tabUsd) {
+        tabCop.addEventListener('click', selectCop);
+        tabUsd.addEventListener('click', selectUsd);
+
+        // Inicializar según la moneda original de la factura
+        if ('{$model->currency}' === 'USD') {
+            selectUsd();
+        } else {
+            selectCop();
+        }
+    }
+});
+JS;
+$this->registerJs($jsTabs, \yii\web\View::POS_END);
+
 /* --- SCRIPT DE PAYPAL --- */
-if ($model->status == 0 && $isUsd && isset($paypal)):
+if ($model->status == 0 && isset($paypal)):
 
     $paypalClientId = $paypal['clientId'];
     $paypalCurrency = $paypal['currency'];
@@ -241,7 +298,7 @@ if ($model->status == 0 && $isUsd && isset($paypal)):
         'position' => \yii\web\View::POS_HEAD
     ]);
 
-    $js = <<<JS
+    $jsPaypal = <<<JS
     paypal.Buttons({
         createOrder: function(data, actions) {
             return actions.order.create({
@@ -307,7 +364,7 @@ if ($model->status == 0 && $isUsd && isset($paypal)):
     }).render('#paypal-button-container');
     JS;
 
-    $this->registerJs($js, \yii\web\View::POS_END);
+    $this->registerJs($jsPaypal, \yii\web\View::POS_END);
 
 endif;
 ?>

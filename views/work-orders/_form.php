@@ -17,6 +17,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
     // --- LÓGICA DE TINYMCE ---
+    const isDarkMode = document.documentElement.classList.contains('dark');
     tinymce.remove('#workorders-requirements'); // Limpieza preventiva
     tinymce.init({
         selector: '#workorders-requirements', 
@@ -26,8 +27,8 @@ document.addEventListener("DOMContentLoaded", function() {
         language: 'es', 
         plugins: 'lists link autolink fullscreen', 
         toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', 
-        skin: 'oxide', 
-        content_css: 'default',
+        skin: isDarkMode ? 'oxide-dark' : 'oxide', 
+        content_css: isDarkMode ? 'dark' : 'default',
         branding: false, 
         setup: function (editor) {
             editor.on('change', function () {

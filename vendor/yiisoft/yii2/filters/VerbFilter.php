@@ -8,6 +8,7 @@
 namespace yii\filters;
 
 use Yii;
+use yii\base\Action;
 use yii\base\ActionEvent;
 use yii\base\Behavior;
 use yii\web\Controller;
@@ -23,7 +24,7 @@ use yii\web\MethodNotAllowedHttpException;
  * For example, the following declarations will define a typical set of allowed
  * request methods for REST CRUD actions.
  *
- * ```php
+ * ```
  * public function behaviors()
  * {
  *     return [
@@ -44,6 +45,8 @@ use yii\web\MethodNotAllowedHttpException;
  * @see https://tools.ietf.org/html/rfc2616#section-14.7
  * @author Carsten Brandt <mail@cebe.cc>
  * @since 2.0
+ *
+ * @extends Behavior<Controller>
  */
 class VerbFilter extends Behavior
 {
@@ -61,7 +64,7 @@ class VerbFilter extends Behavior
      *
      * For example,
      *
-     * ```php
+     * ```
      * [
      *   'create' => ['GET', 'POST'],
      *   'update' => ['GET', 'PUT', 'POST'],

@@ -22,6 +22,8 @@ $this->params['breadcrumbs'][] = $this->title;
             ['create'], ['class' => 'btn btn-primary text-white shadow-lg']) ?>
     </div>
 
+    <?= $this->render('_search', ['model' => $searchModel]) ?>
+
     <div class="overflow-x-auto w-full bg-base-100 shadow-xl rounded-box border border-base-200">
         <?= GridView::widget([
             'dataProvider' => $dataProvider,

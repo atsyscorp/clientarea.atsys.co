@@ -251,7 +251,7 @@ class BaseInflector
      * @see transliterate()
      * @since 2.0.7
      */
-    const TRANSLITERATE_STRICT = 'Any-Latin; NFKD';
+    public const TRANSLITERATE_STRICT = 'Any-Latin; NFKD';
     /**
      * Shortcut for `Any-Latin; Latin-ASCII` transliteration rule.
      *
@@ -266,7 +266,7 @@ class BaseInflector
      * @see transliterate()
      * @since 2.0.7
      */
-    const TRANSLITERATE_MEDIUM = 'Any-Latin; Latin-ASCII';
+    public const TRANSLITERATE_MEDIUM = 'Any-Latin; Latin-ASCII';
     /**
      * Shortcut for `Any-Latin; Latin-ASCII; [\u0080-\uffff] remove` transliteration rule.
      *
@@ -282,8 +282,7 @@ class BaseInflector
      * @see transliterate()
      * @since 2.0.7
      */
-    const TRANSLITERATE_LOOSE = 'Any-Latin; Latin-ASCII; [\u0080-\uffff] remove';
-
+    public const TRANSLITERATE_LOOSE = 'Any-Latin; Latin-ASCII; [\u0080-\uffff] remove';
     /**
      * @var mixed Either a [[\Transliterator]], or a string from which a [[\Transliterator]] can be built
      * for transliteration. Used by [[transliterate()]] when intl is available. Defaults to [[TRANSLITERATE_LOOSE]]
@@ -613,7 +612,7 @@ class BaseInflector
      *
      * Special treatment is done for the last few words. For example,
      *
-     * ```php
+     * ```
      * $words = ['Spain', 'France'];
      * echo Inflector::sentence($words);
      * // output: Spain and France

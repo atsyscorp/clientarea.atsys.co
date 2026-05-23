@@ -455,9 +455,18 @@ class WorkOrdersController extends Controller
         }
 
         if ($this->request->isPost) {
-            if ($model->load($this->request->post()) && $model->request()) {
-                Yii::$app->session->setFlash('success', 'Orden solicitada exitosamente, pronto recibirás un correo con el detalle propuesto para que lo revises.');
-                return $this->redirect(['index']);
+            if ($model->load($this->request->post())) {
+                $file = \yii\web\UploadedFile::getInstance($model, 'attachmentFile');
+                if ($file) {
+                    $uploadUrl = Yii::$app->googleDrive->upload($file);
+                    if ($uploadUrl) {
+                        $model->attachment_url = $uploadUrl;
+                    }
+                }
+                if ($model->request()) {
+                    Yii::$app->session->setFlash('success', 'Orden solicitada exitosamente, pronto recibirás un correo con el detalle propuesto para que lo revises.');
+                    return $this->redirect(['index']);
+                }
             }
         }
 

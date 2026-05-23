@@ -12,6 +12,7 @@ use yii\base\Action;
 use yii\base\Component;
 use yii\base\Controller;
 use yii\base\InvalidConfigException;
+use yii\base\Module;
 use yii\helpers\IpHelper;
 use yii\helpers\StringHelper;
 use yii\web\Request;
@@ -83,7 +84,7 @@ class AccessRule extends Component
      * If this is an array, it will be passed directly to [[User::can()]]. For example for passing an
      * ID from the current request, you may use the following:
      *
-     * ```php
+     * ```
      * ['postId' => Yii::$app->request->get('id')]
      * ```
      *
@@ -91,7 +92,7 @@ class AccessRule extends Component
      * evaluate the array values only if they are needed, for example when a model needs to be
      * loaded like in the following code:
      *
-     * ```php
+     * ```
      * 'rules' => [
      *     [
      *         'allow' => true,
@@ -131,7 +132,7 @@ class AccessRule extends Component
      * @var callable a callback that will be called to determine if the rule should be applied.
      * The signature of the callback should be as follows:
      *
-     * ```php
+     * ```
      * function ($rule, $action)
      * ```
      *
@@ -150,7 +151,7 @@ class AccessRule extends Component
      *
      * The signature of the callback should be as follows:
      *
-     * ```php
+     * ```
      * function ($rule, $action)
      * ```
      *

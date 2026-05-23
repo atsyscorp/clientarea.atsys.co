@@ -49,6 +49,7 @@ if ($model->is_request == 1) {
     // B. Inicializamos el editor sobre el ID 'workorders-requirements'
     $js = <<<JS
     document.addEventListener("DOMContentLoaded", function() {
+        const isDarkMode = document.documentElement.classList.contains('dark');
         tinymce.remove('#workorders-requirements'); // Limpieza preventiva por si usas Pjax
         tinymce.init({
             selector: '#workorders-requirements', // Debe coincidir con el ID de arriba
@@ -58,8 +59,8 @@ if ($model->is_request == 1) {
             language: 'es', // Intenta cargar español, si falla usará inglés
             plugins: 'lists link autolink fullscreen', // Plugins básicos
             toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', // Herramientas limpias
-            skin: 'oxide', // Tema claro estándar
-            content_css: 'default',
+            skin: isDarkMode ? 'oxide-dark' : 'oxide',
+            content_css: isDarkMode ? 'dark' : 'default',
             branding: false, // Quitar marca "Powered by TinyMCE"
             setup: function (editor) {
                 // Esto asegura que el valor se guarde en el textarea al enviar el formulario
@@ -150,6 +151,23 @@ if ($model->is_request == 1) {
                 <?= formatMessage($model->requirements) ?>
             </div>
         </div>
+
+        <?php if (!empty($model->attachment_url)): ?>
+            <div class="bg-base-100 p-4 rounded-lg border border-primary/20 flex items-center justify-between shadow-sm mb-8 no-print">
+                <div class="flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    <div>
+                        <span class="font-bold text-sm block">Archivo adjunto de requerimientos</span>
+                        <span class="text-xs opacity-60">Almacenado de forma segura en la nube</span>
+                    </div>
+                </div>
+                <a href="<?= Html::encode($model->attachment_url) ?>" target="_blank" class="btn btn-primary btn-sm text-white gap-2">
+                    Abrir en nueva ventana ↗
+                </a>
+            </div>
+        <?php endif; ?>
 
         <?php
         if ($model->is_request == 1) {
@@ -276,7 +294,12 @@ if ($model->is_request == 1) {
                         autorizas el inicio del desarrollo bajo los costos estipulados.
                     </p>
 
-                    <div class="flex justify-center gap-4">
+                    <div class="flex justify-center gap-4 flex-wrap">
+                        <?= Html::a('📄 Ver Propuesta (PDF)', ['pdf', 'id' => $model->id], [
+                            'class' => 'btn btn-outline btn-secondary px-6',
+                            'target' => '_blank'
+                        ]) ?>
+
                         <?= Html::a('✓ Aprobar e Iniciar', ['approve', 'id' => $model->id], [
                             'class' => 'btn btn-primary text-white px-8',
                             'data' => ['confirm' => '¿Estás seguro de aprobar esta orden? Esto autoriza el inicio del trabajo.', 'method' => 'post']

@@ -33,6 +33,8 @@ use yii\db\Expression;
 
 class WorkOrders extends \yii\db\ActiveRecord
 {
+    public $attachmentFile;
+
     // Constantes de Estado...
     const STATUS_DRAFT = 0;
     const STATUS_PENDING = 1;
@@ -49,7 +51,7 @@ class WorkOrders extends \yii\db\ActiveRecord
     {
         return [
             // Valores por defecto
-            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'default', 'value' => null],
+            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url'], 'default', 'value' => null],
             [['total_cost', 'total_cost_usd'], 'default', 'value' => 0.00],
             [['status', 'is_request'], 'default', 'value' => 0],
             [['currency'], 'default', 'value' => 'COP'],
@@ -58,7 +60,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             
             // Tipos de datos
             [['customer_id', 'status', 'is_request'], 'integer'],
-            [['requirements', 'notes', 'original_request'], 'string'],
+            [['requirements', 'notes', 'original_request', 'attachment_url'], 'string'],
             [['total_cost', 'total_cost_usd', 'exchange_rate'], 'number'],
             [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'safe'],
             
@@ -67,6 +69,14 @@ class WorkOrders extends \yii\db\ActiveRecord
             [['title'], 'string', 'max' => 255],
             [['currency'], 'string', 'max' => 3],
             [['currency'], 'in', 'range' => ['COP', 'USD']],
+
+            // Adjuntar archivo
+            [['attachmentFile'], 'file',
+                'skipOnEmpty' => true,
+                'extensions' => 'png, jpg, jpeg, pdf, zip, rar, doc, docx, xls, xlsx',
+                'maxSize' => 1024 * 1024 * 15, // 15MB
+                'checkExtensionByMimeType' => false,
+            ],
             
             // Integridad referencial
             [['customer_id'], 'exist', 'skipOnError' => true, 'targetClass' => Customers::class, 'targetAttribute' => ['customer_id' => 'id']],
@@ -144,6 +154,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             'status' => 'Estado',
             'down_payment_sent_at' => 'Anticipo enviado el',
             'created_at' => 'Fecha Creación',
+            'attachmentFile' => 'Archivo Adjunto (Opcional)',
         ];
     }
 
@@ -181,6 +192,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             'title' => $this->title,
             'requirements' => $this->requirements,
             'customer' => $this->customer,
+            'attachment_url' => $this->attachment_url,
         ])
         ->setFrom([
             Yii::$app->params['senderEmail'] => Yii::$app->name

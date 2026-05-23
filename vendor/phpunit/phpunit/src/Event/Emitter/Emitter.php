@@ -22,7 +22,7 @@ use SebastianBergmann\Comparator\Comparator;
 /**
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  *
- * @internal This class is not covered by the backward compatibility promise for PHPUnit
+ * @internal This interface is not covered by the backward compatibility promise for PHPUnit
  */
 interface Emitter
 {
@@ -123,6 +123,8 @@ interface Emitter
      * @param class-string<Comparator> $className
      */
     public function testRegisteredComparator(string $className): void;
+
+    public function testUsedCustomMethodInvocation(TestMethod $test, ClassMethod $customTestMethodInvocation): void;
 
     /**
      * @param class-string $className

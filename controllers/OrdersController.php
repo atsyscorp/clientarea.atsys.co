@@ -47,35 +47,44 @@ class OrdersController extends Controller
         $isWeekend = true;
         // -----------------------------------------
 
+        // Calcular valores dinámicos para COP y USD
+        $exchangeRate = $model->exchange_rate ?: (Yii::$app->params['fallback_trm'] ?? 4000.00);
+        $totalUsd = $model->total_usd ?: round($model->total / $exchangeRate, 2);
+
+        // Pasarela Wompi (COP)
+        $wompiPublicKey = Yii::$app->params['wmpi_pubKey'];
+        $wompiIntegritySecret = Yii::$app->params['wmpi_integrity'];
+        $amountInCents = round($model->total * 100);
+        $reference = $model->code;
+        $cadenaConcatenada = $reference . $amountInCents . 'COP' . $wompiIntegritySecret;
+        $integritySignature = hash('sha256', $cadenaConcatenada);
+
+        $wompiParams = [
+            'publicKey' => $wompiPublicKey,
+            'currency' => 'COP',
+            'amountInCents' => $amountInCents,
+            'reference' => $reference,
+            'signature' => $integritySignature,
+            'redirectUrl' => \yii\helpers\Url::to(['orders/transaction-result', 'id' => $model->id], true),
+        ];
+
+        // Pasarela PayPal (USD)
+        $paypalParams = [
+            'clientId' => Yii::$app->params['paypalClientId'],
+            'currency' => 'USD',
+            'amount' => $totalUsd,
+            'exchangeRate' => $exchangeRate,
+        ];
+
         $viewParams = [
             'model' => $model,
             'gateway' => $model->currency,
-            'isWeekend' => $isWeekend
+            'isWeekend' => $isWeekend,
+            'wompi' => $wompiParams,
+            'paypal' => $paypalParams,
+            'totalUsd' => $totalUsd,
+            'exchangeRate' => $exchangeRate,
         ];
-
-        if ($model->currency === 'COP') {
-            $wompiPublicKey = Yii::$app->params['wmpi_pubKey'];
-            $wompiIntegritySecret = Yii::$app->params['wmpi_integrity'];
-            $amountInCents = $model->total * 100;
-            $reference = $model->code;
-            $cadenaConcatenada = $reference . $amountInCents . 'COP' . $wompiIntegritySecret;
-            $integritySignature = hash('sha256', $cadenaConcatenada);
-
-            $viewParams['wompi'] = [
-                'publicKey' => $wompiPublicKey,
-                'currency' => 'COP',
-                'amountInCents' => $amountInCents,
-                'reference' => $reference,
-                'signature' => $integritySignature,
-                'redirectUrl' => \yii\helpers\Url::to(['orders/transaction-result', 'id' => $model->id], true),
-            ];
-        } elseif ($model->currency === 'USD') {
-            $viewParams['paypal'] = [
-                'clientId' => Yii::$app->params['paypalClientId'],
-                'currency' => 'USD',
-                'amount' => $model->total_usd ?? $model->total,
-            ];
-        }
 
         return $this->render('view', $viewParams);
     }

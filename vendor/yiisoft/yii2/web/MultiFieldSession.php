@@ -42,7 +42,7 @@ abstract class MultiFieldSession extends Session
      *
      * For example:
      *
-     * ```php
+     * ```
      * function ($fields) {
      *     return [
      *         'expireDate' => Yii::$app->formatter->asDate($fields['expire']),
@@ -52,7 +52,7 @@ abstract class MultiFieldSession extends Session
      */
     public $readCallback;
     /**
-     * @var callable a callback that will be called during session data writing.
+     * @var callable|null a callback that will be called during session data writing.
      * The signature of the callback should be as follows:
      *
      * ```
@@ -64,7 +64,7 @@ abstract class MultiFieldSession extends Session
      *
      * For example:
      *
-     * ```php
+     * ```
      * function ($session) {
      *     return [
      *         'user_id' => Yii::$app->user->id,

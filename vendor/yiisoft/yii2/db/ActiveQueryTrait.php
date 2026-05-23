@@ -17,11 +17,11 @@ namespace yii\db;
 trait ActiveQueryTrait
 {
     /**
-     * @var string the name of the ActiveRecord class.
+     * @var class-string<ActiveRecordInterface> the name of the ActiveRecord class.
      */
     public $modelClass;
     /**
-     * @var array a list of relations that this query should be performed with
+     * @var array|null a list of relations that this query should be performed with
      */
     public $with;
     /**
@@ -55,7 +55,7 @@ trait ActiveQueryTrait
      *
      * The following are some usage examples:
      *
-     * ```php
+     * ```
      * // find customers together with their orders and country
      * Customer::find()->with('orders', 'country')->all();
      * // find customers together with their orders and the orders' shipping address
@@ -72,7 +72,7 @@ trait ActiveQueryTrait
      * You can call `with()` multiple times. Each call will add relations to the existing ones.
      * For example, the following two statements are equivalent:
      *
-     * ```php
+     * ```
      * Customer::find()->with('orders', 'country')->all();
      * Customer::find()->with('orders')->with('country')->all();
      * ```

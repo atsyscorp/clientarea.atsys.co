@@ -16,6 +16,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 // B. Inicializamos el editor sobre el ID 'workorders-requirements'
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
+    const isDarkMode = document.documentElement.classList.contains('dark');
     tinymce.remove('#workorders-requirements'); // Limpieza preventiva por si usas Pjax
     tinymce.init({
         selector: '#workorders-requirements', // Debe coincidir con el ID de arriba
@@ -25,8 +26,8 @@ document.addEventListener("DOMContentLoaded", function() {
         language: 'es', // Intenta cargar español, si falla usará inglés
         plugins: 'lists link autolink fullscreen', // Plugins básicos
         toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', // Herramientas limpias
-        skin: 'oxide', // Tema claro estándar
-        content_css: 'default',
+        skin: isDarkMode ? 'oxide-dark' : 'oxide',
+        content_css: isDarkMode ? 'dark' : 'default',
         branding: false, // Quitar marca "Powered by TinyMCE"
         setup: function (editor) {
             // Esto asegura que el valor se guarde en el textarea al enviar el formulario
@@ -43,7 +44,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
 <div class="card bg-base-100 shadow-xl border border-base-200">
     <div class="card-body">
 
-        <?php $form = ActiveForm::begin(); ?>
+        <?php $form = ActiveForm::begin(['options' => ['enctype' => 'multipart/form-data']]); ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -65,6 +66,16 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     'rows' => 10, 
                     'class' => 'textarea textarea-bordered w-full h-64 font-mono text-sm leading-relaxed',
                     'placeholder' => "1. Desarrollo de Login...\n2. Panel administrativo...\n3. Integración con pasarela..."
+                ]) ?>
+            </div>
+            
+            <div class="form-control w-full md:col-span-2 mt-4">
+                <label class="label">
+                    <span class="label-text font-bold">Archivo Adjunto (Opcional)</span>
+                    <span class="label-text-alt opacity-70">Puedes subir imágenes, requerimientos en Word/Excel, PDFs o archivos ZIP/RAR (hasta 15MB). El archivo se cargará directamente en Google Drive.</span>
+                </label>
+                <?= $form->field($model, 'attachmentFile', ['template' => '{input}{error}'])->fileInput([
+                    'class' => 'file-input file-input-bordered file-input-primary w-full'
                 ]) ?>
             </div>
         </div>

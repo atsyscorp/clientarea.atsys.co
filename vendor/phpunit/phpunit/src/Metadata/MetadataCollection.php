@@ -16,7 +16,7 @@ use Countable;
 use IteratorAggregate;
 
 /**
- * @template-implements IteratorAggregate<int, Metadata>
+ * @template-implements IteratorAggregate<non-negative-int, Metadata>
  *
  * @immutable
  *
@@ -377,16 +377,6 @@ final readonly class MetadataCollection implements Countable, IteratorAggregate
             ...array_filter(
                 $this->metadata,
                 static fn (Metadata $metadata): bool => $metadata->isIgnorePhpunitWarnings(),
-            ),
-        );
-    }
-
-    public function isRunClassInSeparateProcess(): self
-    {
-        return new self(
-            ...array_filter(
-                $this->metadata,
-                static fn (Metadata $metadata): bool => $metadata->isRunClassInSeparateProcess(),
             ),
         );
     }

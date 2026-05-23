@@ -21,6 +21,9 @@ use yii\helpers\StringHelper;
  *
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
+ *
+ * @template T of Component = Component
+ * @extends Behavior<T>
  */
 class ActionFilter extends Behavior
 {

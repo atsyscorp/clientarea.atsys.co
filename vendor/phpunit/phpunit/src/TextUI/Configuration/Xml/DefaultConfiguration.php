@@ -60,6 +60,7 @@ final readonly class DefaultConfiguration extends Configuration
                 false,
                 false,
                 false,
+                true,
             ),
             new CodeCoverage(
                 false,
@@ -104,6 +105,7 @@ final readonly class DefaultConfiguration extends Configuration
                 true,
                 80,
                 \PHPUnit\TextUI\Configuration\Configuration::COLOR_DEFAULT,
+                false,
                 false,
                 false,
                 false,

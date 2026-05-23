@@ -103,7 +103,7 @@ final class CodeCoverage
     public function getReport(): Directory
     {
         if ($this->cachedReport === null) {
-            $this->cachedReport = (new Builder($this->analyser()))->build($this);
+            $this->cachedReport = new Builder($this->analyser())->build($this);
         }
 
         return $this->cachedReport;
@@ -411,7 +411,8 @@ final class CodeCoverage
      */
     public function driverIsPcov(): bool
     {
-        return $this->driver->isPcov();
+        /** @phpstan-ignore isset.initializedProperty */
+        return isset($this->driver) && $this->driver->isPcov();
     }
 
     /**
@@ -419,7 +420,8 @@ final class CodeCoverage
      */
     public function driverIsXdebug(): bool
     {
-        return $this->driver->isXdebug();
+        /** @phpstan-ignore isset.initializedProperty */
+        return isset($this->driver) && $this->driver->isXdebug();
     }
 
     /**

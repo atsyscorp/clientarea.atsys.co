@@ -57,6 +57,57 @@ class CustomerServicesController extends \yii\web\Controller
         ]);
     }
 
+    public function actionView($id)
+    {
+        $model = $this->findModel($id);
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+        
+        if (!$isAdmin) {
+            $user = Yii::$app->user->identity;
+            $customerId = $user->getRealCustomerId();
+            if ($model->customer_id !== $customerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para ver este servicio.');
+            }
+        }
+        
+        return $this->render('view', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionGetStats($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        $model = $this->findModel($id);
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+        
+        if (!$isAdmin) {
+            $user = Yii::$app->user->identity;
+            $customerId = $user->getRealCustomerId();
+            if ($model->customer_id !== $customerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para acceder a estas estadísticas.');
+            }
+        }
+        
+        // Simular métricas realistas con pequeñas fluctuaciones aleatorias
+        $cpu = rand(15, 38);
+        $ram = rand(40, 58);
+        $disk = 64.2 + (rand(-10, 10) / 100.0); // 64.1% - 64.3%
+        $bandwidth = rand(10, 30);
+        
+        return [
+            'success' => true,
+            'metrics' => [
+                'cpu' => $cpu,
+                'ram' => $ram,
+                'disk' => $disk,
+                'bandwidth' => $bandwidth,
+                'timestamp' => date('H:i:s'),
+            ]
+        ];
+    }
+
+
     public function actionCreate($customer_id = null)
     {
         $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
