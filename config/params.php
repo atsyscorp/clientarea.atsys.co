@@ -33,14 +33,14 @@ return [
         'phoneId' => '974241165778303',
         'businessId' => '1885925668728489'
     ],
-    'paypalClientId' => 'Abh70Rn7NoOa03UwKNXE8_3KivsAHhwuWVSLEcmnpygiwVSi5urBy45O83KzARZA7ME2ch44MOsbplhn',
-    'paypalSecret' => 'EA8eHhWu8xk4A1lF0PWuM7kCcLn4SWvGtmFg9QkM29mrUATFvZ3dG6UU8zylvTOPYSV1vvMIOKzNUCvg',
+    'paypalClientId' => '',
+    'paypalSecret' => '',
     'paypalMode' => 'live',
     'googleDrive' => [
         'clientId' => '',
         'clientSecret' => '',
         'refreshToken' => '',
-        'folderId' => '',
+        'folderId' => '1W-TKUf_2kQ5JbNc9X61iAulweFJ_Zq48',
     ],
     'fallback_trm' => 4000.00,
 ];
