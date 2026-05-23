@@ -90,6 +90,17 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
         .driver-popover-footer .driver-prev-btn:hover {
             background: hsl(var(--n) / 0.2) !important;
         }
+        /* Elemento resaltado: fondo semitransparente + borde blanco para que sea visible */
+        .driver-highlighted-element {
+            background: rgba(255, 238, 6, 1) !important;
+            border: 2px solid rgba(255, 255, 255, 1) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15), 0 0 20px rgba(255, 255, 255, 0.1) !important;
+        }
+        /* Área recortada del overlay: también semi-opaca para ver el contenido */
+        .driver-stage-no-animation, #driver-highlighted-element-stage {
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
     </style>
 </head>
 
@@ -735,8 +746,8 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
             document.addEventListener('DOMContentLoaded', function() {
                 const driver = new Driver({
                     animate: true,
-                    opacity: 0.75,
-                    padding: 10,
+                    opacity: 0.4,
+                    padding: 5,
                     allowClose: true,
                     overlayClickNext: false,
                     doneBtnText: '¡Entendido!',
