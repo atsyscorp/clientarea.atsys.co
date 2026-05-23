@@ -41,6 +41,8 @@ class WorkOrders extends \yii\db\ActiveRecord
     const STATUS_APPROVED = 2;
     const STATUS_REJECTED = 3;
     const STATUS_COMPLETED = 4;
+    const STATUS_NOT_COMPLETED = 5;  // Cerrada por inactividad/falta de respuesta del cliente
+    const STATUS_PARTIAL = 6;        // Avance parcial entregado, retomable
 
     public static function tableName()
     {
@@ -51,7 +53,7 @@ class WorkOrders extends \yii\db\ActiveRecord
     {
         return [
             // Valores por defecto
-            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url'], 'default', 'value' => null],
+            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url', 'pause_reason'], 'default', 'value' => null],
             [['total_cost', 'total_cost_usd'], 'default', 'value' => 0.00],
             [['status', 'is_request'], 'default', 'value' => 0],
             [['currency'], 'default', 'value' => 'COP'],
@@ -60,7 +62,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             
             // Tipos de datos
             [['customer_id', 'status', 'is_request'], 'integer'],
-            [['requirements', 'notes', 'original_request', 'attachment_url'], 'string'],
+            [['requirements', 'notes', 'original_request', 'attachment_url', 'pause_reason'], 'string'],
             [['total_cost', 'total_cost_usd', 'exchange_rate'], 'number'],
             [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'safe'],
             
@@ -141,20 +143,21 @@ class WorkOrders extends \yii\db\ActiveRecord
     public function attributeLabels()
     {
         return [
-            'id' => 'ID',
-            'customer_id' => 'Cliente',
-            'code' => 'Código (OT)',
-            'title' => 'Título del Proyecto',
-            'requirements' => 'Detalle de Requerimientos',
-            'notes' => 'Notas Adicionales',
-            'total_cost' => 'Inversión Total (COP)', // Aclaramos la moneda base
-            'currency' => 'Moneda',
-            'exchange_rate' => 'TRM',
-            'total_cost_usd' => 'Inversión Total (USD)',
-            'status' => 'Estado',
-            'down_payment_sent_at' => 'Anticipo enviado el',
-            'created_at' => 'Fecha Creación',
-            'attachmentFile' => 'Archivo Adjunto (Opcional)',
+            'id'                  => 'ID',
+            'customer_id'         => 'Cliente',
+            'code'                => 'Código (OT)',
+            'title'               => 'Título del Proyecto',
+            'requirements'        => 'Detalle de Requerimientos',
+            'notes'               => 'Notas Adicionales',
+            'total_cost'          => 'Inversión Total (COP)',
+            'currency'            => 'Moneda',
+            'exchange_rate'       => 'TRM',
+            'total_cost_usd'      => 'Inversión Total (USD)',
+            'status'              => 'Estado',
+            'pause_reason'        => 'Motivo de Pausa',
+            'down_payment_sent_at'=> 'Anticipo enviado el',
+            'created_at'          => 'Fecha Creación',
+            'attachmentFile'      => 'Archivo Adjunto (Opcional)',
         ];
     }
 
@@ -166,11 +169,13 @@ class WorkOrders extends \yii\db\ActiveRecord
     public function getStatusHtml()
     {
         $statusMap = [
-            self::STATUS_DRAFT => ['label' => 'Borrador', 'class' => 'badge-ghost'],
-            self::STATUS_PENDING => ['label' => 'Pendiente', 'class' => 'badge-warning'],
-            self::STATUS_APPROVED => ['label' => 'Aprobada', 'class' => 'badge-success text-white'],
-            self::STATUS_REJECTED => ['label' => 'Rechazada', 'class' => 'badge-error text-white'],
-            self::STATUS_COMPLETED => ['label' => 'Finalizada', 'class' => 'badge-info text-white'],
+            self::STATUS_DRAFT         => ['label' => 'Borrador',                'class' => 'badge-ghost'],
+            self::STATUS_PENDING       => ['label' => 'Pendiente',               'class' => 'badge-warning font-bold'],
+            self::STATUS_APPROVED      => ['label' => 'Aprobada',                'class' => 'badge-success text-white'],
+            self::STATUS_REJECTED      => ['label' => 'Rechazada',               'class' => 'badge-error text-white'],
+            self::STATUS_COMPLETED     => ['label' => 'Finalizada',              'class' => 'badge-info text-white'],
+            self::STATUS_NOT_COMPLETED => ['label' => 'No Finalizada',           'class' => 'badge-error text-white'],
+            self::STATUS_PARTIAL       => ['label' => 'Parcialmente Finalizada', 'class' => 'badge-warning text-white font-bold'],
         ];
 
         $s = $statusMap[$this->status] ?? ['label' => 'Desconocido', 'class' => 'badge-ghost'];

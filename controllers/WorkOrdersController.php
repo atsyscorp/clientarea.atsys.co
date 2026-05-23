@@ -797,4 +797,90 @@ class WorkOrdersController extends Controller
         return $this->redirect(['view', 'id' => $id]);
     }
 
+    /**
+     * Pausa una orden aprobada por falta de respuesta o interés del cliente.
+     * Acepta POST con pause_type (5 o 6), pause_reason y notify_client opcionales.
+     */
+    public function actionPause($id)
+    {
+        $model = $this->findModel($id);
+
+        if (!Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('Solo el administrador puede pausar órdenes.');
+        }
+
+        if (Yii::$app->request->isPost && $model->status === WorkOrders::STATUS_APPROVED) {
+
+            $pauseType   = (int) Yii::$app->request->post('pause_type');
+            $pauseReason = trim(Yii::$app->request->post('pause_reason', ''));
+            $notify      = Yii::$app->request->post('notify_client');
+
+            $allowedTypes = [WorkOrders::STATUS_NOT_COMPLETED, WorkOrders::STATUS_PARTIAL];
+            if (!in_array($pauseType, $allowedTypes)) {
+                Yii::$app->session->setFlash('error', 'Tipo de pausa inválido.');
+                return $this->redirect(['view', 'id' => $model->id]);
+            }
+
+            $model->status       = $pauseType;
+            $model->pause_reason = $pauseReason ?: null;
+            $model->completed_at = date('Y-m-d H:i:s');
+
+            if ($model->save(false)) {
+                $label = $pauseType === WorkOrders::STATUS_NOT_COMPLETED ? 'No Finalizada' : 'Parcialmente Finalizada';
+
+                // Notificación opcional al cliente
+                if ($notify) {
+                    try {
+                        $customer = $model->customer;
+                        Yii::$app->mailer->compose(['html' => 'workOrderPaused-html'], [
+                            'model'  => $model,
+                            'label'  => $label,
+                        ])
+                        ->setFrom([Yii::$app->params['adminEmail'] => Yii::$app->name])
+                        ->setTo($customer->email)
+                        ->setBcc(Yii::$app->params['adminEmail'])
+                        ->setSubject("Actualización sobre tu Orden #{$model->code}")
+                        ->send();
+                    } catch (\Exception $e) {
+                        Yii::error('Error enviando email de pausa OT: ' . $e->getMessage());
+                    }
+                }
+
+                Yii::$app->session->setFlash('success', "Orden marcada como \"{$label}\" correctamente.");
+            } else {
+                Yii::$app->session->setFlash('error', 'No se pudo actualizar el estado de la orden.');
+            }
+        }
+
+        return $this->redirect(['view', 'id' => $model->id]);
+    }
+
+    /**
+     * Reactiva una orden pausada (estado 5 o 6) de vuelta a Aprobada.
+     */
+    public function actionResume($id)
+    {
+        $model = $this->findModel($id);
+
+        if (!Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('Solo el administrador puede reactivar órdenes.');
+        }
+
+        $pausedStatuses = [WorkOrders::STATUS_NOT_COMPLETED, WorkOrders::STATUS_PARTIAL];
+
+        if (Yii::$app->request->isPost && in_array($model->status, $pausedStatuses)) {
+            $model->status       = WorkOrders::STATUS_APPROVED;
+            $model->pause_reason = null;
+            $model->completed_at = null;
+
+            if ($model->save(false)) {
+                Yii::$app->session->setFlash('success', 'Orden reactivada correctamente. Puedes continuar trabajando en ella.');
+            } else {
+                Yii::$app->session->setFlash('error', 'No se pudo reactivar la orden.');
+            }
+        }
+
+        return $this->redirect(['view', 'id' => $model->id]);
+    }
+
 }

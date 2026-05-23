@@ -363,7 +363,11 @@ if ($model->is_request == 1) {
 
     </div>
 
-    <?php if ($model->status == \app\models\WorkOrders::STATUS_APPROVED): ?>
+    <?php if (in_array($model->status, [
+        \app\models\WorkOrders::STATUS_APPROVED,
+        \app\models\WorkOrders::STATUS_NOT_COMPLETED,
+        \app\models\WorkOrders::STATUS_PARTIAL
+    ])): ?>
         <div class="divider my-10">LÍNEA DE TIEMPO / AVANCES</div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -448,7 +452,11 @@ if ($model->is_request == 1) {
                 </ul>
             </div>
 
-            <?php if ($isAdmin && $model->status != \app\models\WorkOrders::STATUS_COMPLETED): ?>
+            <?php if ($isAdmin && !in_array($model->status, [
+                \app\models\WorkOrders::STATUS_COMPLETED,
+                \app\models\WorkOrders::STATUS_NOT_COMPLETED,
+                \app\models\WorkOrders::STATUS_PARTIAL
+            ])): ?>
                 <div>
                     <div class="card bg-base-200 shadow-inner">
                         <div class="card-body p-5">
@@ -498,11 +506,10 @@ if ($model->is_request == 1) {
                         <span>💡 <strong>Tip:</strong> Usa "Visible" para logros completados. Usa notas privadas (sin check)
                             para tus propios recordatorios técnicos.</span>
                     </div>
-                </div>
-            <?php endif; ?>
+                 <?php endif; ?>
 
-        </div>
-    <?php endif; ?>
+        </div><!-- end grid -->
+    <?php endif; ?><!-- end timeline block -->
 
     <?php if ($model->status === \app\models\WorkOrders::STATUS_APPROVED && $isAdmin): ?>
         <div class="card bg-base-100 shadow-xl border border-success/30 mt-8">
@@ -542,5 +549,95 @@ if ($model->is_request == 1) {
                 <?= Html::endForm() ?>
             </div>
         </div>
+
+        <!-- Panel de Pausa por Inactividad del Cliente -->
+        <div class="card bg-base-100 shadow-xl border border-warning/30 mt-6">
+            <div class="card-body">
+                <h3 class="card-title text-warning flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9v6m-4.5 0V9M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Pausar por Falta de Respuesta
+                </h3>
+                <p class="text-base-content/70 text-sm">
+                    Usa esta opción cuando el cliente no ha respondido o no ha mostrado interés en continuar. La orden quedará bloqueada pero puede <strong>retomarse en cualquier momento</strong>.
+                </p>
+
+                <?= Html::beginForm(['pause', 'id' => $model->id], 'post', ['class' => 'mt-4 space-y-4']) ?>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-semibold">Tipo de Cierre</span></label>
+                    <select name="pause_type" class="select select-bordered select-warning w-full md:w-auto" required>
+                        <option value="<?= \app\models\WorkOrders::STATUS_NOT_COMPLETED ?>">&#128994; No Finalizada &mdash; Sin respuesta del cliente</option>
+                        <option value="<?= \app\models\WorkOrders::STATUS_PARTIAL ?>">&#128993; Parcialmente Finalizada &mdash; Avance parcial entregado</option>
+                    </select>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-semibold">Motivo interno del cierre <span class="opacity-50 font-normal">(solo lo ve el admin)</span></span></label>
+                    <textarea name="pause_reason" class="textarea textarea-bordered textarea-warning w-full" rows="3"
+                        placeholder="Ej: El cliente no respondió en 30 días después de la cotización."></textarea>
+                </div>
+
+                <div class="form-control">
+                    <label class="cursor-pointer label justify-start gap-4">
+                        <input type="checkbox" name="notify_client" value="1" class="checkbox checkbox-warning" />
+                        <span class="label-text">Notificar al cliente que la orden fue pausada temporalmente</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-warning text-white gap-2"
+                    onclick="return confirm('¿Confirmas que deseas pausar esta orden?');">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9v6m-4.5 0V9M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Pausar Orden
+                </button>
+
+                <?= Html::endForm() ?>
+            </div>
+        </div>
     <?php endif; ?>
+
+    <?php
+    $pausedStatuses = [\app\models\WorkOrders::STATUS_NOT_COMPLETED, \app\models\WorkOrders::STATUS_PARTIAL];
+    if (in_array($model->status, $pausedStatuses)):
+        $isPaused = true;
+        $pauseLabel = $model->status === \app\models\WorkOrders::STATUS_NOT_COMPLETED
+            ? 'No Finalizada'
+            : 'Parcialmente Finalizada';
+        $pauseColor = $model->status === \app\models\WorkOrders::STATUS_NOT_COMPLETED ? 'alert-error' : 'alert-warning';
+    ?>
+        <!-- Banner de orden pausada: visible para todos -->
+        <div class="alert <?= $pauseColor ?> shadow-lg mt-8">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9v6m-4.5 0V9M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+                <h3 class="font-bold">Esta orden está pausada temporalmente</h3>
+                <?php if ($isAdmin && !empty($model->pause_reason)): ?>
+                    <div class="text-sm mt-1"><strong>Motivo:</strong> <?= \yii\helpers\Html::encode($model->pause_reason) ?></div>
+                    <div class="text-xs opacity-70 mt-0.5">Pausada el: <?= Yii::$app->formatter->asDatetime($model->completed_at) ?></div>
+                <?php else: ?>
+                    <div class="text-sm mt-1">Esta orden fue pausada temporalmente. Contáctenos para retomarla.</div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <?php if ($isAdmin): ?>
+            <!-- Botón de reactivación solo para admin -->
+            <div class="mt-4 flex justify-end">
+                <?= Html::beginForm(['resume', 'id' => $model->id], 'post') ?>
+                    <button type="submit" class="btn btn-primary gap-2"
+                        onclick="return confirm('¿Confirmas que deseas retomar esta orden? Volverá al estado Aprobada.');">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+                        </svg>
+                        Retomar Orden de Trabajo
+                    </button>
+                <?= Html::endForm() ?>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
+
 </div>
