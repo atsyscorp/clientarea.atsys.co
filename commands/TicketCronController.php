@@ -57,12 +57,7 @@ class TicketCronController extends Controller
             // Guardamos sin validación estricta para asegurar el cierre
             if ($ticket->save(false)) {
 
-                // Notificación interna de control
-                $this->triggerN8nNotification(
-                    "🧹 Ticket Auto-Cerrado: {$ticket->ticket_code}",
-                    "El sistema cerró este ticket por inactividad del cliente tras {$this->hoursToClose} horas.",
-                    $ticket->id
-                );
+                $this->sendEmailAlert($ticket);
 
                 $count++;
                 echo " - Cerrado y notificado.\n";
@@ -109,19 +104,48 @@ class TicketCronController extends Controller
         echo "   Total alertas enviadas: $countSla\n\n";
     }
 
+    protected function sendEmailAlert($ticket) {
+
+        try {
+            $mail = Yii::$app->mailer->compose([
+                'html' =>  'ticket_autoclose-html'
+            ],[
+                'ticket' => $ticket
+            ])
+            ->setTo($ticket->email)
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+            ->setSubject('Ticket Cerrado por Inactividad: ' . $ticket->ticket_code);
+
+            if(!$mail->send()) {
+                Yii::error("No se pudo enviar el email.", __METHOD__);
+            }
+        } catch(\Exception $e) {
+            Yii::error("No se pudo enviar el email.", __METHOD__ . " \n Error: " . $e->getMessage());
+        }
+        
+    }
+
     /**
      * Canaliza todas las notificaciones hacia el flujo de automatización (Push)
      */
     protected function triggerN8nNotification($title, $message, $ticketId)
     {
+
+        $tokens = \app\models\AdminTokens::find()->select('token')->column();
+
+        if (empty($tokens)) {
+            return; // No hay nadie a quien notificar
+        }
+
         // Define aquí la URL de tu webhook de N8N
-        $webhookUrl = 'https://n8n.tudominio.com/webhook/alertas-tickets';
+        $webhookUrl = 'https://n8n.atsys.co/webhook/send-admin-push';
 
         $data = [
+            'tokens' => $tokens,
             'title' => $title,
-            'message' => $message,
-            'ticket_id' => $ticketId,
-            'timestamp' => date('Y-m-d H:i:s')
+            'body' => $message,
+            'link' => "https://clientarea.atsys.co/tickets/view?id=" . $ticketId,
+            'image' => 'https://clientarea.atsys.co/images/atsys-clientarea-og.webp'
         ];
 
         try {

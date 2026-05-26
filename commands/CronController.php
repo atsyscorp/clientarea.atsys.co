@@ -74,7 +74,11 @@ class CronController extends Controller
 
                 // Notificaciones (Solo si no es modo silencioso, aunque en cron suele ser activo siempre)
                 $this->sendSuspensionEmail($service);
-                $this->triggerN8NWebhook($service);
+                $this->triggerN8nNotification(
+                    "⚠️ Servicio Suspendido",
+                    "El servicio {$service->domain} ha sido suspendido.",
+                    $service->id
+                );
 
                 echo "SUSPENDIDO Y NOTIFICADO.\n";
                 $count++;
@@ -116,33 +120,40 @@ class CronController extends Controller
     /**
      * Dispara el Webhook de N8N para enviar WhatsApp
      */
-    private function triggerN8NWebhook($service)
+    protected function triggerN8nNotification($title, $message, $ticketId)
     {
-        // Tu URL del Webhook de N8N (Cópiala de tu nodo 'Webhook' en N8N)
-        $n8nUrl = 'https://n8n.atsys.co/webhook/suspension-notificacion';
+
+        $tokens = \app\models\AdminTokens::find()->select('token')->column();
+
+        if (empty($tokens)) {
+            return; // No hay nadie a quien notificar
+        }
+
+        // Define aquí la URL de tu webhook de N8N
+        $webhookUrl = 'https://n8n.atsys.co/webhook/send-admin-push';
+
+        $data = [
+            'tokens' => $tokens,
+            'title' => $title,
+            'body' => $message,
+            'link' => "https://clientarea.atsys.co/work-orders/",
+            'image' => 'https://clientarea.atsys.co/images/atsys-clientarea-og.webp'
+        ];
 
         try {
-            $client = new Client();
-            $response = $client->createRequest()
-                ->setMethod('POST')
-                ->setUrl($n8nUrl)
-                ->setData([
-                    'customer_name' => $service->customer->business_name,
-                    'customer_phone' => $service->customer->phone, // Asegúrate de tener este campo
-                    'customer_email' => $service->customer->email,
-                    'domain' => $service->domain,
-                    'due_date' => $service->next_due_date,
-                    'warning_message' => "⚠️ *AVISO CRÍTICO*: Si no se reactiva, los archivos y bases de datos se eliminarán permanentemente en 15-30 días.",
-                    'action_link' => "https://clientarea.atsys.co/customer-services/"
-                ])
-                ->send();
+            $ch = curl_init($webhookUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Accept: application/json'
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Evita que el cron se cuelgue si N8N no responde
 
-            if (!$response->isOk) {
-                echo "Error N8N: " . $response->statusCode . "\n";
-            }
+            curl_exec($ch);
+            curl_close($ch);
         } catch (\Exception $e) {
-            // Si no tienes yii2-httpclient, usa curl plano aquí
-            echo "Error conectando a N8N: " . $e->getMessage() . "\n";
+            echo " - Error disparando webhook: " . $e->getMessage() . "\n";
         }
     }
 
