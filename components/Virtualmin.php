@@ -30,7 +30,11 @@ class Virtualmin extends Component
 
         if ($response->isOk) {
             // Virtualmin devuelve success: 1 si todo salió bien
-            return ['success' => ($response->data['status'] === 'success'), 'message' => $response->data['output'] ?? ''];
+            return [
+                'success' => ($response->data['status'] === 'success'), 
+                'message' => $response->data['output'] ?? '',
+                'data' => $response->data['data'] ?? null
+            ];
         }
 
         return ['success' => false, 'message' => 'Error de conexión HTTP'];

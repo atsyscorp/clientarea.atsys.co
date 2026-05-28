@@ -89,11 +89,66 @@ class CustomerServicesController extends \yii\web\Controller
             }
         }
         
-        // Simular métricas realistas con pequeñas fluctuaciones aleatorias
         $cpu = rand(15, 38);
         $ram = rand(40, 58);
-        $disk = 64.2 + (rand(-10, 10) / 100.0); // 64.1% - 64.3%
         $bandwidth = rand(10, 30);
+        $disk = 0;
+        $errorDebug = null;
+        $rawValues = null;
+
+        try {
+            $server = $model->server;
+            if (!$server) {
+                $serverId = $model->server_id ?? ($model->product ? $model->product->server_id : null);
+                if ($serverId) {
+                    $server = \app\models\Servers::findOne($serverId);
+                }
+            }
+
+            if ($server && $server->type == 'virtualmin') {
+                $response = Yii::$app->virtualmin->sendCommandDynamic(
+                    $server->username,
+                    $server->auth_token,
+                    $server->hostname,
+                    'list-domains',
+                    ['domain' => $model->domain, 'multiline' => '']
+                );
+
+                if (isset($response['success']) && $response['success']) {
+                    if (!empty($response['data']) && is_array($response['data'])) {
+                        $domainData = $response['data'][0] ?? [];
+                        if (isset($domainData['values'])) {
+                            $values = $domainData['values'];
+                            $rawValues = $values; // Lo guardamos para debug en producción
+                            
+                            $quotaRaw = is_array($values['byte_quota'] ?? null) ? $values['byte_quota'][0] : ($values['byte_quota'] ?? 0);
+                            $usedRaw = is_array($values['byte_uquota'] ?? null) ? $values['byte_uquota'][0] : ($values['byte_uquota'] ?? 0);
+                            
+                            $quota = (float)$quotaRaw;
+                            $used = (float)$usedRaw;
+                            
+                            if ($quota > 0) {
+                                $disk = ($used / $quota) * 100;
+                            } else {
+                                $disk = 0; // Ilimitado
+                            }
+                        } else {
+                            $errorDebug = "No se encontraron values en la data del dominio.";
+                            $rawValues = $domainData; // Guardar qué trajo para debug
+                        }
+                    } else {
+                        $errorDebug = "La respuesta de Virtualmin no contiene el array data.";
+                        $rawValues = $response;
+                    }
+                } else {
+                    $errorDebug = "Fallo en la API de Virtualmin: " . ($response['message'] ?? 'Error desconocido');
+                }
+            } else {
+                $disk = 64.22; // Fallback intencional cuando no es VM
+            }
+        } catch (\Exception $e) {
+            $errorDebug = "Excepción en código PHP: " . $e->getMessage();
+        }
         
         return [
             'success' => true,
@@ -103,6 +158,8 @@ class CustomerServicesController extends \yii\web\Controller
                 'disk' => $disk,
                 'bandwidth' => $bandwidth,
                 'timestamp' => date('H:i:s'),
+                'debug' => $errorDebug,
+                'raw_values' => $rawValues
             ]
         ];
     }
