@@ -5,6 +5,7 @@ namespace app\controllers;
 use Yii;
 use yii\web\Controller;
 use app\models\Orders;
+use app\models\OrdersSearch;
 use app\models\CustomerServices;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -29,6 +30,26 @@ class OrdersController extends Controller
             return $model;
         }
         throw new NotFoundHttpException('La orden seleccionada no existe.');
+    }
+
+    public function actionIndex()
+    {
+        $searchModel = new OrdersSearch();
+        $dataProvider = $searchModel->search($this->request->queryParams);
+
+        if (!Yii::$app->user->isGuest && !Yii::$app->user->identity->isAdmin) {
+            $identity = Yii::$app->user->identity;
+            $ownerId = (!empty($identity->parent_id)) ? $identity->parent_id : $identity->id;
+            $myCustomer = \app\models\Customers::findOne(['user_id' => $ownerId]);
+            $realCustomerId = $myCustomer ? $myCustomer->id : -1;
+
+            $dataProvider->query->andWhere(['customer_id' => $realCustomerId]);
+        }
+
+        return $this->render('index', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
     }
 
     public function actionView($id)
@@ -253,9 +274,6 @@ class OrdersController extends Controller
         }
     }
 
-    /**
-     * LAS FUNCIONES QUE FALTABAN
-     */
     private function sendUnsuspensionEmail($service)
     {
         try {
@@ -302,4 +320,5 @@ class OrdersController extends Controller
             Yii::error("Error recibo pago email: " . $e->getMessage());
         }
     }
+
 }

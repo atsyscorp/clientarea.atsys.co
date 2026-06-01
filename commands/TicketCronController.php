@@ -113,6 +113,7 @@ class TicketCronController extends Controller
                 'ticket' => $ticket
             ])
             ->setTo($ticket->email)
+            ->setBcc(Yii::$app->params['adminEmail'])
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
             ->setSubject('Ticket Cerrado por Inactividad: ' . $ticket->ticket_code);
 

@@ -21,7 +21,7 @@ class CleanupController extends Controller
         // Buscamos: Estado 'pending' (o 1) Y creadas antes del límite
         $oldOrders = WorkOrders::find()
             ->where([
-                'status' => 'pending',
+                'status' => '1',
                 'is_request' => 0
             ]) // Asegúrate que este sea el estado de "Propuesta enviada"
             ->andWhere(['<', 'created_at', $limitDate])
