@@ -531,3 +531,48 @@ $this->registerJs($js, \yii\web\View::POS_END);
     </div>
 
 </div>
+
+<?php
+// GLightbox for ticket images
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js', ['position' => \yii\web\View::POS_END]);
+
+$jsLightbox = <<<JS
+document.addEventListener("DOMContentLoaded", function() {
+    const images = document.querySelectorAll('.chat-bubble img');
+    
+    images.forEach(img => {
+        if (img.parentElement && img.parentElement.classList.contains('glightbox')) return;
+        
+        img.classList.add('max-w-full', 'rounded', 'shadow-sm', 'transition-all', 'duration-300', 'group-hover:brightness-75');
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relative group inline-block cursor-pointer my-2 max-w-full align-middle';
+        
+        const link = document.createElement('a');
+        link.href = img.src;
+        link.className = 'glightbox block';
+        link.setAttribute('data-gallery', 'ticket-images');
+        
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded';
+        iconDiv.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="white" class="w-10 h-10 drop-shadow-md"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" /></svg>';
+        
+        img.parentNode.insertBefore(wrapper, img);
+        link.appendChild(img);
+        link.appendChild(iconDiv);
+        wrapper.appendChild(link);
+    });
+    
+    if (typeof GLightbox !== 'undefined') {
+        GLightbox({
+            selector: '.glightbox',
+            touchNavigation: true,
+            loop: true,
+            zoomable: true
+        });
+    }
+});
+JS;
+$this->registerJs($jsLightbox, \yii\web\View::POS_END);
+?>
