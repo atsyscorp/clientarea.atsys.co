@@ -101,14 +101,90 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
         .driver-stage-no-animation, #driver-highlighted-element-stage {
             background: rgba(255, 255, 255, 0.06) !important;
         }
+
+        /* Estilos para colapsar/expandir el sidebar en escritorio */
+        @media (min-width: 1024px) {
+            .drawer.lg:drawer-open {
+                display: grid;
+                grid-template-columns: 20rem 1fr;
+                transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .drawer.lg:drawer-open.sidebar-collapsed {
+                grid-template-columns: 0rem 1fr;
+            }
+            .drawer-side {
+                width: 20rem !important;
+                overflow: hidden;
+                transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            .drawer.sidebar-collapsed .drawer-side {
+                width: 0rem !important;
+                opacity: 0;
+            }
+            
+            /* Botón de control del sidebar */
+            #sidebar-toggle-btn {
+                position: fixed;
+                top: 50%;
+                left: 320px; /* Ancho del sidebar w-80 = 20rem = 320px */
+                transform: translateY(-50%) translateX(-50%);
+                z-index: 50;
+                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s, color 0.2s, width 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 24px;
+                height: 48px;
+                background-color: hsl(var(--b1));
+                border: 1px solid hsl(var(--bc) / 0.15);
+                border-radius: 9999px;
+                cursor: pointer;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+                color: hsl(var(--bc) / 0.7);
+            }
+            #sidebar-toggle-btn:hover {
+                background-color: hsl(var(--p));
+                color: hsl(var(--pc));
+                border-color: hsl(var(--p));
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+            }
+            
+            .sidebar-collapsed #sidebar-toggle-btn {
+                left: 0px;
+                transform: translateY(-50%) translateX(0);
+            }
+            
+            /* Rotación del icono de la flecha */
+            .sidebar-collapsed #toggle-arrow {
+                transform: rotate(180deg);
+            }
+        }
+        @media (max-width: 1023px) {
+            #sidebar-toggle-btn {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 
 <body class="bg-base-100 text-base-content min-h-screen">
     <?php $this->beginBody() ?>
 
-    <div class="drawer lg:drawer-open">
+    <div class="drawer lg:drawer-open" id="main-drawer">
+        <script>
+            // Apply sidebar state immediately to prevent layout shift
+            if (localStorage.getItem('sidebar-collapsed') === 'true') {
+                document.getElementById('main-drawer').classList.add('sidebar-collapsed');
+            }
+        </script>
         <input id="my-drawer" type="checkbox" class="drawer-toggle" />
+        
+        <!-- Toggle button for desktop sidebar -->
+        <button id="sidebar-toggle-btn" class="hidden lg:flex" aria-label="Toggle Sidebar" onclick="toggleSidebar()">
+            <svg id="toggle-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4 transition-transform duration-300">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+        </button>
 
         <div class="drawer-content flex flex-col bg-base-200 min-h-screen">
 
@@ -341,6 +417,8 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                     $isTeamActive = ($controllerId === 'subaccounts');
                     $isWorkOrdersActive = ($controllerId === 'work-orders');
                     $isAnnouncementsActive = ($controllerId === 'announcements');
+                    $isSpamBlacklistActive = ($controllerId === 'ticket-spam-blacklist');
+                    $isHelpActive = ($controllerId === 'help');
 
                     // Compute badge counts
                     $ticketBadgeCount = 0;
@@ -409,6 +487,14 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                                 <a href="/products/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isProductsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
                                     Productos
+                                </a>
+                            </li>
+
+                            <!-- Admin Lista Negra SPAM -->
+                            <li>
+                                <a href="/ticket-spam-blacklist/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isSpamBlacklistActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                    Filtro SPAM
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -482,6 +568,14 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                                 </a>
                             </li>
                         <?php endif; ?>
+
+                        <!-- Help Center (Visible to everyone) -->
+                        <li>
+                            <a href="/help" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isHelpActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>
+                                Centro de Ayuda
+                            </a>
+                        </li>
                     </ul>
                 </div>
                 
@@ -609,6 +703,21 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
 
     <!-- Global Helper Scripts (Theme, Preloader, Tour) -->
     <script>
+        function toggleSidebar() {
+            const drawer = document.getElementById('main-drawer');
+            if (drawer) {
+                drawer.classList.toggle('sidebar-collapsed');
+                const isCollapsed = drawer.classList.contains('sidebar-collapsed');
+                localStorage.setItem('sidebar-collapsed', isCollapsed ? 'true' : 'false');
+                
+                // Dispatch resize event to let responsive widgets/charts recalculate size
+                window.dispatchEvent(new Event('resize'));
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 300);
+            }
+        }
+
         const getCsrf = () => {
             return {
                 param: document.querySelector('meta[name="csrf-param"]')?.getAttribute('content'),

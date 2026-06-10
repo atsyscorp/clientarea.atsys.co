@@ -24,7 +24,7 @@ use yii\helpers\Html;
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px; background-color: #ffffff; border-radius: 8px; overflow: hidden; font-family: Arial, sans-serif; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                     
                     <tr>
-                        <td style="padding: 20px; text-align:left; border-bottom: 1px solid #eeeeee;">
+                        <td style="padding: 20px; text-align:center; border-bottom: 1px solid #eeeeee;">
                             <img src="https://static.atsys.co/img/email/atsys-email-customer-tpl.png" alt="Logo ATSYS" style="max-height: 50px; display: block;" />
                         </td>
                     </tr>

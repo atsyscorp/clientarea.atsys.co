@@ -149,7 +149,25 @@ class Tickets extends \yii\db\ActiveRecord
             [['department'], 'string'],
             [['department'], 'default', 'value' => self::DEPT_SUPPORT],
             [['department'], 'in', 'range' => [self::DEPT_SUPPORT, self::DEPT_COMMERCIAL, self::DEPT_BILLING]],
+            
+            // Validación de Lista Negra de SPAM
+            [['email'], 'validateSpamBlacklist'],
         ];
+    }
+
+    /**
+     * Valida que el remitente no esté registrado en la lista negra de SPAM.
+     */
+    public function validateSpamBlacklist($attribute, $params)
+    {
+        if (!empty($this->$attribute)) {
+            $isBlacklisted = TicketSpamBlacklist::find()
+                ->where(['email' => strtolower(trim($this->$attribute))])
+                ->exists();
+            if ($isBlacklisted) {
+                $this->addError($attribute, 'Este correo electrónico está en la lista negra de SPAM y no puede crear tickets.');
+            }
+        }
     }
 
     /**
@@ -468,6 +486,93 @@ class Tickets extends \yii\db\ActiveRecord
         ];
         return $departmentsAddresses[$this->department] ?? $departmentsAddresses[self::DEPT_SUPPORT];
 
+    }
+
+    /**
+     * Calcula los datos del gráfico de Gantt para un conjunto de tickets (ActiveQuery).
+     * @param \yii\db\ActiveQuery $query
+     * @param int $limit
+     * @return array
+     */
+    public static function getGanttData($query, $limit = 20)
+    {
+        $ganttQuery = clone $query;
+        $tickets = $ganttQuery->orderBy(['created_at' => SORT_DESC])->limit($limit)->all();
+        
+        if (empty($tickets)) {
+            return [];
+        }
+        
+        // Ordenar cronológicamente (ASC) para dibujar el Gantt de forma natural
+        usort($tickets, function($a, $b) {
+            return strtotime($a->created_at) <=> strtotime($b->created_at);
+        });
+        
+        $minTime = null;
+        $maxTime = null;
+        
+        // Primer ciclo: obtener límites de tiempo (minTime, maxTime)
+        foreach ($tickets as $ticket) {
+            $createdTs = strtotime($ticket->created_at);
+            $lastActivityTs = strtotime($ticket->updated_at ?: $ticket->created_at);
+            
+            $endTs = in_array($ticket->status, [self::STATUS_OPEN, self::STATUS_CUSTOMER_REPLY, self::STATUS_IN_PROGRESS]) 
+                ? time() 
+                : $lastActivityTs;
+                
+            if ($minTime === null || $createdTs < $minTime) {
+                $minTime = $createdTs;
+            }
+            if ($maxTime === null || $endTs > $maxTime) {
+                $maxTime = $endTs;
+            }
+        }
+        
+        $totalSpan = ($maxTime !== null && $minTime !== null && $maxTime > $minTime) ? ($maxTime - $minTime) : 1;
+        $timelineTickets = [];
+        
+        // Segundo ciclo: estructurar datos de línea de tiempo con porcentajes
+        foreach ($tickets as $ticket) {
+            $createdTs = strtotime($ticket->created_at);
+            $lastActivityTs = strtotime($ticket->updated_at ?: $ticket->created_at);
+            
+            $endTs = in_array($ticket->status, [self::STATUS_OPEN, self::STATUS_CUSTOMER_REPLY, self::STATUS_IN_PROGRESS]) 
+                ? time() 
+                : $lastActivityTs;
+                
+            $startPercent = (($createdTs - $minTime) / $totalSpan) * 100;
+            $endPercent = (($endTs - $minTime) / $totalSpan) * 100;
+            $widthPercent = max(3.0, $endPercent - $startPercent); // Ancho mínimo de 3%
+            
+            // Texto de duración de actividad
+            $durationSec = $endTs - $createdTs;
+            if ($durationSec < 3600) {
+                $durText = round($durationSec / 60) . ' minutos';
+            } elseif ($durationSec < 86400) {
+                $durText = round($durationSec / 3600, 1) . ' horas';
+            } else {
+                $durText = round($durationSec / 86400, 1) . ' días';
+            }
+            
+            $timelineTickets[] = [
+                'id' => $ticket->id,
+                'ticket_code' => $ticket->ticket_code,
+                'subject' => $ticket->subject,
+                'status' => $ticket->status,
+                'status_text' => $ticket->getStatusText(),
+                'created_at' => $ticket->created_at,
+                'updated_at' => $ticket->updated_at,
+                'duration_text' => $durText,
+                'left_percent' => round($startPercent, 2),
+                'width_percent' => round($widthPercent, 2),
+            ];
+        }
+        
+        return [
+            'timeline' => array_reverse($timelineTickets), // Mostrar los más recientes arriba
+            'min_time' => $minTime,
+            'max_time' => $maxTime,
+        ];
     }
 
 }

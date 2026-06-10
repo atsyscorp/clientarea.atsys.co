@@ -33,6 +33,19 @@ class WebhookController extends Controller
             return ['status' => 'error', 'message' => 'Faltan datos.'];
         }
 
+        // 2.5 COMPROBAR LISTA NEGRA DE SPAM
+        if (!empty($data['email'])) {
+            $isBlacklisted = \app\models\TicketSpamBlacklist::find()
+                ->where(['email' => strtolower(trim($data['email']))])
+                ->exists();
+            if ($isBlacklisted) {
+                return [
+                    'status' => 'ignored',
+                    'message' => 'El remitente está registrado en la lista negra de SPAM. Ticket ignorado.'
+                ];
+            }
+        }
+
         $transaction = Yii::$app->db->beginTransaction();
         try {
             // 3. LOGICA DE CLIENTE

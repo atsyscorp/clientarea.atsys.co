@@ -38,7 +38,22 @@ class User extends ActiveRecord implements \yii\web\IdentityInterface
     }
 
     public static function findIdentityByAccessToken($token, $type = null) {
-        return static::findOne(['auth_key' => $token, 'status' => self::STATUS_ACTIVE]);
+        // 1. Intentar buscar por auth_key del usuario directamente
+        $user = static::findOne(['auth_key' => $token, 'status' => self::STATUS_ACTIVE]);
+        if ($user) {
+            return $user;
+        }
+
+        // 2. Si no se encuentra, buscar por api_token de la tabla customers
+        $customer = \app\models\Customers::findOne([
+            'api_token' => $token,
+            'status' => \app\models\Customers::STATUS_ACTIVE
+        ]);
+        if ($customer && $customer->user_id) {
+            return static::findOne(['id' => $customer->user_id, 'status' => self::STATUS_ACTIVE]);
+        }
+
+        return null;
     }
 
     public static function findByUsername($username) {

@@ -18,7 +18,7 @@ class WorkOrdersSearch extends WorkOrders
     public function rules()
     {
         return [
-            [['id', 'customer_id', 'status'], 'integer'],
+            [['id', 'customer_id', 'status', 'has_service_contract'], 'integer'],
             [['code', 'title', 'requirements', 'notes', 'created_at'], 'safe'],
             [['total_cost'], 'number'],
         ];
@@ -75,6 +75,7 @@ class WorkOrdersSearch extends WorkOrders
         $query->andFilterWhere([
             'id' => $this->id,
             'status' => $this->status,
+            'has_service_contract' => $this->has_service_contract,
             'total_cost' => $this->total_cost,
             'created_at' => $this->created_at,
         ]);

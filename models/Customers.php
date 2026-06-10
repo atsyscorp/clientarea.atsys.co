@@ -278,4 +278,164 @@ class Customers extends \yii\db\ActiveRecord
         return $this->hasMany(CustomerServices::class, ['customer_id' => 'id']);
     }
 
+    /**
+     * Gets query for [[Tickets]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTickets()
+    {
+        return $this->hasMany(Tickets::class, ['customer_id' => 'id']);
+    }
+
+    /**
+     * Calcula estadísticas y datos para el gráfico de Gantt de los tickets de este cliente.
+     * @return array
+     */
+    public function getTicketStats()
+    {
+        $tickets = $this->tickets;
+        
+        $total = count($tickets);
+        $answered = 0;
+        $pending = 0;
+        
+        $totalResponseTime = 0;
+        $responseTimeCount = 0;
+        
+        $timelineTickets = [];
+        
+        // Ordenar por created_at de forma ascendente para la cronología
+        usort($tickets, function($a, $b) {
+            return strtotime($a->created_at) <=> strtotime($b->created_at);
+        });
+        
+        // Conservar los últimos 15 tickets para el Gantt y evitar sobrecargar
+        $recentTicketsForTimeline = array_slice($tickets, -15);
+        
+        $minTime = null;
+        $maxTime = null;
+        
+        // Primer ciclo: conteos y tiempos de respuesta
+        foreach ($tickets as $ticket) {
+            if ($ticket->status === Tickets::STATUS_ANSWERED || $ticket->status === Tickets::STATUS_CLOSED) {
+                $answered++;
+                
+                // Calcular tiempo de primera respuesta: creación de ticket hasta primera réplica de admin
+                $firstAdminReply = TicketReplies::find()
+                    ->where(['ticket_id' => $ticket->id, 'sender_type' => TicketReplies::SENDER_TYPE_ADMIN])
+                    ->orderBy(['created_at' => SORT_ASC])
+                    ->one();
+                    
+                if ($firstAdminReply) {
+                    $created = strtotime($ticket->created_at);
+                    $replied = strtotime($firstAdminReply->created_at);
+                    $diff = $replied - $created;
+                    if ($diff > 0) {
+                        $totalResponseTime += $diff;
+                        $responseTimeCount++;
+                    }
+                }
+            } else {
+                $pending++;
+            }
+        }
+        
+        // Determinar el rango de la ventana de tiempo del Gantt
+        foreach ($recentTicketsForTimeline as $ticket) {
+            $createdTs = strtotime($ticket->created_at);
+            $lastActivityTs = strtotime($ticket->updated_at ?: $ticket->created_at);
+            
+            $endTs = in_array($ticket->status, [Tickets::STATUS_OPEN, Tickets::STATUS_CUSTOMER_REPLY, Tickets::STATUS_IN_PROGRESS]) 
+                ? time() 
+                : $lastActivityTs;
+                
+            if ($minTime === null || $createdTs < $minTime) {
+                $minTime = $createdTs;
+            }
+            if ($maxTime === null || $endTs > $maxTime) {
+                $maxTime = $endTs;
+            }
+        }
+        
+        // Formatear promedio de tiempo de respuesta
+        $avgResponseText = 'N/A';
+        if ($responseTimeCount > 0) {
+            $avgSeconds = $totalResponseTime / $responseTimeCount;
+            if ($avgSeconds < 3600) {
+                $minutes = round($avgSeconds / 60);
+                $avgResponseText = $minutes . ' m';
+            } elseif ($avgSeconds < 86400) {
+                $hours = floor($avgSeconds / 3600);
+                $minutes = round(($avgSeconds % 3600) / 60);
+                $avgResponseText = $hours . 'h ' . $minutes . 'm';
+            } else {
+                $days = floor($avgSeconds / 86400);
+                $hours = round(($avgSeconds % 86400) / 3600);
+                $avgResponseText = $days . 'd ' . $hours . 'h';
+            }
+        }
+        
+        // Segundo ciclo: estructurar datos de línea de tiempo con posiciones relativas (%)
+        $totalSpan = ($maxTime !== null && $minTime !== null && $maxTime > $minTime) ? ($maxTime - $minTime) : 1;
+        
+        foreach ($recentTicketsForTimeline as $ticket) {
+            $createdTs = strtotime($ticket->created_at);
+            $lastActivityTs = strtotime($ticket->updated_at ?: $ticket->created_at);
+            
+            $endTs = in_array($ticket->status, [Tickets::STATUS_OPEN, Tickets::STATUS_CUSTOMER_REPLY, Tickets::STATUS_IN_PROGRESS]) 
+                ? time() 
+                : $lastActivityTs;
+                
+            $startPercent = (($createdTs - $minTime) / $totalSpan) * 100;
+            $endPercent = (($endTs - $minTime) / $totalSpan) * 100;
+            $widthPercent = max(3.0, $endPercent - $startPercent); // Garantizar mínimo 3%
+            
+            // Texto de duración de actividad
+            $durationSec = $endTs - $createdTs;
+            if ($durationSec < 3600) {
+                $durText = round($durationSec / 60) . ' minutos';
+            } elseif ($durationSec < 86400) {
+                $durText = round($durationSec / 3600, 1) . ' horas';
+            } else {
+                $durText = round($durationSec / 86400, 1) . ' días';
+            }
+            
+            $timelineTickets[] = [
+                'id' => $ticket->id,
+                'ticket_code' => $ticket->ticket_code,
+                'subject' => $ticket->subject,
+                'status' => $ticket->status,
+                'status_text' => $ticket->getStatusText(),
+                'created_at' => $ticket->created_at,
+                'updated_at' => $ticket->updated_at,
+                'duration_text' => $durText,
+                'left_percent' => round($startPercent, 2),
+                'width_percent' => round($widthPercent, 2),
+            ];
+        }
+        
+        // Contar tickets por meses del año actual
+        $currentYear = date('Y');
+        $monthlyCounts = array_fill(1, 12, 0);
+        foreach ($tickets as $ticket) {
+            $ticketYear = date('Y', strtotime($ticket->created_at));
+            if ($ticketYear === $currentYear) {
+                $ticketMonth = (int)date('n', strtotime($ticket->created_at));
+                $monthlyCounts[$ticketMonth]++;
+            }
+        }
+        
+        return [
+            'total' => $total,
+            'answered' => $answered,
+            'pending' => $pending,
+            'avg_response_time' => $avgResponseText,
+            'timeline' => array_reverse($timelineTickets), // Mostrar los más recientes arriba
+            'min_time' => $minTime,
+            'max_time' => $maxTime,
+            'monthly_counts' => array_values($monthlyCounts),
+        ];
+    }
+
 }

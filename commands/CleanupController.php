@@ -18,12 +18,13 @@ class CleanupController extends Controller
         // Calculamos la fecha límite (hace 5 días)
         $limitDate = date('Y-m-d H:i:s', strtotime('-5 days'));
         
-        // Buscamos: Estado 'pending' (o 1) Y creadas antes del límite
+        // Buscamos: Estado 'pending' (o 1) Y creadas antes del límite Y sin contrato de servicio
         $oldOrders = WorkOrders::find()
             ->where([
                 'status' => '1',
                 'is_request' => 0
             ]) // Asegúrate que este sea el estado de "Propuesta enviada"
+            ->andWhere(['or', ['has_service_contract' => 0], ['is', 'has_service_contract', null]])
             ->andWhere(['<', 'created_at', $limitDate])
             ->all();
 

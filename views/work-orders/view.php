@@ -116,7 +116,12 @@ if ($model->is_request == 1) {
             </div>
             <div class="text-right mt-4 md:mt-0">
                 <div class="text-2xl font-mono font-bold"><?= $model->code ?></div>
-                <div class="mt-2"><?= $model->getStatusHtml() ?></div>
+                <div class="mt-2 flex items-center justify-end gap-1">
+                    <?= $model->getStatusHtml() ?>
+                    <?php if ($model->has_service_contract): ?>
+                        <span class="badge badge-info text-white font-bold ml-1">Contrato de Servicios</span>
+                    <?php endif; ?>
+                </div>
                 <div class="text-sm opacity-60 mt-1">Fecha: <?= Yii::$app->formatter->asDate($model->created_at) ?>
                 </div>
             </div>
@@ -193,24 +198,32 @@ if ($model->is_request == 1) {
                             ]) ?>
                     </div>
 
-                    <div class="flex justify-end mt-6 border-t border-base-300 pt-6">
-                        <div class="w-full md:w-1/2 lg:w-1/3">
-                            <label class="label">
-                                <span class="label-text font-bold text-lg">Inversión Total a Cotizar</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 border-t border-base-300 pt-6">
+                        <div class="flex items-center">
+                            <label class="label cursor-pointer justify-start gap-4">
+                                <?= $form->field($model, 'has_service_contract')->checkbox(['class' => 'checkbox checkbox-primary'], false)->label(false) ?>
+                                <span class="label-text font-bold">Incluye Contrato de Servicio (Evita vencimiento)</span>
                             </label>
-                            <div class="join w-full">
-                                <span class="join-item btn btn-active pointer-events-none">$</span>
-                                <?= $form->field($model, 'total_cost', [
-                                    'template' => '{input}',
-                                    'options' => ['tag' => false]
-                                ])->textInput([
-                                            'type' => 'number',
-                                            'step' => '0.01',
-                                            'class' => 'input input-bordered join-item w-full text-lg font-bold text-primary',
-                                            'placeholder' => '0.00'
-                                        ]) ?>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <div class="w-full md:w-2/3">
+                                <label class="label">
+                                    <span class="label-text font-bold text-lg">Inversión Total a Cotizar</span>
+                                </label>
+                                <div class="join w-full">
+                                    <span class="join-item btn btn-active pointer-events-none">$</span>
+                                    <?= $form->field($model, 'total_cost', [
+                                        'template' => '{input}',
+                                        'options' => ['tag' => false]
+                                    ])->textInput([
+                                                'type' => 'number',
+                                                'step' => '0.01',
+                                                'class' => 'input input-bordered join-item w-full text-lg font-bold text-primary',
+                                                'placeholder' => '0.00'
+                                            ]) ?>
+                                </div>
+                                <?= Html::error($model, 'total_cost', ['class' => 'text-error text-sm mt-1']) ?>
                             </div>
-                            <?= Html::error($model, 'total_cost', ['class' => 'text-error text-sm mt-1']) ?>
                         </div>
                     </div>
 

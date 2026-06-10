@@ -138,6 +138,16 @@ $this->registerJs($js, \yii\web\View::POS_END);
             </div>
 
             <div class="form-control w-full md:col-span-2">
+                <div class="flex items-center gap-4 p-4 bg-base-200/50 rounded-xl border border-base-200">
+                    <?= $form->field($model, 'has_service_contract')->checkbox(['class' => 'checkbox checkbox-primary'], false)->label(false) ?>
+                    <div>
+                        <span class="font-bold text-sm block">¿Incluye contrato de servicios?</span>
+                        <span class="text-xs opacity-70">Al marcar esta opción, la orden no vencerá automáticamente tras 5 días de inactividad.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-control w-full md:col-span-2">
                 <label class="label"><span class="label-text font-bold">Notas o Condiciones Especiales</span></label>
                 <?= $form->field($model, 'notes', ['template' => '{input}{error}'])->textarea([
                     'rows' => 3, 

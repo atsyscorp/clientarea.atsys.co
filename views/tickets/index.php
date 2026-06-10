@@ -42,7 +42,21 @@ $estadosList = [
 
     <?= $this->render('_search', ['model' => $searchModel, 'isAdmin' => $isAdmin]) ?>
 
-    <div class="overflow-x-auto w-full bg-base-100 shadow-xl rounded-box border border-base-200 mb-20">
+    <!-- Pestañas de Navegación -->
+    <?php if ($isAdmin): ?>
+    <div class="tabs tabs-boxed mb-6 justify-center bg-base-200 p-1 rounded-xl max-w-md mx-auto">
+        <a id="tab-table-view" class="tab tab-lg font-bold px-6 transition-all duration-200 tab-active btn-primary text-white">
+            <i class="fas fa-list mr-2"></i> Vista Tabla
+        </a>
+        <a id="tab-gantt-view" class="tab tab-lg font-bold px-6 transition-all duration-200">
+            <i class="fas fa-tasks mr-2"></i> Cronograma Gantt
+        </a>
+    </div>
+    <?php endif; ?>
+
+    <!-- SECCIÓN: VISTA TABLA -->
+    <div id="table-view-sec" class="tab-content-sec">
+        <div class="overflow-x-auto w-full bg-base-100 shadow-xl rounded-box border border-base-200">
         <?= GridView::widget([
             'dataProvider' => $dataProvider,
             'id' => 'tickets-grid',
@@ -149,7 +163,141 @@ $estadosList = [
                 ],
             ]
         ]); ?>
+        </div>
     </div>
+
+    <?php if ($isAdmin): ?>
+    <!-- SECCIÓN: CRONOGRAMA GANTT GLOBAL -->
+    <div id="gantt-view-sec" class="tab-content-sec hidden mb-20">
+        <?php
+        $ganttData = \app\models\Tickets::getGanttData($dataProvider->query, 25);
+        ?>
+        <div class="card bg-base-100 shadow-xl border border-base-200">
+            <div class="card-body p-6">
+                <h3 class="card-title text-xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-tasks text-primary mr-1"></i> Cronograma Global de Tickets (Gantt)
+                </h3>
+                <p class="text-xs text-gray-400 mb-6 font-semibold">Línea de tiempo y avance de las últimas 25 solicitudes de soporte.</p>
+                
+                <?php if (!empty($ganttData['timeline'])): ?>
+                    <div class="space-y-6">
+                        <!-- Rulers de la Línea de Tiempo -->
+                        <div class="grid grid-cols-12 text-center text-[10px] font-extrabold text-gray-400 border-b border-base-200 pb-2">
+                            <div class="col-span-3 text-left">Ticket / Asunto</div>
+                            <div class="col-span-9 relative">
+                                <div class="flex justify-between w-full px-2">
+                                    <span><?= date('d M', $ganttData['min_time']) ?></span>
+                                    <span>Mitad del Período</span>
+                                    <span><?= date('d M', $ganttData['max_time']) ?></span>
+                                </div>
+                                <!-- Líneas verticales de rejilla en el fondo -->
+                                <div class="absolute inset-0 flex justify-between pointer-events-none px-2 h-[450px] top-4">
+                                    <div class="border-l border-base-300 border-dashed h-full opacity-60"></div>
+                                    <div class="border-l border-base-300 border-dashed h-full opacity-60"></div>
+                                    <div class="border-l border-base-300 border-dashed h-full opacity-60"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4 max-h-[550px] overflow-y-auto pr-2 relative z-10">
+                            <?php foreach ($ganttData['timeline'] as $tkt): ?>
+                                <?php
+                                $barColors = [
+                                    'open' => 'from-blue-400 to-blue-500 shadow-blue-200',
+                                    'answered' => 'from-emerald-400 to-emerald-500 shadow-emerald-200',
+                                    'customer_reply' => 'from-amber-400 to-amber-500 shadow-amber-200',
+                                    'closed' => 'from-gray-400 to-gray-500 shadow-gray-200',
+                                    'in_progress' => 'from-indigo-400 to-indigo-500 shadow-indigo-200',
+                                ];
+                                $barColor = $barColors[$tkt['status']] ?? 'from-gray-400 to-gray-500';
+                                
+                                $badgeColors = [
+                                    'open' => 'badge-error text-white',
+                                    'answered' => 'badge-success text-white',
+                                    'customer_reply' => 'badge-warning text-black',
+                                    'closed' => 'badge-neutral text-white',
+                                    'in_progress' => 'badge-secondary text-white',
+                                ];
+                                $badgeColor = $badgeColors[$tkt['status']] ?? 'badge-ghost';
+                                ?>
+                                <div class="grid grid-cols-12 gap-3 items-center group">
+                                    <!-- Código e Info del Ticket -->
+                                    <div class="col-span-12 md:col-span-3 flex flex-col">
+                                        <div class="flex items-center gap-1.5">
+                                            <a href="/tickets/view?id=<?= $tkt['id'] ?>" class="text-xs font-extrabold text-primary hover:underline leading-none">
+                                                <?= Html::encode($tkt['ticket_code']) ?>
+                                            </a>
+                                            <span class="badge text-[9px] px-1 font-bold h-4 leading-none <?= $badgeColor ?>">
+                                                <?= Html::encode($tkt['status_text']) ?>
+                                            </span>
+                                        </div>
+                                        <span class="text-xs font-semibold text-gray-700 truncate mt-1 group-hover:text-primary transition-colors" title="<?= Html::encode($tkt['subject']) ?>">
+                                            <?= Html::encode($tkt['subject']) ?>
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Contenedor y Barra Gantt -->
+                                    <div class="col-span-12 md:col-span-9 relative py-2">
+                                        <div class="w-full bg-base-200 h-4 rounded-full shadow-inner flex items-center relative">
+                                            <div class="absolute h-full rounded-full bg-gradient-to-r <?= $barColor ?> shadow-sm transition-all duration-500 cursor-help tooltip tooltip-primary font-bold text-xs"
+                                                 style="left: <?= $tkt['left_percent'] ?>%; width: <?= $tkt['width_percent'] ?>%;"
+                                                 data-tip="Creado: <?= date('d M H:i', strtotime($tkt['created_at'])) ?> | Duración: <?= $tkt['duration_text'] ?>">
+                                            </div>
+                                        </div>
+                                        <div class="absolute right-0 top-0 text-[9px] text-gray-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block">
+                                            Duración: <?= Html::encode($tkt['duration_text']) ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <div class="text-center py-16 text-gray-400 flex flex-col items-center justify-center">
+                        <i class="fas fa-tasks text-5xl mb-3 opacity-30"></i>
+                        <span class="text-base font-semibold text-gray-700">No hay tickets registrados</span>
+                        <p class="text-xs max-w-xs mt-1">Los datos de progreso temporal se mostrarán aquí una vez que crees solicitudes de tickets.</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <?php
+    $jsGanttTab = <<<JS
+    document.addEventListener("DOMContentLoaded", function() {
+        const tabTable = document.getElementById('tab-table-view');
+        const tabGantt = document.getElementById('tab-gantt-view');
+        const secTable = document.getElementById('table-view-sec');
+        const secGantt = document.getElementById('gantt-view-sec');
+
+        function selectTable() {
+            if (tabTable && tabGantt) {
+                tabTable.classList.add('tab-active', 'btn-primary', 'text-white');
+                tabGantt.classList.remove('tab-active', 'btn-primary', 'text-white');
+            }
+            if (secTable) secTable.classList.remove('hidden');
+            if (secGantt) secGantt.classList.add('hidden');
+        }
+
+        function selectGantt() {
+            if (tabTable && tabGantt) {
+                tabGantt.classList.add('tab-active', 'btn-primary', 'text-white');
+                tabTable.classList.remove('tab-active', 'btn-primary', 'text-white');
+            }
+            if (secGantt) secGantt.classList.remove('hidden');
+            if (secTable) secTable.classList.add('hidden');
+        }
+
+        if (tabTable && tabGantt) {
+            tabTable.addEventListener('click', selectTable);
+            tabGantt.addEventListener('click', selectGantt);
+        }
+    });
+    JS;
+    $this->registerJs($jsGanttTab, \yii\web\View::POS_END);
+    ?>
+    <?php endif; ?>
 
     <div id="bulk-actions-bar" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 translate-y-32 opacity-0 pointer-events-none">
         <div class="bg-neutral text-neutral-content shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 border border-white/10">

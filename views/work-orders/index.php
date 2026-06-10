@@ -78,6 +78,17 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     ],
 
                     [
+                        'attribute' => 'has_service_contract',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            return $model->has_service_contract 
+                                ? '<span class="badge badge-info text-white font-bold">Sí</span>' 
+                                : '<span class="badge badge-ghost">No</span>';
+                        },
+                        'filter' => [0 => 'No', 1 => 'Sí'],
+                    ],
+
+                    [
                         'attribute' => 'created_at',
                         'format' => ['date', 'php:d M, Y'],
                         'label' => 'Fecha',

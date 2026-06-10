@@ -65,7 +65,11 @@ $config = [
                 'signup' => 'site/signup',
                 'login' => 'site/login',
                 'logout' => 'site/logout',
-                'profile' => 'site/profile'
+                'profile' => 'site/profile',
+                'help' => 'help/index',
+                'help/virtualmin' => 'help/virtualmin',
+                'help/cyberpanel' => 'help/cyberpanel',
+                'POST api/tickets' => 'api/create-ticket',
             ],
         ],
         'i18n' => [
