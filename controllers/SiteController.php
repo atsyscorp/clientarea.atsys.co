@@ -517,8 +517,15 @@ class SiteController extends Controller
             }
         }
 
-        // Return JSON for AJAX or Cross-Origin requests
-        if (Yii::$app->request->isAjax || $isCrossOrigin) {
+        // Return JSON if requested via format parameter, Accept header, AJAX or Cross-Origin
+        $format = Yii::$app->request->get('format');
+        $accept = Yii::$app->request->headers->get('Accept');
+        $wantsJson = ($format === 'json' || 
+                      (strpos($accept ?? '', 'application/json') !== false) || 
+                      Yii::$app->request->isAjax || 
+                      $isCrossOrigin);
+
+        if ($wantsJson) {
             Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             return [
                 'success' => true,

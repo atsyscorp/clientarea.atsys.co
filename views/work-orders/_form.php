@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const trmInput = document.getElementById('workorders-exchange_rate');
 
     function toggleTrm() {
-        if (currencySelect.value === 'USD') {
+        if (currencySelect.value === 'USD' || currencySelect.value === 'EUR') {
             trmContainer.style.display = 'block';
             trmContainer.classList.add('animate-fade-in'); // Clase opcional si usas animaciones en Tailwind
         } else {
@@ -95,14 +95,15 @@ $this->registerJs($js, \yii\web\View::POS_END);
                         <label class="label"><span class="label-text font-bold">Moneda</span></label>
                         <?= $form->field($model, 'currency', ['template' => '{input}{error}'])->dropDownList([
                             'COP' => 'Pesos (COP)',
-                            'USD' => 'Dólares (USD)'
+                            'USD' => 'Dólares (USD)',
+                            'EUR' => 'Euros (EUR)'
                         ], [
                             'id' => 'workorders-currency',
                             'class' => 'select select-bordered w-full text-lg'
                         ]) ?>
                     </div>
 
-                    <div class="form-control w-full" id="trm-container" style="<?= $model->currency === 'USD' ? '' : 'display: none;' ?>">
+                    <div class="form-control w-full" id="trm-container" style="<?= in_array($model->currency, ['USD', 'EUR']) ? '' : 'display: none;' ?>">
                         <label class="label"><span class="label-text font-bold text-primary">Tasa de Cambio (TRM)</span></label>
                         <?= $form->field($model, 'exchange_rate', ['template' => '{input}{error}'])->textInput([
                             'id' => 'workorders-exchange_rate',

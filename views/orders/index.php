@@ -63,8 +63,8 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                             'format' => 'raw',
                             'value' => function($model) {
                                 $total = Yii::$app->formatter->asCurrency($model->total) . ' ' . $model->currency;
-                                if ($model->currency === 'USD' && $model->total_usd) {
-                                    $total .= ' <br><span class="text-xs text-base-content/60">(' . Yii::$app->formatter->asCurrency($model->total_usd) . ' USD)</span>';
+                                if (in_array($model->currency, ['USD', 'EUR']) && $model->total_usd) {
+                                    $total .= ' <br><span class="text-xs text-base-content/60">(' . Yii::$app->formatter->asCurrency($model->total_usd) . ' ' . $model->currency . ')</span>';
                                 }
                                 return $total;
                             }

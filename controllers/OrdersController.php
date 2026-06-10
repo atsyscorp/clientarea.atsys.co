@@ -68,9 +68,12 @@ class OrdersController extends Controller
         $isWeekend = true;
         // -----------------------------------------
 
-        // Calcular valores dinámicos para COP y USD
-        $exchangeRate = $model->exchange_rate ?: (Yii::$app->params['fallback_trm'] ?? 4000.00);
-        $totalUsd = $model->total_usd ?: round($model->total / $exchangeRate, 2);
+        // Calcular valores dinámicos para COP, USD y EUR
+        $exchangeRateUsd = ($model->currency === 'USD') ? ($model->exchange_rate ?: (Yii::$app->params['fallback_trm'] ?? 4000.00)) : (Yii::$app->params['fallback_trm'] ?? 4000.00);
+        $totalUsd = ($model->currency === 'USD') ? ($model->total_usd ?: $model->total) : round($model->total / $exchangeRateUsd, 2);
+
+        $exchangeRateEur = ($model->currency === 'EUR') ? ($model->exchange_rate ?: (Yii::$app->params['fallback_trm_eur'] ?? 4300.00)) : (Yii::$app->params['fallback_trm_eur'] ?? 4300.00);
+        $totalEur = ($model->currency === 'EUR') ? ($model->total_usd ?: $model->total) : round($model->total / $exchangeRateEur, 2);
 
         // Pasarela Wompi (COP)
         $wompiPublicKey = Yii::$app->params['wmpi_pubKey'];
@@ -90,11 +93,19 @@ class OrdersController extends Controller
         ];
 
         // Pasarela PayPal (USD)
-        $paypalParams = [
+        $paypalUsdParams = [
             'clientId' => Yii::$app->params['paypalClientId'],
             'currency' => 'USD',
             'amount' => $totalUsd,
-            'exchangeRate' => $exchangeRate,
+            'exchangeRate' => $exchangeRateUsd,
+        ];
+
+        // Pasarela PayPal (EUR)
+        $paypalEurParams = [
+            'clientId' => Yii::$app->params['paypalClientId'],
+            'currency' => 'EUR',
+            'amount' => $totalEur,
+            'exchangeRate' => $exchangeRateEur,
         ];
 
         $viewParams = [
@@ -102,9 +113,12 @@ class OrdersController extends Controller
             'gateway' => $model->currency,
             'isWeekend' => $isWeekend,
             'wompi' => $wompiParams,
-            'paypal' => $paypalParams,
+            'paypalUsd' => $paypalUsdParams,
+            'paypalEur' => $paypalEurParams,
             'totalUsd' => $totalUsd,
-            'exchangeRate' => $exchangeRate,
+            'totalEur' => $totalEur,
+            'exchangeRateUsd' => $exchangeRateUsd,
+            'exchangeRateEur' => $exchangeRateEur,
         ];
 
         return $this->render('view', $viewParams);
@@ -149,10 +163,27 @@ class OrdersController extends Controller
             $orderId = $data['order_id'] ?? null;
             $paypalTransactionId = $data['transaction_id'] ?? null;
             $status = $data['status'] ?? null;
+            $paidCurrency = $data['currency'] ?? 'USD';
 
             if ($orderId && $status === 'COMPLETED') {
                 $order = Orders::findOne($orderId);
                 if ($order) {
+                    // Si la orden original es COP, pero se pagó en USD/EUR, actualizamos la moneda y TRM en la orden
+                    if ($order->currency === 'COP' && in_array($paidCurrency, ['USD', 'EUR'])) {
+                        $order->currency = $paidCurrency;
+                        $exchangeRate = ($paidCurrency === 'EUR')
+                            ? (Yii::$app->params['fallback_trm_eur'] ?? 4300.00)
+                            : (Yii::$app->params['fallback_trm'] ?? 4000.00);
+                        $order->exchange_rate = $exchangeRate;
+                        $order->total_usd = round($order->total / $exchangeRate, 2);
+
+                        // Actualizamos también cada ítem de la orden
+                        foreach ($order->orderItems as $item) {
+                            $item->total_usd = round($item->total / $exchangeRate, 2);
+                            $item->unit_price_usd = round($item->unit_price / $exchangeRate, 2);
+                            $item->save(false);
+                        }
+                    }
                     $this->processSuccessfulPayment($order, $paypalTransactionId, 'PAYPAL');
                     return ['success' => true];
                 }
@@ -299,17 +330,19 @@ class OrdersController extends Controller
             $itemsHtml = "";
             foreach ($order->orderItems as $item) {
                 // Adaptamos el valor a mostrar según la moneda para el correo
-                $val = ($order->currency === 'USD' && $order->exchange_rate !== NULL) ? ($item->total_usd ?? $item->total) : $item->total;
+                $isForeign = in_array($order->currency, ['USD', 'EUR']);
+                $val = ($isForeign && $order->exchange_rate !== NULL) ? ($item->total_usd ?? $item->total) : $item->total;
                 $itemsHtml .= "<tr><td style='padding:8px; border-bottom:1px solid #eee;'>{$item->service_name}</td><td style='padding:8px; border-bottom:1px solid #eee; text-align:right;'>" . Yii::$app->formatter->asCurrency($val) . " {$order->currency}</td></tr>";
             }
 
+            $isForeign = in_array($order->currency, ['USD', 'EUR']);
             Yii::$app->mailer->compose(['html' => 'payment_confirmation-html'], [
                 'business_name' => $customer->business_name,
                 'order_code' => $order->code,
                 'payment_date' => date('d/m/Y H:i'),
                 'payment_method' => $order->payment_method,
                 'itemsHtml' => $itemsHtml,
-                'total' => Yii::$app->formatter->asCurrency(($order->currency === 'USD' ? $order->total_usd : $order->total)) . " {$order->currency}"
+                'total' => Yii::$app->formatter->asCurrency(($isForeign ? $order->total_usd : $order->total)) . " {$order->currency}"
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setTo($customer->email)

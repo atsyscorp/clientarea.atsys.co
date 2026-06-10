@@ -108,11 +108,12 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
 
 <?php
 // --- LÓGICA DE MONEDA PARA EL PDF ---
+$isForeign = in_array($model->currency, ['USD', 'EUR']);
 $isUsd = $model->currency === 'USD';
-$currencySuffix = $isUsd ? ' USD' : ' COP';
+$currencySuffix = ' ' . $model->currency;
 
-// Si es USD, tomamos el valor pre-calculado, de lo contrario el costo base
-$displayTotal = $isUsd ? ($model->total_cost_usd ?? round($model->total_cost / $model->exchange_rate, 2)) : $model->total_cost;
+// Si es USD o EUR, tomamos el valor pre-calculado, de lo contrario el costo base
+$displayTotal = $isForeign ? ($model->total_cost_usd ?? round($model->total_cost / $model->exchange_rate, 2)) : $model->total_cost;
 ?>
 
 <table class="total-table" cellspacing="0" border="0">
@@ -124,7 +125,7 @@ $displayTotal = $isUsd ? ($model->total_cost_usd ?? round($model->total_cost / $
                 <?= Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix ?>
             </div>
 
-            <?php if ($isUsd && !empty($model->exchange_rate)): ?>
+            <?php if ($isForeign && !empty($model->exchange_rate)): ?>
                 <div style="font-size: 10px; color: #666; margin-top: 5px;">
                     Tasa de cambio pactada (TRM): <?= Yii::$app->formatter->asCurrency($model->exchange_rate) ?> COP
                 </div>

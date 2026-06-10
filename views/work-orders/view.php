@@ -73,11 +73,13 @@ if ($model->is_request == 1) {
     JS;
     $this->registerJs($js, \yii\web\View::POS_END);
 } else {
+    $isForeign = in_array($model->currency, ['USD', 'EUR']);
     $isUsd = $model->currency === 'USD';
-    $currencySuffix = $isUsd ? ' USD' : ' COP';
+    $isEur = $model->currency === 'EUR';
+    $currencySuffix = ' ' . $model->currency;
 
-    // Si es USD, tomamos el valor pre-calculado, de lo contrario el costo base
-    $displayTotal = $isUsd ? ($model->total_cost_usd ?? round($model->total_cost / $model->exchange_rate, 2)) : $model->total_cost;
+    // Si es USD o EUR, tomamos el valor pre-calculado, de lo contrario el costo base
+    $displayTotal = $isForeign ? ($model->total_cost_usd ?? round($model->total_cost / $model->exchange_rate, 2)) : $model->total_cost;
 }
 ?>
 
@@ -285,7 +287,7 @@ if ($model->is_request == 1) {
                         <span>Inversión:</span>
                         <span class="text-primary">
                             <?= Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix ?>
-                            <?php if ($isUsd && !empty($model->exchange_rate)): ?>
+                            <?php if ($isForeign && !empty($model->exchange_rate)): ?>
                                 <dt style="font-size:12px; color:#000; font-weight:normal; line-height:12px;">Tasa de cambio
                                     pactada (TRM)
                                     : <?= Yii::$app->formatter->asCurrency($model->exchange_rate) ?>

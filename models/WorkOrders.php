@@ -70,7 +70,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             [['code'], 'string', 'max' => 50],
             [['title'], 'string', 'max' => 255],
             [['currency'], 'string', 'max' => 3],
-            [['currency'], 'in', 'range' => ['COP', 'USD']],
+            [['currency'], 'in', 'range' => ['COP', 'USD', 'EUR']],
 
             // Adjuntar archivo
             [['attachmentFile'], 'file',
@@ -83,12 +83,13 @@ class WorkOrders extends \yii\db\ActiveRecord
             // Integridad referencial
             [['customer_id'], 'exist', 'skipOnError' => true, 'targetClass' => Customers::class, 'targetAttribute' => ['customer_id' => 'id']],
 
-            // VALIDACIÓN CONDICIONAL: TRM obligatoria si es USD
+            // VALIDACIÓN CONDICIONAL: TRM obligatoria si es USD o EUR
             [['exchange_rate'], 'required', 'when' => function ($model) {
-                return $model->currency === 'USD';
+                return in_array($model->currency, ['USD', 'EUR']);
             }, 'whenClient' => "function (attribute, value) {
-                return $('#workorders-currency').val() === 'USD'; // Asegúrate que el ID del input coincida en tu vista
-            }", 'message' => 'La TRM es obligatoria para órdenes en USD.'],
+                var val = $('#workorders-currency').val();
+                return val === 'USD' || val === 'EUR'; // Asegúrate que el ID del input coincida en tu vista
+            }", 'message' => 'La TRM es obligatoria para órdenes en USD o EUR.'],
         ];
     }
 
@@ -109,9 +110,9 @@ class WorkOrders extends \yii\db\ActiveRecord
 
             if (!empty($atributosModificados) || $this->isNewRecord) {
                 
-                if ($this->currency === 'USD' && !empty($this->exchange_rate) && !empty($this->total_cost)) {
-                    // Como en el formulario digitas el valor en USD:
-                    // 1. Guardamos ese valor digitado intacto en la columna USD
+                if (in_array($this->currency, ['USD', 'EUR']) && !empty($this->exchange_rate) && !empty($this->total_cost)) {
+                    // Como en el formulario digitas el valor en USD o EUR:
+                    // 1. Guardamos ese valor digitado intacto en la columna USD (que almacena moneda extranjera)
                     $this->total_cost_usd = $this->total_cost; 
                     
                     // 2. Calculamos el equivalente en COP multiplicando por la TRM para la columna base

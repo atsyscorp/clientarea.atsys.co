@@ -52,19 +52,6 @@ class DomainChecker
             ];
         }
 
-        // 2. DNS check first: if DNS records exist, it is definitely registered
-        try {
-            if (checkdnsrr($domain, 'A') || checkdnsrr($domain, 'MX') || checkdnsrr($domain, 'NS')) {
-                return [
-                    'status' => 'registered',
-                    'available' => false,
-                    'method' => 'dns'
-                ];
-            }
-        } catch (\Exception $e) {
-            // Silence dns resolution issues and proceed to whois
-        }
-
         // Extract TLD to determine the whois server
         $parts = explode('.', $domain);
         if (count($parts) < 2) {
@@ -85,7 +72,7 @@ class DomainChecker
             $fullTld = $sld . '.' . $tld;
         }
 
-        // 3. WHOIS check
+        // 2. WHOIS check first (immune to DNS wildcard/ISP hijacking)
         $whoisInfo = null;
         if (isset(self::$whoisServers[$fullTld])) {
             $whoisInfo = self::$whoisServers[$fullTld];
@@ -102,6 +89,19 @@ class DomainChecker
                     'method' => 'whois'
                 ];
             }
+        }
+
+        // 3. DNS fallback check: if WHOIS server query failed or TLD is unsupported
+        try {
+            if (checkdnsrr($domain, 'A') || checkdnsrr($domain, 'MX') || checkdnsrr($domain, 'NS')) {
+                return [
+                    'status' => 'registered',
+                    'available' => false,
+                    'method' => 'dns'
+                ];
+            }
+        } catch (\Exception $e) {
+            // Silence dns resolution issues and proceed to next fallback
         }
 
         // 4. Fallback checking: resolving host IP

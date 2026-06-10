@@ -553,27 +553,28 @@ class WorkOrdersController extends Controller
         // 1. Definir los Montos a Cobrar (50% de anticipo)
         $amountToPayCop = $workOrder->total_cost * 0.50;
 
-        // Si la orden está en USD, calculamos también la mitad del valor en dólares
-        $amountToPayUsd = ($workOrder->currency === 'USD') ? ($workOrder->total_cost_usd * 0.50) : null;
+        // Si la orden está en USD o EUR, calculamos también la mitad del valor en moneda extranjera
+        $isForeign = in_array($workOrder->currency, ['USD', 'EUR']);
+        $amountToPayForeign = $isForeign ? ($workOrder->total_cost_usd * 0.50) : null;
 
         $concept = "Anticipo 50% - " . $workOrder->code;
 
         // Variables para la comisión (Inicializadas en 0)
-        $feeUsd = 0;
+        $feeForeign = 0;
         $feeCop = 0;
 
-        if ($workOrder->currency === 'USD') {
+        if ($isForeign) {
             $paypalPercentage = 0.054; // 5.4%
-            $paypalFixed = 0.30;       // $0.30 USD
+            $paypalFixed = 0.30;       // $0.30 (USD/EUR)
 
             // Aplicamos la fórmula matemática para obtener el Bruto real a cobrar
-            $grossUsd = ($amountToPayUsd + $paypalFixed) / (1 - $paypalPercentage);
+            $grossForeign = ($amountToPayForeign + $paypalFixed) / (1 - $paypalPercentage);
 
             // La diferencia es la comisión exacta que le sumaremos como ítem
-            $feeUsd = round($grossUsd - $amountToPayUsd, 2);
+            $feeForeign = round($grossForeign - $amountToPayForeign, 2);
 
             // Calculamos su equivalente en COP usando la TRM pactada
-            $feeCop = round($feeUsd * $workOrder->exchange_rate, 2);
+            $feeCop = round($feeForeign * $workOrder->exchange_rate, 2);
         }
 
         $transaction = Yii::$app->db->beginTransaction();
@@ -588,9 +589,9 @@ class WorkOrdersController extends Controller
             $order->total = $amountToPayCop + $feeCop;
 
             $order->currency = $workOrder->currency ?? 'COP';
-            if ($order->currency === 'USD') {
+            if ($isForeign) {
                 $order->exchange_rate = $workOrder->exchange_rate;
-                $order->total_usd = $amountToPayUsd + $feeUsd;
+                $order->total_usd = $amountToPayForeign + $feeForeign;
             }
 
             $order->status = 0;
@@ -608,17 +609,17 @@ class WorkOrdersController extends Controller
             $item1->total = $amountToPayCop;
 
             // CORRECCIÓN 1: Usamos subtotal_usd según tu BD
-            if ($order->currency === 'USD') {
-                $item1->unit_price_usd = $amountToPayUsd;
-                $item1->total_usd = $amountToPayUsd;
+            if ($isForeign) {
+                $item1->unit_price_usd = $amountToPayForeign;
+                $item1->total_usd = $amountToPayForeign;
             }
             $item1->action_type = 'payment';
 
             if (!$item1->save())
                 throw new \Exception('Error al crear ítem de anticipo: ' . json_encode($item1->getErrors()));
 
-            // C. Crear el Ítem 2: Recargo de PayPal (SOLO SI ES USD)
-            if ($order->currency === 'USD' && $feeUsd > 0) {
+            // C. Crear el Ítem 2: Recargo de PayPal (SOLO SI ES USD o EUR)
+            if ($isForeign && $feeForeign > 0) {
                 $item2 = new \app\models\OrderItems();
                 $item2->order_id = $order->id;
                 $item2->service_id = 9998; // ID reservado para comisiones
@@ -627,8 +628,8 @@ class WorkOrdersController extends Controller
                 $item2->total = $feeCop;
 
                 // CORRECCIÓN 2: Ajustamos a la BD
-                $item2->unit_price_usd = $feeUsd;
-                $item2->total_usd = $feeUsd;
+                $item2->unit_price_usd = $feeForeign;
+                $item2->total_usd = $feeForeign;
                 $item2->action_type = 'payment'; // Usamos 'payment' porque sí está en tu ENUM
 
                 if (!$item2->save())
@@ -664,9 +665,9 @@ class WorkOrdersController extends Controller
             $customer = $order->customer;
             $paymentLink = \yii\helpers\Url::to(['orders/view', 'id' => $order->id], true); // Link absoluto
 
-            $isUsd = $workOrder->currency === 'USD';
-            $currencySuffix = $isUsd ? ' USD' : ' COP';
-            $displayTotal = $isUsd ? ($order->total_usd ?? $order->total) : $order->total;
+            $isForeign = in_array($workOrder->currency, ['USD', 'EUR']);
+            $currencySuffix = ' ' . $workOrder->currency;
+            $displayTotal = $isForeign ? ($order->total_usd ?? $order->total) : $order->total;
 
             $subject = "Pago Requerido - Orden de Trabajo {$workOrder->code}";
             Yii::$app->mailer->compose([
@@ -676,7 +677,7 @@ class WorkOrdersController extends Controller
                 'work_order_id' => $workOrder->code,
                 'order_total' => Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix,
                 'paymentLink' => $paymentLink,
-                'payment_method' => ($isUsd) ? 'PayPal' : 'Wompi (Nequi, Tarjetas, PSE)'
+                'payment_method' => ($isForeign) ? 'PayPal' : 'Wompi (Nequi, Tarjetas, PSE)'
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                 ->setTo($customer->email)

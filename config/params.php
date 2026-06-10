@@ -43,5 +43,6 @@ return [
         'folderId' => '1W-TKUf_2kQ5JbNc9X61iAulweFJ_Zq48',
     ],
     'fallback_trm' => 4000.00,
+    'fallback_trm_eur' => 4300.00,
 ];
 

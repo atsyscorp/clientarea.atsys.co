@@ -7,14 +7,21 @@ use yii\helpers\Url;
 /* @var $model app\models\Orders */
 /* @var $gateway string */
 /* @var $wompi array|null */
-/* @var $paypal array|null */
+/* @var $paypalUsd array|null */
+/* @var $paypalEur array|null */
+/* @var $totalUsd float */
+/* @var $totalEur float */
+/* @var $exchangeRateUsd float */
+/* @var $exchangeRateEur float */
 
 $this->title = 'Confirmación de pago - Orden ' . $model->code;
 
 // Lógica rápida para definir totales y sufijos según la moneda
+$isForeign = in_array($gateway, ['USD', 'EUR']);
 $isUsd = $gateway === 'USD';
-$currencySuffix = $isUsd ? ' USD' : ' COP';
-$displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
+$isEur = $gateway === 'EUR';
+$currencySuffix = $isForeign ? ' ' . $gateway : ' COP';
+$displayTotal = $isForeign ? ($model->total_usd ?? $model->total) : $model->total;
 ?>
 
 <div class="container mx-auto max-w-3xl">
@@ -66,7 +73,7 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
                                     <?php
                                     // CORRECCIÓN VISUAL: Cálculo seguro del ítem
                                     $itemTotal = $item->total;
-                                    if ($isUsd) {
+                                    if ($isForeign) {
                                         $itemTotal = $item->total_usd ?? ($model->exchange_rate ? round($item->total / $model->exchange_rate, 2) : $item->total);
                                     }
 
@@ -83,6 +90,7 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
                             <td class="pr-0 text-right text-2xl font-black text-primary pt-4">
                                 <span id="total-cop-display" class="total-display"><?= Yii::$app->formatter->asCurrency($model->total) ?> COP</span>
                                 <span id="total-usd-display" class="total-display hidden"><?= Yii::$app->formatter->asCurrency($totalUsd) ?> USD</span>
+                                <span id="total-eur-display" class="total-display hidden"><?= Yii::$app->formatter->asCurrency($totalEur) ?> EUR</span>
                             </td>
                         </tr>
                     </tfoot>
@@ -93,9 +101,10 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
 
     <?php if ($model->status == 0): // Solo si está PENDIENTE ?>
         <!-- Selector de moneda / Pasarelas de Pago -->
-        <div class="tabs tabs-boxed mb-6 justify-center bg-base-200 p-1 rounded-xl max-w-md mx-auto no-print">
-            <a id="tab-cop" class="tab tab-lg font-bold px-8 transition-all duration-200">🇨🇴 COP (Wompi, QR)</a>
-            <a id="tab-usd" class="tab tab-lg font-bold px-8 transition-all duration-200">🇺🇸 USD (PayPal)</a>
+        <div class="tabs tabs-boxed mb-6 justify-center bg-base-200 p-1 rounded-xl max-w-lg mx-auto no-print">
+            <a id="tab-cop" class="tab tab-lg font-bold px-4 md:px-8 transition-all duration-200">🇨🇴 COP (Wompi, QR)</a>
+            <a id="tab-usd" class="tab tab-lg font-bold px-4 md:px-8 transition-all duration-200">🇺🇸 USD (PayPal)</a>
+            <a id="tab-eur" class="tab tab-lg font-bold px-4 md:px-8 transition-all duration-200">🇪🇺 EUR (PayPal)</a>
         </div>
     <?php endif; ?>
 
@@ -194,17 +203,39 @@ $displayTotal = $isUsd ? ($model->total_usd ?? $model->total) : $model->total;
                     <p class="text-sm mb-6 opacity-70">
                         Aceptamos tarjetas de crédito/débito internacionales y saldo de PayPal.<br>
                         La transacción es procesada de forma segura por PayPal.
-                        <?php if (!empty($exchangeRate)): ?>
-                            <br><span class="text-xs opacity-60">Tasa de cambio aplicada (TRM): <?= Yii::$app->formatter->asCurrency($exchangeRate) ?> COP</span>
+                        <?php if (!empty($exchangeRateUsd)): ?>
+                            <br><span class="text-xs opacity-60">Tasa de cambio aplicada (TRM USD): <?= Yii::$app->formatter->asCurrency($exchangeRateUsd) ?> COP</span>
                         <?php endif; ?>
                     </p>
 
-                    <?php if (isset($paypal)): ?>
+                    <?php if (isset($paypalUsd)): ?>
                         <!-- CONTENEDOR BOTONES PAYPAL (USD) -->
-                        <div id="paypal-button-container" style="min-height: 150px;"></div>
+                        <div id="paypal-usd-button-container" style="min-height: 150px;"></div>
 
                         <!-- NUEVO CONTENEDOR DE CARGA (Oculto por defecto) -->
-                        <div id="paypal-processing" style="display: none;" class="text-center py-4">
+                        <div id="paypal-usd-processing" style="display: none;" class="text-center py-4">
+                            <span class="loading loading-spinner loading-lg text-primary"></span>
+                            <p class="mt-2 text-sm opacity-70">Procesando pago...</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div id="payment-eur-sec" class="payment-section hidden">
+                    <h3 class="font-bold text-lg mb-2">Finalizar Pago Seguro en EUR</h3>
+                    <p class="text-sm mb-6 opacity-70">
+                        Aceptamos tarjetas de crédito/débito internacionales y saldo de PayPal.<br>
+                        La transacción es procesada de forma segura por PayPal.
+                        <?php if (!empty($exchangeRateEur)): ?>
+                            <br><span class="text-xs opacity-60">Tasa de cambio aplicada (TRM EUR): <?= Yii::$app->formatter->asCurrency($exchangeRateEur) ?> COP</span>
+                        <?php endif; ?>
+                    </p>
+
+                    <?php if (isset($paypalEur)): ?>
+                        <!-- CONTENEDOR BOTONES PAYPAL (EUR) -->
+                        <div id="paypal-eur-button-container" style="min-height: 150px;"></div>
+
+                        <!-- NUEVO CONTENEDOR DE CARGA (Oculto por defecto) -->
+                        <div id="paypal-eur-processing" style="display: none;" class="text-center py-4">
                             <span class="loading loading-spinner loading-lg text-primary"></span>
                             <p class="mt-2 text-sm opacity-70">Procesando pago...</p>
                         </div>
@@ -237,40 +268,66 @@ $jsTabs = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
     const tabCop = document.getElementById('tab-cop');
     const tabUsd = document.getElementById('tab-usd');
+    const tabEur = document.getElementById('tab-eur');
     const secCop = document.getElementById('payment-cop-sec');
     const secUsd = document.getElementById('payment-usd-sec');
+    const secEur = document.getElementById('payment-eur-sec');
     const dispCop = document.getElementById('total-cop-display');
     const dispUsd = document.getElementById('total-usd-display');
+    const dispEur = document.getElementById('total-eur-display');
 
     function selectCop() {
-        if(tabCop && tabUsd) {
+        if(tabCop && tabUsd && tabEur) {
             tabCop.classList.add('tab-active', 'btn-primary', 'text-white');
             tabUsd.classList.remove('tab-active', 'btn-primary', 'text-white');
+            tabEur.classList.remove('tab-active', 'btn-primary', 'text-white');
         }
         if(secCop) secCop.classList.remove('hidden');
         if(secUsd) secUsd.classList.add('hidden');
+        if(secEur) secEur.classList.add('hidden');
         if(dispCop) dispCop.classList.remove('hidden');
         if(dispUsd) dispUsd.classList.add('hidden');
+        if(dispEur) dispEur.classList.add('hidden');
     }
 
     function selectUsd() {
-        if(tabCop && tabUsd) {
+        if(tabCop && tabUsd && tabEur) {
             tabUsd.classList.add('tab-active', 'btn-primary', 'text-white');
             tabCop.classList.remove('tab-active', 'btn-primary', 'text-white');
+            tabEur.classList.remove('tab-active', 'btn-primary', 'text-white');
         }
         if(secUsd) secUsd.classList.remove('hidden');
         if(secCop) secCop.classList.add('hidden');
+        if(secEur) secEur.classList.add('hidden');
         if(dispUsd) dispUsd.classList.remove('hidden');
         if(dispCop) dispCop.classList.add('hidden');
+        if(dispEur) dispEur.classList.add('hidden');
     }
 
-    if (tabCop && tabUsd) {
+    function selectEur() {
+        if(tabCop && tabUsd && tabEur) {
+            tabEur.classList.add('tab-active', 'btn-primary', 'text-white');
+            tabCop.classList.remove('tab-active', 'btn-primary', 'text-white');
+            tabUsd.classList.remove('tab-active', 'btn-primary', 'text-white');
+        }
+        if(secEur) secEur.classList.remove('hidden');
+        if(secCop) secCop.classList.add('hidden');
+        if(secUsd) secUsd.classList.add('hidden');
+        if(dispEur) dispEur.classList.remove('hidden');
+        if(dispCop) dispCop.classList.add('hidden');
+        if(dispUsd) dispUsd.classList.add('hidden');
+    }
+
+    if (tabCop && tabUsd && tabEur) {
         tabCop.addEventListener('click', selectCop);
         tabUsd.addEventListener('click', selectUsd);
+        tabEur.addEventListener('click', selectEur);
 
         // Inicializar según la moneda original de la factura
         if ('{$model->currency}' === 'USD') {
             selectUsd();
+        } else if ('{$model->currency}' === 'EUR') {
+            selectEur();
         } else {
             selectCop();
         }
@@ -280,89 +337,159 @@ JS;
 $this->registerJs($jsTabs, \yii\web\View::POS_END);
 
 /* --- SCRIPT DE PAYPAL --- */
-if ($model->status == 0 && isset($paypal)):
+if ($model->status == 0 && (isset($paypalUsd) || isset($paypalEur))):
 
-    $paypalClientId = $paypal['clientId'];
-    $paypalCurrency = $paypal['currency'];
-
-    // CORRECCIÓN CRÍTICA: PayPal exige formato exacto con punto
-    $paypalAmount = number_format($paypal['amount'], 2, '.', '');
+    $paypalClientId = isset($paypalUsd) ? $paypalUsd['clientId'] : $paypalEur['clientId'];
+    $paypalUsdAmount = isset($paypalUsd) ? number_format($paypalUsd['amount'], 2, '.', '') : '0.00';
+    $paypalEurAmount = isset($paypalEur) ? number_format($paypalEur['amount'], 2, '.', '') : '0.00';
 
     // URL Absoluta
     $confirmUrl = Url::to(['orders/paypal-confirm'], true);
 
-    // AQUÍ ESTÁ LA VARIABLE QUE FALTABA
+    // Variable CSRF
     $csrfToken = Yii::$app->request->csrfToken;
 
-    $this->registerJsFile("https://www.paypal.com/sdk/js?client-id={$paypalClientId}&currency={$paypalCurrency}", [
-        'position' => \yii\web\View::POS_HEAD
-    ]);
+    // Registramos los dos SDKs de PayPal con namespaces separados para evitar conflictos de divisas
+    if (isset($paypalUsd)) {
+        $this->registerJsFile("https://www.paypal.com/sdk/js?client-id={$paypalClientId}&currency=USD", [
+            'position' => \yii\web\View::POS_HEAD,
+            'data-namespace' => 'paypalUSD'
+        ]);
+    }
+    if (isset($paypalEur)) {
+        $this->registerJsFile("https://www.paypal.com/sdk/js?client-id={$paypalClientId}&currency=EUR", [
+            'position' => \yii\web\View::POS_HEAD,
+            'data-namespace' => 'paypalEUR'
+        ]);
+    }
 
     $jsPaypal = <<<JS
-    paypal.Buttons({
-        createOrder: function(data, actions) {
-            return actions.order.create({
-                purchase_units: [{
-                    amount: {
-                        value: '{$paypalAmount}' 
-                    },
-                    description: 'Orden de Trabajo {$model->code}'
-                }]
-            });
-        },
-        onApprove: function(data, actions) {
-            // Ocultamos los botones y mostramos la carga sin destruir el contenedor
-            document.getElementById('paypal-button-container').style.display = 'none';
-            document.getElementById('paypal-processing').style.display = 'block';
-
-            return actions.order.capture().then(function(details) {
-                // Notificar al servidor
-                fetch('{$confirmUrl}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': '{$csrfToken}'
-                    },
-                    body: JSON.stringify({
-                        order_id: {$model->id},
-                        transaction_id: details.id,
-                        status: details.status
-                    })
-                })
-                .then(response => {
-                    if (!response.ok) throw new Error("HTTP " + response.status);
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        window.location.reload();
-                    } else {
-                        alert('El pago fue recibido, pero hubo un problema al procesar los servicios: ' + data.message);
-                        window.location.reload();
-                    }
-                })
-                .catch(error => {
-                    console.error('Fetch error:', error);
-                    alert('El pago se realizó con éxito en PayPal, pero ATSYS tardó en responder. La página se recargará para verificar el estado.');
-                    window.location.reload();
+    // Configuración para USD
+    if (typeof paypalUSD !== 'undefined') {
+        paypalUSD.Buttons({
+            createOrder: function(data, actions) {
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: {
+                            value: '{$paypalUsdAmount}' 
+                        },
+                        description: 'Orden de Trabajo {$model->code}'
+                    }]
                 });
-                
-            }).catch(function(err) {
-                // Si la captura falla, regresamos los botones a la vida
-                document.getElementById('paypal-processing').style.display = 'none';
-                document.getElementById('paypal-button-container').style.display = 'block';
-                
-                console.error('Error en captura de PayPal:', err);
-                alert('La transacción en PayPal no pudo completarse. Por favor, intenta de nuevo.');
-            });
-        },
-        onError: function (err) {
-            console.error('PayPal Error:', err);
-            alert('Ocurrió un error de conexión con PayPal. Intenta de nuevo.');
-            window.location.reload();
-        }
-    }).render('#paypal-button-container');
-    JS;
+            },
+            onApprove: function(data, actions) {
+                document.getElementById('paypal-usd-button-container').style.display = 'none';
+                document.getElementById('paypal-usd-processing').style.display = 'block';
+
+                return actions.order.capture().then(function(details) {
+                    fetch('{$confirmUrl}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': '{$csrfToken}'
+                        },
+                        body: JSON.stringify({
+                            order_id: {$model->id},
+                            transaction_id: details.id,
+                            status: details.status,
+                            currency: 'USD'
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error("HTTP " + response.status);
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            window.location.reload();
+                        } else {
+                            alert('El pago fue recibido, pero hubo un problema al procesar los servicios: ' + data.message);
+                            window.location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Fetch error:', error);
+                        alert('El pago se realizó con éxito en PayPal, pero ATSYS tardó en responder. La página se recargará para verificar el estado.');
+                        window.location.reload();
+                    });
+                }).catch(function(err) {
+                    document.getElementById('paypal-usd-processing').style.display = 'none';
+                    document.getElementById('paypal-usd-button-container').style.display = 'block';
+                    console.error('Error en captura de PayPal USD:', err);
+                    alert('La transacción en PayPal no pudo completarse. Por favor, intenta de nuevo.');
+                });
+            },
+            onError: function (err) {
+                console.error('PayPal USD Error:', err);
+                alert('Ocurrió un error de conexión con PayPal USD. Intenta de nuevo.');
+                window.location.reload();
+            }
+        }).render('#paypal-usd-button-container');
+    }
+
+    // Configuración para EUR
+    if (typeof paypalEUR !== 'undefined') {
+        paypalEUR.Buttons({
+            createOrder: function(data, actions) {
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: {
+                            value: '{$paypalEurAmount}' 
+                        },
+                        description: 'Orden de Trabajo {$model->code}'
+                    }]
+                });
+            },
+            onApprove: function(data, actions) {
+                document.getElementById('paypal-eur-button-container').style.display = 'none';
+                document.getElementById('paypal-eur-processing').style.display = 'block';
+
+                return actions.order.capture().then(function(details) {
+                    fetch('{$confirmUrl}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': '{$csrfToken}'
+                        },
+                        body: JSON.stringify({
+                            order_id: {$model->id},
+                            transaction_id: details.id,
+                            status: details.status,
+                            currency: 'EUR'
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error("HTTP " + response.status);
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            window.location.reload();
+                        } else {
+                            alert('El pago fue recibido, pero hubo un problema al procesar los servicios: ' + data.message);
+                            window.location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Fetch error:', error);
+                        alert('El pago se realizó con éxito en PayPal, pero ATSYS tardó en responder. La página se recargará para verificar el estado.');
+                        window.location.reload();
+                    });
+                }).catch(function(err) {
+                    document.getElementById('paypal-eur-processing').style.display = 'none';
+                    document.getElementById('paypal-eur-button-container').style.display = 'block';
+                    console.error('Error en captura de PayPal EUR:', err);
+                    alert('La transacción en PayPal no pudo completarse. Por favor, intenta de nuevo.');
+                });
+            },
+            onError: function (err) {
+                console.error('PayPal EUR Error:', err);
+                alert('Ocurrió un error de conexión con PayPal EUR. Intenta de nuevo.');
+                window.location.reload();
+            }
+        }).render('#paypal-eur-button-container');
+    }
+JS;
 
     $this->registerJs($jsPaypal, \yii\web\View::POS_END);
 

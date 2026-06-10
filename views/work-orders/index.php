@@ -58,7 +58,13 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
                     [
                         'attribute' => 'total_cost',
-                        'format' => ['currency'],
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $isForeign = in_array($model->currency, ['USD', 'EUR']);
+                            $displayTotal = $isForeign ? ($model->total_cost_usd ?? round($model->total_cost / $model->exchange_rate, 2)) : $model->total_cost;
+                            $currencySuffix = ' ' . $model->currency;
+                            return Yii::$app->formatter->asCurrency($displayTotal) . $currencySuffix;
+                        },
                         'contentOptions' => ['class' => 'font-mono text-right'],
                         'headerOptions' => ['class' => 'text-right'],
                     ],
@@ -157,9 +163,9 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
             'itemView' => function ($model, $key, $index, $widget) {
             // Bordes de color según estado para llamar la atención
             $borderClass = ($model->status == 1) ? 'border-l-4 border-l-warning' : 'border border-base-200';
-            $isUsd = $model->currency === 'USD';
-            $displayTotal = $isUsd ? ($model->total_cost_usd ?? round($model->total_cost / $model->exchange_rate, 2)) : $model->total_cost;
-            $currencySuffix = $isUsd ? ' USD' : ' COP';
+            $isForeign = in_array($model->currency, ['USD', 'EUR']);
+            $displayTotal = $isForeign ? ($model->total_cost_usd ?? round($model->total_cost / $model->exchange_rate, 2)) : $model->total_cost;
+            $currencySuffix = ' ' . $model->currency;
 
             return '
                 <div class="card bg-base-100 shadow-xl hover:-translate-y-1 transition-transform duration-300 ' . $borderClass . '">
