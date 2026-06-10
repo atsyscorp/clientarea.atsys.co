@@ -17,6 +17,7 @@ use app\models\PasswordResetRequestForm;
 use app\models\Tickets;
 use app\models\User;
 use app\models\ProfileForm;
+use app\components\DomainChecker;
 
 class SiteController extends Controller
 {
@@ -403,6 +404,136 @@ class SiteController extends Controller
         ]);
         Yii::$app->queue->push($job);
         echo "Job enviado a la cola correctamente.";
+    }
+
+    public function actionDomainSearch()
+    {
+        // 1. CORS headers configuration
+        $origin = Yii::$app->request->headers->get('Origin');
+        $isCrossOrigin = false;
+        if ($origin) {
+            if (preg_match('/^https?:\/\/(?:[a-z0-9-]+\.)*atsys\.co(?::\d+)?$/i', $origin) || 
+                preg_match('/^https?:\/\/localhost(?::\d+)?$/i', $origin)) {
+                Yii::$app->response->headers->set('Access-Control-Allow-Origin', $origin);
+                Yii::$app->response->headers->set('Access-Control-Allow-Credentials', 'true');
+                Yii::$app->response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+                Yii::$app->response->headers->set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+                $isCrossOrigin = true;
+            }
+        }
+
+        // 2. Preflight check
+        if (Yii::$app->request->isOptions) {
+            Yii::$app->response->statusCode = 200;
+            Yii::$app->response->content = '';
+            return Yii::$app->response;
+        }
+
+        $q = Yii::$app->request->get('q');
+        $results = [];
+        $pricesMap = [];
+
+        // Fetch active domain products to display pricing and configure suggestions
+        try {
+            $domainProducts = \app\models\Products::find()->where(['type' => 'domain', 'status' => 1])->all();
+            foreach ($domainProducts as $product) {
+                if (preg_match('/(\.[a-z.]+)/i', $product->name, $matches)) {
+                    $ext = strtolower($matches[1]);
+                    $pricesMap[$ext] = [
+                        'price' => (float)$product->price,
+                        'id' => $product->id,
+                        'name' => $product->name
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::error("Error fetching domain products: " . $e->getMessage());
+        }
+
+        // List of default extensions to check or suggest
+        $defaultTlds = ['.com', '.co', '.com.co', '.net', '.org'];
+
+        if ($q !== null) {
+            $q = strtolower(trim($q));
+            // Remove protocol and subdomains or paths if they entered a URL
+            $q = preg_replace('/^https?:\/\/(www\.)?/i', '', $q);
+            $q = preg_replace('/\/.*$/', '', $q);
+
+            if (!empty($q)) {
+                $hasExtension = (strpos($q, '.') !== false);
+
+                if ($hasExtension) {
+                    // Check the specific domain entered
+                    $mainResult = DomainChecker::isAvailable($q);
+                    
+                    // Extract name and extension
+                    $parts = explode('.', $q);
+                    $tld = array_pop($parts);
+                    $sld = array_pop($parts);
+                    $name = implode('.', $parts);
+                    if (empty($name)) {
+                        $name = $sld;
+                        $ext = '.' . $tld;
+                    } else {
+                        $ext = '.' . $sld . '.' . $tld;
+                    }
+
+                    $results[] = array_merge([
+                        'domain' => $q,
+                        'extension' => $ext,
+                        'is_main' => true,
+                        'price' => isset($pricesMap[$ext]) ? $pricesMap[$ext]['price'] : null,
+                        'product_id' => isset($pricesMap[$ext]) ? $pricesMap[$ext]['id'] : null,
+                    ], $mainResult);
+
+                    // Generate alternative suggestions
+                    foreach ($defaultTlds as $altExt) {
+                        if ($altExt !== $ext) {
+                            $altDomain = $name . $altExt;
+                            $altResult = DomainChecker::isAvailable($altDomain);
+                            $results[] = array_merge([
+                                'domain' => $altDomain,
+                                'extension' => $altExt,
+                                'is_main' => false,
+                                'price' => isset($pricesMap[$altExt]) ? $pricesMap[$altExt]['price'] : null,
+                                'product_id' => isset($pricesMap[$altExt]) ? $pricesMap[$altExt]['id'] : null,
+                            ], $altResult);
+                        }
+                    }
+                } else {
+                    // No extension entered: check the name with all default extensions
+                    foreach ($defaultTlds as $ext) {
+                        $domainToCheck = $q . $ext;
+                        $checkResult = DomainChecker::isAvailable($domainToCheck);
+                        $results[] = array_merge([
+                            'domain' => $domainToCheck,
+                            'extension' => $ext,
+                            'is_main' => ($ext === '.com'), // Treat .com as main by default if no ext
+                            'price' => isset($pricesMap[$ext]) ? $pricesMap[$ext]['price'] : null,
+                            'product_id' => isset($pricesMap[$ext]) ? $pricesMap[$ext]['id'] : null,
+                        ], $checkResult);
+                    }
+                }
+            }
+        }
+
+        // Return JSON for AJAX or Cross-Origin requests
+        if (Yii::$app->request->isAjax || $isCrossOrigin) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return [
+                'success' => true,
+                'query' => $q,
+                'results' => $results,
+                'prices' => $pricesMap
+            ];
+        }
+
+        return $this->render('domain-search', [
+            'q' => $q,
+            'results' => $results,
+            'pricesMap' => $pricesMap,
+            'defaultTlds' => $defaultTlds
+        ]);
     }
 
     public function actionUpdateTheme()
