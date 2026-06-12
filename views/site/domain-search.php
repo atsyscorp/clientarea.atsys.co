@@ -145,15 +145,18 @@ $this->title = 'Buscador de Dominios';
                                 </div>
                                 
                                 <div class="flex gap-2">
-                                    <?= Html::a('Contratar Hosting', ['shop/index'], [
-                                        'class' => 'btn btn-outline btn-primary btn-sm rounded-xl font-bold'
-                                    ]) ?>
-                                    <?= Html::a('Registrar Solo Dominio', Url::to(['tickets/create', 'subject' => 'Registro de Dominio: ' . $res['domain'], 'message' => "Hola ATSYS,\n\nDeseo registrar el dominio: " . $res['domain'] . ".\n\nPor favor envíenme los detalles de facturación para proceder."]), [
+                                    <?= Html::a('Comprar con Hosting', ['shop/index', 'domain' => $res['domain_name'], 'extension' => $res['extension'], 'action' => 'register'], [
                                         'class' => 'btn btn-primary btn-sm rounded-xl text-white font-bold'
+                                    ]) ?>
+                                    <?= Html::a('Solo Dominio (Soporte)', Url::to(['tickets/create', 'subject' => 'Registro de Dominio: ' . $res['domain'], 'message' => "Hola ATSYS,\n\nDeseo registrar el dominio: " . $res['domain'] . ".\n\nPor favor envíenme los detalles de facturación para proceder."]), [
+                                        'class' => 'btn btn-outline btn-primary btn-sm rounded-xl font-bold'
                                     ]) ?>
                                 </div>
                             <?php elseif (!$isAvailable && !$isInvalid): ?>
                                 <div class="flex gap-2 ml-auto">
+                                    <?= Html::a('Transferir a ATSYS', ['shop/index', 'domain' => $res['domain_name'], 'extension' => $res['extension'], 'action' => 'transfer'], [
+                                        'class' => 'btn btn-primary btn-sm rounded-xl text-white font-bold'
+                                    ]) ?>
                                     <a href="https://<?= Html::encode($res['domain']) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm rounded-xl gap-1.5">
                                         <span>Visitar sitio</span>
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
@@ -342,20 +345,23 @@ $(document).ready(function() {
                     `;
                 }
                 
-                const ticketUrl = `/tickets/create?subject=Registro%20de%20Dominio%3A%20\${encodeURIComponent(domain)}&message=Hola%20ATSYS%2C%0A%0ADeseo%20registrar%20el%20dominio%3A%20\${encodeURIComponent(domain)}.%0A%0APor%20favor%20env%C3%ADenme%20los%20detalles%20de%20facturaci%C3%B33n%20para%20proceder.`;
+                const ticketUrl = `/tickets/create?subject=Registro%20de%20Dominio%3A%20\${encodeURIComponent(domain)}&message=Hola%20ATSYS%2C%0A%0ADeseo%20registrar%20el%20dominio%3A%20\${encodeURIComponent(domain)}.%0A%0APor%20favor%20env%C3%ADenme%20los%20detalles%20de%20facturaci%C3%B3n%20para%20proceder.`;
+                const shopUrl = `/shop/index?domain=\${encodeURIComponent(res.domain_name)}&extension=\${encodeURIComponent(res.extension)}&action=register`;
 
                 priceAndActionHtml = `
                     <div class="text-right">
                         \${priceDisplay}
                     </div>
                     <div class="flex gap-2">
-                        <a href="/shop/index" class="btn btn-outline btn-primary btn-sm rounded-xl font-bold">Contratar Hosting</a>
-                        <a href="\${ticketUrl}" class="btn btn-primary btn-sm rounded-xl text-white font-bold">Registrar Solo Dominio</a>
+                        <a href="\${shopUrl}" class="btn btn-primary btn-sm rounded-xl text-white font-bold">Comprar con Hosting</a>
+                        <a href="\${ticketUrl}" class="btn btn-outline btn-primary btn-sm rounded-xl font-bold">Solo Dominio (Soporte)</a>
                     </div>
                 `;
             } else if (!isAvailable && !isInvalid) {
+                const transferUrl = `/shop/index?domain=\${encodeURIComponent(res.domain_name)}&extension=\${encodeURIComponent(res.extension)}&action=transfer`;
                 priceAndActionHtml = `
                     <div class="flex gap-2 ml-auto">
+                        <a href="\${transferUrl}" class="btn btn-primary btn-sm rounded-xl text-white font-bold">Transferir a ATSYS</a>
                         <a href="https://\${escapeHtml(domain)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm rounded-xl gap-1.5">
                             <span>Visitar sitio</span>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">

@@ -5,9 +5,19 @@ use yii\helpers\Html;
 /* @var $products app\models\Products[] */
 
 $this->title = 'Nuestros Planes y Servicios';
+$selectedCurrency = Yii::$app->session->get('currency', 'COP');
 ?>
 
 <div class="py-12 px-4 sm:px-6 lg:px-8 min-h-screen bg-base-200">
+    
+    <div class="flex justify-end max-w-7xl mx-auto mb-6 no-print">
+        <div class="join border border-base-300 bg-base-100 shadow-sm p-1 rounded-xl">
+            <span class="join-item px-4 flex items-center text-xs font-bold uppercase tracking-wider opacity-60">Moneda:</span>
+            <a href="?currency=COP" class="join-item btn btn-sm <?= $selectedCurrency === 'COP' ? 'btn-primary text-white' : 'btn-ghost' ?>">🇨🇴 COP</a>
+            <a href="?currency=USD" class="join-item btn btn-sm <?= $selectedCurrency === 'USD' ? 'btn-primary text-white' : 'btn-ghost' ?>">🇺🇸 USD</a>
+            <a href="?currency=EUR" class="join-item btn btn-sm <?= $selectedCurrency === 'EUR' ? 'btn-primary text-white' : 'btn-ghost' ?>">🇪🇺 EUR</a>
+        </div>
+    </div>
     
     <div class="text-center mb-12">
         <h1 class="text-4xl font-extrabold text-base-content sm:text-5xl sm:tracking-tight lg:text-6xl">
@@ -30,7 +40,7 @@ $this->title = 'Nuestros Planes y Servicios';
                 
                 <div class="my-4">
                     <span class="text-4xl font-extrabold text-base-content">
-                        <?= Yii::$app->formatter->asCurrency($product->price, $product->currency) ?>
+                        <?= Yii::$app->formatter->asCurrency($product->getConvertedPrice($selectedCurrency), $selectedCurrency) ?>
                     </span>
                     <span class="text-base font-medium text-base-content/50">
                         /<?= $product->billing_cycle == 'monthly' ? 'mes' : ($product->billing_cycle == 'yearly' ? 'año' : 'único') ?>
@@ -42,7 +52,13 @@ $this->title = 'Nuestros Planes y Servicios';
                 </div>
 
                 <div class="card-actions justify-center w-full mt-auto">
-                    <?= Html::a('Contratar Ahora', ['shop/configure', 'id' => $product->id], [
+                    <?= Html::a('Contratar Ahora', [
+                        'shop/configure', 
+                        'id' => $product->id,
+                        'domain' => Yii::$app->request->get('domain'),
+                        'extension' => Yii::$app->request->get('extension'),
+                        'action' => Yii::$app->request->get('action')
+                    ], [
                         'class' => 'btn btn-primary w-full shadow-lg shadow-primary/30',
                     ]) ?>
                 </div>

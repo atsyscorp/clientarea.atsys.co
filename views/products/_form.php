@@ -52,7 +52,13 @@ use yii\widgets\ActiveForm;
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-            
+            <div class="form-control">
+                <?= $form->field($model, 'type')->dropDownList(\app\models\Products::optsType(), [
+                    'prompt' => 'Seleccione un tipo...',
+                    'class' => 'select select-bordered'
+                ]) ?>
+            </div>
+
             <div class="form-control">
                 <?= $form->field($model, 'status')->dropDownList([1 => 'Activo', 0 => 'Inactivo'], ['class' => 'select select-bordered']) ?>
             </div>

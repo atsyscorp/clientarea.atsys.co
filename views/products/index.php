@@ -27,6 +27,17 @@ $this->title = 'Catálogo de Productos';
                     'contentOptions' => ['class' => 'font-mono font-bold'],
                 ],
                 [
+                    'attribute' => 'type',
+                    'format' => 'raw',
+                    'value' => function($model) {
+                        $label = $model->displayType();
+                        if (!$label) {
+                            return '<span class="text-base-content/40">-</span>';
+                        }
+                        return Html::tag('span', Html::encode($label), ['class' => 'badge badge-outline badge-md']);
+                    }
+                ],
+                [
                     'attribute' => 'status',
                     'header' => 'Estado',
                     'format' => 'raw',

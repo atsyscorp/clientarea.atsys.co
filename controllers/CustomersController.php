@@ -26,7 +26,7 @@ class CustomersController extends Controller
             [
                 'access' => [
                     'class' => AccessControl::class,
-                    'only' => ['index', 'view', 'create', 'update', 'delete'],
+                    'only' => ['index', 'view', 'create', 'update', 'delete', 'impersonate', 'stop-impersonating'],
                     'rules' => [
                         [
                             'actions' => ['create', 'view', 'update'], 
@@ -54,7 +54,7 @@ class CustomersController extends Controller
                             }
                         ],
                         [
-                            'actions' => ['index', 'delete'],
+                            'actions' => ['index', 'delete', 'impersonate'],
                             'allow' => true,
                             'matchCallback' => function ($rule, $action) {
                                 if (Yii::$app->user->isGuest) {
@@ -62,6 +62,11 @@ class CustomersController extends Controller
                                 }
                                 return Yii::$app->user->identity->isAdmin;
                             }
+                        ],
+                        [
+                            'actions' => ['stop-impersonating'],
+                            'allow' => true,
+                            'roles' => ['@'],
                         ],
                     ],
                 ],
@@ -168,6 +173,68 @@ class CustomersController extends Controller
         $this->findModel($id)->delete();
 
         return $this->redirect(['index']);
+    }
+
+    /**
+     * Impersonate a customer.
+     * @param int $id ID of the customer to impersonate
+     * @return \yii\web\Response
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionImpersonate($id)
+    {
+        $customer = $this->findModel($id);
+        
+        if (empty($customer->user_id)) {
+            Yii::$app->session->setFlash('error', 'Este cliente no tiene un usuario de acceso configurado.');
+            return $this->redirect(['index']);
+        }
+        
+        $user = \app\models\User::findOne($customer->user_id);
+        if (!$user) {
+            Yii::$app->session->setFlash('error', 'No se encontró el usuario asociado a este cliente.');
+            return $this->redirect(['index']);
+        }
+
+        // Guardamos el ID del administrador actual en la sesión antes de loguearnos como cliente
+        $adminId = Yii::$app->user->id;
+        
+        // Iniciamos sesión como el cliente
+        if (Yii::$app->user->login($user, 3600 * 24)) {
+            Yii::$app->session->set('original_admin_id', $adminId);
+            Yii::$app->session->setFlash('success', 'Has iniciado sesión como ' . ($customer->business_name ?: $customer->contact_name));
+            return $this->redirect(['/site/index']);
+        }
+        
+        Yii::$app->session->setFlash('error', 'No se pudo iniciar sesión como el cliente.');
+        return $this->redirect(['index']);
+    }
+
+    /**
+     * Stop impersonating and return to the original admin user.
+     * @return \yii\web\Response
+     */
+    public function actionStopImpersonating()
+    {
+        $session = Yii::$app->session;
+        if ($session->has('original_admin_id')) {
+            $adminId = $session->get('original_admin_id');
+            $adminUser = \app\models\User::findOne($adminId);
+            
+            if ($adminUser && $adminUser->isAdmin) {
+                // Removemos el ID del admin de la sesión antes de loguearnos
+                $session->remove('original_admin_id');
+                
+                if (Yii::$app->user->login($adminUser, 3600 * 24)) {
+                    Yii::$app->session->setFlash('success', 'Has vuelto a tu cuenta de Administrador.');
+                    return $this->redirect(['/customers/index']);
+                }
+            }
+        }
+        
+        // Si no hay admin original o falla, cerramos sesión
+        Yii::$app->user->logout();
+        return $this->redirect(['/site/login']);
     }
 
     /**

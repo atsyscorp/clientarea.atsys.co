@@ -64,15 +64,14 @@ class OrdersController extends Controller
         $dayOfWeek = (int) $date->format('N');
 
         // Consideramos "Fin de semana" desde el Viernes (5) hasta el Domingo (7)
-        //$isWeekend = ($dayOfWeek >= 5 && $dayOfWeek <= 7);
-        $isWeekend = true;
+        $isWeekend = ($dayOfWeek >= 5 && $dayOfWeek <= 7);
         // -----------------------------------------
 
         // Calcular valores dinámicos para COP, USD y EUR
-        $exchangeRateUsd = ($model->currency === 'USD') ? ($model->exchange_rate ?: (Yii::$app->params['fallback_trm'] ?? 4000.00)) : (Yii::$app->params['fallback_trm'] ?? 4000.00);
+        $exchangeRateUsd = ($model->currency === 'USD') ? ($model->exchange_rate ?: \app\helpers\CurrencyHelper::getTrm('USD')) : \app\helpers\CurrencyHelper::getTrm('USD');
         $totalUsd = ($model->currency === 'USD') ? ($model->total_usd ?: $model->total) : round($model->total / $exchangeRateUsd, 2);
 
-        $exchangeRateEur = ($model->currency === 'EUR') ? ($model->exchange_rate ?: (Yii::$app->params['fallback_trm_eur'] ?? 4300.00)) : (Yii::$app->params['fallback_trm_eur'] ?? 4300.00);
+        $exchangeRateEur = ($model->currency === 'EUR') ? ($model->exchange_rate ?: \app\helpers\CurrencyHelper::getTrm('EUR')) : \app\helpers\CurrencyHelper::getTrm('EUR');
         $totalEur = ($model->currency === 'EUR') ? ($model->total_usd ?: $model->total) : round($model->total / $exchangeRateEur, 2);
 
         // Pasarela Wompi (COP)
@@ -171,9 +170,7 @@ class OrdersController extends Controller
                     // Si la orden original es COP, pero se pagó en USD/EUR, actualizamos la moneda y TRM en la orden
                     if ($order->currency === 'COP' && in_array($paidCurrency, ['USD', 'EUR'])) {
                         $order->currency = $paidCurrency;
-                        $exchangeRate = ($paidCurrency === 'EUR')
-                            ? (Yii::$app->params['fallback_trm_eur'] ?? 4300.00)
-                            : (Yii::$app->params['fallback_trm'] ?? 4000.00);
+                        $exchangeRate = \app\helpers\CurrencyHelper::getTrm($paidCurrency);
                         $order->exchange_rate = $exchangeRate;
                         $order->total_usd = round($order->total / $exchangeRate, 2);
 

@@ -123,6 +123,46 @@ $this->params['breadcrumbs'][] = $this->title;
                     }
                 ],
 
+                // COLUMNA: USUARIOS ASOCIADOS
+                [
+                    'label' => 'Usuarios Asociados',
+                    'format' => 'raw',
+                    'value' => function ($model) {
+                        $html = '';
+                        
+                        // 1. Mostrar el Titular
+                        if ($model->owner) {
+                            $ownerName = $model->owner->contact_name ?: $model->owner->email;
+                            $html .= '<div class="mb-1 text-sm font-semibold flex items-center gap-1.5" title="' . Html::encode($model->owner->email) . '">';
+                            $html .= '<span class="badge badge-primary badge-xs py-1.5 px-2 text-white">Titular</span>';
+                            $html .= ' <span>' . Html::encode($ownerName) . '</span>';
+                            $html .= '</div>';
+                        } else {
+                            $html .= '<div class="mb-1 text-sm font-semibold flex items-center gap-1.5 text-error">';
+                            $html .= '<span class="badge badge-error badge-xs py-1.5 px-2 text-white">⚠️ Sin titular</span>';
+                            $html .= '</div>';
+                        }
+                        
+                        // 2. Mostrar los Delegados
+                        if (!empty($model->delegates)) {
+                            $html .= '<div class="flex flex-col gap-1 mt-1 pl-2 border-l border-base-300">';
+                            foreach ($model->delegates as $delegate) {
+                                $delegateName = $delegate->contact_name ?: $delegate->email;
+                                $roleLabel = $delegate->role == 12 ? 'Admin' : 'Estándar';
+                                $badgeClass = $delegate->role == 12 ? 'badge-info text-white' : 'badge-ghost';
+                                
+                                $html .= '<div class="text-xs flex items-center gap-1" title="' . Html::encode($delegate->email) . '">';
+                                $html .= '<span class="badge ' . $badgeClass . ' badge-xs scale-90 px-1 py-1 font-semibold">' . $roleLabel . '</span>';
+                                $html .= ' <span class="text-gray-500 font-medium">' . Html::encode($delegateName) . '</span>';
+                                $html .= '</div>';
+                            }
+                            $html .= '</div>';
+                        }
+                        
+                        return $html;
+                    }
+                ],
+
                 // COLUMNA 5: ESTADO
                 [
                     'attribute' => 'status',
@@ -171,6 +211,21 @@ $this->params['breadcrumbs'][] = $this->title;
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                         </svg>';
 
+                        // SVG ICONO IMPERSONAR (User Switch)
+                        $iconImpersonate = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3.004-3h-11.25m11.25 0-3-3m3 3-3 3" />
+                        </svg>';
+
+                        // Botón Impersonar (solo si tiene user_id)
+                        $btnImpersonate = '';
+                        if (!empty($model->user_id)) {
+                            $btnImpersonate = Html::a($iconImpersonate, ['impersonate', 'id' => $model->id], [
+                                'class' => 'btn btn-square btn-ghost btn-sm text-warning tooltip tooltip-left',
+                                'data-tip' => 'Ingresar como cliente',
+                                'title' => 'Ingresar como cliente'
+                            ]);
+                        }
+
                         // Botón Ver
                         $btnView = Html::a($iconView, ['view', 'id' => $model->id], [
                             'class' => 'btn btn-square btn-ghost btn-sm text-primary tooltip tooltip-left',
@@ -194,7 +249,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'title' => 'Eliminar'
                         ]);
 
-                        return '<div class="flex justify-end gap-1">' . $btnView . $btnUpdate . $btnDelete . '</div>';
+                        return '<div class="flex justify-end gap-1">' . $btnImpersonate . $btnView . $btnUpdate . $btnDelete . '</div>';
                     },
                 ],
             ],

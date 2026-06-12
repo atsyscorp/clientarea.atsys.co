@@ -44,5 +44,8 @@ return [
     ],
     'fallback_trm' => 4000.00,
     'fallback_trm_eur' => 4300.00,
+    'whois' => [
+        'key' => '7f041f7fd72736886ea4bfffa0e8dcec9e32fde4069065bde0b18622310bf0be'
+    ]
 ];
 

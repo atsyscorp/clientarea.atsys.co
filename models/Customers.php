@@ -289,6 +289,25 @@ class Customers extends \yii\db\ActiveRecord
     }
 
     /**
+     * Relación con el usuario Titular (dueño).
+     * @return \yii\db\ActiveQuery
+     */
+    public function getOwner()
+    {
+        return $this->hasOne(User::class, ['id' => 'user_id']);
+    }
+
+    /**
+     * Relación con los usuarios Delegados (subcuentas).
+     * @return \yii\db\ActiveQuery
+     */
+    public function getDelegates()
+    {
+        return $this->hasMany(User::class, ['parent_id' => 'user_id']);
+    }
+
+
+    /**
      * Calcula estadísticas y datos para el gráfico de Gantt de los tickets de este cliente.
      * @return array
      */

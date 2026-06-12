@@ -480,6 +480,7 @@ class SiteController extends Controller
 
                     $results[] = array_merge([
                         'domain' => $q,
+                        'domain_name' => $name,
                         'extension' => $ext,
                         'is_main' => true,
                         'price' => isset($pricesMap[$ext]) ? $pricesMap[$ext]['price'] : null,
@@ -493,6 +494,7 @@ class SiteController extends Controller
                             $altResult = DomainChecker::isAvailable($altDomain);
                             $results[] = array_merge([
                                 'domain' => $altDomain,
+                                'domain_name' => $name,
                                 'extension' => $altExt,
                                 'is_main' => false,
                                 'price' => isset($pricesMap[$altExt]) ? $pricesMap[$altExt]['price'] : null,
@@ -507,6 +509,7 @@ class SiteController extends Controller
                         $checkResult = DomainChecker::isAvailable($domainToCheck);
                         $results[] = array_merge([
                             'domain' => $domainToCheck,
+                            'domain_name' => $q,
                             'extension' => $ext,
                             'is_main' => ($ext === '.com'), // Treat .com as main by default if no ext
                             'price' => isset($pricesMap[$ext]) ? $pricesMap[$ext]['price'] : null,

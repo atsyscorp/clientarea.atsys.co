@@ -65,8 +65,7 @@ class WorkOrdersSearch extends WorkOrders
             //$query->andWhere(['customer_id' => Yii::$app->user->id]);
             
             // Opción B (Si usas tabla separada): Descomenta si usas la relación user_id
-            $customer = \app\models\Customers::findOne(['user_id' => Yii::$app->user->id]);
-            $customerId = $customer ? $customer->id : -1;
+            $customerId = Yii::$app->user->identity->getRealCustomerId() ?: -1;
             $query->andWhere(['customer_id' => $customerId]);
         }
         // -------------------------------------

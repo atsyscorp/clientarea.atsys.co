@@ -85,6 +85,7 @@ class Products extends \yii\db\ActiveRecord
             'price_restoration' => 'Precio Restauración (Multa)',
             'status' => 'Estado (Activo/Inactivo)',
             'created_at' => 'Fecha de creación',
+            'type' => 'Tipo de Producto',
         ];
     }
 
@@ -129,11 +130,11 @@ class Products extends \yii\db\ActiveRecord
     public static function optsType() 
     { 
         return [ 
-            self::TYPE_HOSTING => 'hosting', 
-            self::TYPE_LICENSE => 'license', 
-            self::TYPE_DEVELOPMENT => 'development', 
-            self::TYPE_SUPPORT => 'support', 
-            self::TYPE_DOMAIN => 'domain', 
+            self::TYPE_HOSTING => 'Hosting', 
+            self::TYPE_LICENSE => 'Licencia', 
+            self::TYPE_DEVELOPMENT => 'Desarrollo', 
+            self::TYPE_SUPPORT => 'Soporte', 
+            self::TYPE_DOMAIN => 'Dominio', 
         ]; 
     } 
 
@@ -142,7 +143,7 @@ class Products extends \yii\db\ActiveRecord
      */ 
     public function displayBillingCycle() 
     { 
-        return self::optsBillingCycle()[$this->billing_cycle]; 
+        return self::optsBillingCycle()[$this->billing_cycle] ?? $this->billing_cycle; 
     } 
 
     /** 
@@ -189,7 +190,7 @@ class Products extends \yii\db\ActiveRecord
         */ 
     public function displayType() 
     { 
-        return self::optsType()[$this->type]; 
+        return self::optsType()[$this->type] ?? $this->type; 
     } 
 
     /** 
@@ -256,5 +257,49 @@ class Products extends \yii\db\ActiveRecord
     { 
         $this->type = self::TYPE_DOMAIN; 
     } 
+
+    /**
+     * Devuelve el precio convertido a la moneda solicitada.
+     * Si no se especifica moneda, o es la del producto, devuelve el original.
+     * @param string|null $targetCurrency Moneda destino ('COP', 'USD', 'EUR')
+     * @param string $field El campo de precio a convertir ('price', 'price_renewal', 'price_restoration')
+     * @return float
+     */
+    public function getConvertedPrice($targetCurrency = null, $field = 'price')
+    {
+        $price = $this->$field ?: 0.00;
+        $productCurrency = strtoupper($this->currency ?: 'COP');
+        
+        if ($targetCurrency === null) {
+            return $price;
+        }
+        
+        $targetCurrency = strtoupper($targetCurrency);
+        if ($productCurrency === $targetCurrency) {
+            return $price;
+        }
+
+        $trmUsd = \app\helpers\CurrencyHelper::getTrm('USD');
+        $trmEur = \app\helpers\CurrencyHelper::getTrm('EUR');
+
+        // Convertir el precio de la moneda del producto a COP (Base)
+        $priceInCop = $price;
+        if ($productCurrency === 'USD') {
+            $priceInCop = $price * $trmUsd;
+        } elseif ($productCurrency === 'EUR') {
+            $priceInCop = $price * $trmEur;
+        }
+
+        // Convertir de COP a la moneda destino
+        if ($targetCurrency === 'COP') {
+            return round($priceInCop, 2);
+        } elseif ($targetCurrency === 'USD') {
+            return round($priceInCop / $trmUsd, 2);
+        } elseif ($targetCurrency === 'EUR') {
+            return round($priceInCop / $trmEur, 2);
+        }
+
+        return $price;
+    }
 
 }

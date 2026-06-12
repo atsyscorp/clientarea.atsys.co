@@ -9,6 +9,18 @@ use yii\widgets\ActiveForm;
 /* @var $modelLogin app\models\LoginForm|null */
 
 $this->title = 'Finalizar Compra';
+$selectedCurrency = Yii::$app->session->get('currency', 'COP');
+
+// Calcular TRM para la visualización del checkout
+$trmUsd = \app\helpers\CurrencyHelper::getTrm('USD');
+$trmEur = \app\helpers\CurrencyHelper::getTrm('EUR');
+
+$trm = 1.0;
+if ($selectedCurrency === 'USD') {
+    $trm = $trmUsd;
+} elseif ($selectedCurrency === 'EUR') {
+    $trm = $trmEur;
+}
 ?>
 
 <div class="py-10 px-4 min-h-screen bg-base-200">
@@ -39,7 +51,7 @@ $this->title = 'Finalizar Compra';
                                 <p class="text-xs text-base-content/60">Plan de Hosting</p>
                             </div>
                             <div class="text-right font-medium text-sm">
-                                <?= Yii::$app->formatter->asCurrency($cart['hosting_price']) ?>
+                                <?= Yii::$app->formatter->asCurrency($cart['hosting_price'] / $trm, $selectedCurrency) ?>
                             </div>
 
                             <?= Html::a('×', ['clear-cart'], [
@@ -66,7 +78,7 @@ $this->title = 'Finalizar Compra';
                                 ?></span>
                             </div>
                             <div class="text-right font-medium text-sm">
-                                <?= Yii::$app->formatter->asCurrency($cart['domain_price']) ?>
+                                <?= Yii::$app->formatter->asCurrency($cart['domain_price'] / $trm, $selectedCurrency) ?>
                             </div>
                             <?= Html::a('×', ['remove-domain'], [
                                 'class' => 'absolute -left-4 start-auto end-auto btn btn-circle btn-xs btn-error text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-md',
@@ -99,7 +111,7 @@ $this->title = 'Finalizar Compra';
 
                         <div class="flex justify-between items-center text-xl font-extrabold text-primary">
                             <span>Total a Pagar:</span>
-                            <span><?= Yii::$app->formatter->asCurrency($cart['total']) ?></span>
+                            <span><?= Yii::$app->formatter->asCurrency($cart['total'] / $trm, $selectedCurrency) ?></span>
                         </div>
                     </div>
                 </div>

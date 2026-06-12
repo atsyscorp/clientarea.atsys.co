@@ -38,7 +38,7 @@ class CustomersSearch extends Customers
      */
     public function search($params)
     {
-        $query = Customers::find();
+        $query = Customers::find()->with(['owner', 'delegates']);
 
         // Configuración del Paginador y Ordenamiento
         $dataProvider = new ActiveDataProvider([

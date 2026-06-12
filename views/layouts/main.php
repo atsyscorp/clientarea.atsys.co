@@ -303,6 +303,29 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                 </div>
             </div>
 
+            <?php if (Yii::$app->session->has('original_admin_id')): ?>
+                <div class="container mx-auto px-4 mt-4">
+                    <div class="alert alert-warning shadow-lg border border-warning/20 bg-warning/10 text-warning-content flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 text-warning" fill="none" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <div>
+                                <span class="font-bold">Modo Impersonación:</span> Estás navegando como el cliente <strong><?= Html::encode(Yii::$app->user->identity->username) ?></strong>.
+                            </div>
+                        </div>
+                        <div>
+                            <?= Html::a(
+                                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 mr-1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg> Volver a Admin',
+                                ['/customers/stop-impersonating'],
+                                ['class' => 'btn btn-sm btn-warning text-white font-bold flex items-center shadow-md']
+                            ) ?>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <?php
             $urgentAlert = \app\models\Announcements::findActive()
                 ->andWhere(['type' => 'danger']) // Solo las rojas/urgentes
@@ -411,8 +434,10 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                     $isDashboardActive = ($controllerId === 'site' && $actionId === 'index');
                     $isTicketsActive = ($controllerId === 'tickets');
                     $isCustomersActive = ($controllerId === 'customers');
+                    $isUsersActive = ($controllerId === 'users');
                     $isServersActive = ($controllerId === 'servers');
                     $isProductsActive = ($controllerId === 'products');
+                    $isOrdersActive = ($controllerId === 'orders');
                     $isServicesActive = ($controllerId === 'customer-services');
                     $isTeamActive = ($controllerId === 'subaccounts');
                     $isWorkOrdersActive = ($controllerId === 'work-orders');
@@ -483,6 +508,18 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                                 </a>
                             </li>
 
+                            <!-- Admin Usuarios -->
+                            <li>
+                                <a href="/users/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isUsersActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0 1 10.089 20M4.121 18.548a11.386 11.386 0 0 1 4.968-3.07M14.214 16.058A4.125 4.125 0 0 0 7.533 13.5M14.214 16.058A9.38 9.38 0 0 1 12.625 16.5a9.337 9.337 0 0 1-4.121-.952A4.125 4.125 0 0 0 12 18.125c1.238 0 2.392-.544 3.214-1.488z" />
+                                        <circle cx="10" cy="8" r="4" />
+                                        <circle cx="18" cy="8" r="3" />
+                                    </svg>
+                                    Usuarios
+                                </a>
+                            </li>
+
                             <!-- Admin Servidores -->
                             <li>
                                 <a href="/servers/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isServersActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
@@ -496,6 +533,14 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                                 <a href="/products/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isProductsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
                                     Productos
+                                </a>
+                            </li>
+
+                            <!-- Admin Órdenes de Pago -->
+                            <li>
+                                <a href="/orders/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isOrdersActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
+                                    Órdenes de Pago
                                 </a>
                             </li>
 

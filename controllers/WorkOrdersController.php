@@ -57,8 +57,8 @@ class WorkOrdersController extends Controller
         $user = Yii::$app->user->identity;
 
         if (!$user->isAdmin) {
-            $myCustomer = \app\models\Customers::findOne(['user_id' => $user->id]);
-            if (!$myCustomer || $model->customer_id != $myCustomer->id) {
+            $realCustomerId = $user->getRealCustomerId();
+            if (!$realCustomerId || $model->customer_id != $realCustomerId) {
                 throw new \yii\web\ForbiddenHttpException('No tienes permiso para ver este documento.');
             }
         }
@@ -73,9 +73,9 @@ class WorkOrdersController extends Controller
         $user = Yii::$app->user->identity;
 
         if (!$user->isAdmin) {
-            $myCustomer = \app\models\Customers::findOne(['user_id' => $user->id]);
-            if (!$myCustomer || $model->customer_id != $myCustomer->id) {
-                throw new \yii\web\ForbiddenHttpException();
+            $realCustomerId = $user->getRealCustomerId();
+            if (!$realCustomerId || $model->customer_id != $realCustomerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
             }
         }
 
@@ -132,9 +132,9 @@ class WorkOrdersController extends Controller
 
         // SEGURIDAD CORREGIDA
         if (!$user->isAdmin) {
-            $myCustomer = \app\models\Customers::findOne(['user_id' => $user->id]);
-            if (!$myCustomer || $model->customer_id != $myCustomer->id) {
-                throw new \yii\web\ForbiddenHttpException();
+            $realCustomerId = $user->getRealCustomerId();
+            if (!$realCustomerId || $model->customer_id != $realCustomerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
             }
         }
 
@@ -175,6 +175,10 @@ class WorkOrdersController extends Controller
 
     public function actionRejectRequest($id)
     {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException();
+        }
+
         $model = $this->findModel($id);
         $model->delete();
         Yii::$app->session->setFlash('success', 'Solicitud eliminada con éxito.');
@@ -253,8 +257,11 @@ class WorkOrdersController extends Controller
         $model = $this->findModel($id);
 
         // Validación de seguridad...
-        if (!Yii::$app->user->identity->isAdmin && $model->customer_id != Yii::$app->user->id) {
-            throw new \yii\web\ForbiddenHttpException();
+        if (!Yii::$app->user->identity->isAdmin) {
+            $realCustomerId = Yii::$app->user->identity->getRealCustomerId();
+            if (!$realCustomerId || $model->customer_id != $realCustomerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para ver este documento.');
+            }
         }
 
         // Una sola línea para configurar todo
@@ -480,6 +487,10 @@ class WorkOrdersController extends Controller
      */
     public function actionDelete($id)
     {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException();
+        }
+
         $this->findModel($id)->delete();
 
         Yii::$app->session->setFlash('success', 'Orden de trabajo eliminada correctamente.');
@@ -538,6 +549,10 @@ class WorkOrdersController extends Controller
      */
     public function actionGeneratePayment($id)
     {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException();
+        }
+
         $workOrder = $this->findModel($id);
 
         if ($workOrder->down_payment_sent_at !== null) {
@@ -691,6 +706,10 @@ class WorkOrdersController extends Controller
 
     public function actionClose($id)
     {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException();
+        }
+
         $model = $this->findModel($id);
 
         // Verificamos que sea POST y que la orden esté en estado correcto
@@ -729,6 +748,15 @@ class WorkOrdersController extends Controller
         // 1. Seguridad básica: Solo aceptar peticiones POST
         if (!$request->isPost) {
             throw new \yii\web\BadRequestHttpException('Petición no válida. Solo se aceptan envíos por formulario.');
+        }
+
+        $user = Yii::$app->user->identity;
+        if (!$user->isAdmin) {
+            $realCustomerId = $user->getRealCustomerId();
+            $workOrder = $this->findModel($id);
+            if (!$realCustomerId || $workOrder->customer_id != $realCustomerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
+            }
         }
 
         $updateId = $request->post('update_id');

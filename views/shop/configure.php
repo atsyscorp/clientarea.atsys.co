@@ -7,6 +7,7 @@ use yii\widgets\ActiveForm;
 /* @var $model yii\base\DynamicModel */
 
 $this->title = 'Configurar Dominio - ' . $product->name;
+$selectedCurrency = Yii::$app->session->get('currency', 'COP');
 ?>
 
 <div class="py-10 px-4 min-h-screen bg-base-200">
@@ -110,7 +111,7 @@ $this->title = 'Configurar Dominio - ' . $product->name;
                                 <p class="text-xs text-base-content/60"><?= nl2br(Html::encode($product->description)) ?></p>
                             </div>
                             <div class="text-right">
-                                <span class="font-bold text-lg"><?= Yii::$app->formatter->asCurrency($product->price) ?></span>
+                                <span class="font-bold text-lg"><?= Yii::$app->formatter->asCurrency($product->getConvertedPrice($selectedCurrency), $selectedCurrency) ?></span>
                             </div>
                         </div>
 
@@ -123,7 +124,7 @@ $this->title = 'Configurar Dominio - ' . $product->name;
 
                         <div class="flex justify-between items-center mt-4 text-xl font-extrabold">
                             <span>Total Hoy:</span>
-                            <span class="text-primary"><?= Yii::$app->formatter->asCurrency($product->price) ?></span>
+                            <span class="text-primary"><?= Yii::$app->formatter->asCurrency($product->getConvertedPrice($selectedCurrency), $selectedCurrency) ?></span>
                         </div>
                         
                         <div class="mt-2 text-xs text-center opacity-50">

@@ -32,6 +32,18 @@ class ShopController extends Controller
         ];
     }
 
+    public function beforeAction($action)
+    {
+        if (parent::beforeAction($action)) {
+            $currency = Yii::$app->request->get('currency');
+            if ($currency && in_array(strtoupper($currency), ['COP', 'USD', 'EUR'])) {
+                Yii::$app->session->set('currency', strtoupper($currency));
+            }
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Catálogo de Productos (Vitrina)
      */
@@ -67,6 +79,13 @@ class ShopController extends Controller
               ->addRule('domain', 'string', ['min' => 3])
               ->addRule('action', 'in', ['range' => ['register', 'transfer', 'own']])
               ->addRule('extension', 'string'); // Ej: .com, .co
+
+        // Pre-poblar valores desde la URL si están presentes (GET)
+        if (Yii::$app->request->isGet) {
+            $model->domain = Yii::$app->request->get('domain', '');
+            $model->extension = Yii::$app->request->get('extension', '.com');
+            $model->action = Yii::$app->request->get('action', 'register');
+        }
 
         // 3. Procesar formulario cuando el usuario da clic en "Continuar"
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {

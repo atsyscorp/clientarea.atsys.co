@@ -332,10 +332,10 @@ class TicketsController extends \yii\web\Controller
                     $reply->ticket_id = $model->id;
                     $reply->message = $model->message; // Tomado del campo virtual
 
-                    // Definir quién escribe (Cliente)
-                    // Ajusta 'customer' o 'user' según lo que uses en tu base de datos para sender_type
-                    $reply->sender_type = 'customer';
+                    // Definir quién escribe
+                    $reply->sender_type = $isAdmin ? 'admin' : 'customer';
                     $reply->created_at = date('Y-m-d H:i:s');
+                    $reply->user_id = Yii::$app->user->id;
 
                     if ($model->attachmentFile) {
                         $uploadPath = Yii::getAlias('@webroot/uploads/tickets/' . $model->id . '/');

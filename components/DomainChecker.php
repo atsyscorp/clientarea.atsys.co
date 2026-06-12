@@ -52,6 +52,40 @@ class DomainChecker
             ];
         }
 
+        // Try WhoisJSON API if configured
+        $apiKey = \Yii::$app->params['whois']['key'] ?? null;
+        if (!empty($apiKey)) {
+            $apiUrl = 'https://whoisjson.com/api/v1/domain-availability?domain=' . urlencode($domain);
+            try {
+                $client = new \yii\httpclient\Client();
+                $response = $client->createRequest()
+                    ->setMethod('GET')
+                    ->setUrl($apiUrl)
+                    ->setHeaders(['Authorization' => 'TOKEN=' . $apiKey])
+                    ->setOptions([
+                        'timeout' => 3,
+                    ])
+                    ->send();
+                
+                if ($response->isOk) {
+                    $data = $response->data; // parses json automatically
+                    if (isset($data['available'])) {
+                        $available = (bool)$data['available'];
+                        return [
+                            'status' => $available ? 'available' : 'registered',
+                            'available' => $available,
+                            'method' => 'whoisjson'
+                        ];
+                    }
+                } else {
+                    \Yii::warning("WhoisJSON API returned non-OK status: " . $response->statusCode . ", content: " . $response->content);
+                }
+            } catch (\Exception $e) {
+                \Yii::error("WhoisJSON API error: " . $e->getMessage());
+                // Fallback to local checks below
+            }
+        }
+
         // Extract TLD to determine the whois server
         $parts = explode('.', $domain);
         if (count($parts) < 2) {
