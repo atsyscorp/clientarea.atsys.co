@@ -545,9 +545,9 @@ class WorkOrdersController extends Controller
 
     /**
      * Genera una Orden de Pago (Orders) basada en la Orden de Trabajo.
-     * Puede ser por el total o un porcentaje (ej: 50%).
+     * Puede ser por el total o un porcentaje (ej: 50% o 100%).
      */
-    public function actionGeneratePayment($id)
+    public function actionGeneratePayment($id, $percentage = 50)
     {
         if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
             throw new \yii\web\ForbiddenHttpException();
@@ -556,7 +556,7 @@ class WorkOrdersController extends Controller
         $workOrder = $this->findModel($id);
 
         if ($workOrder->down_payment_sent_at !== null) {
-            Yii::$app->session->setFlash('warning', 'El anticipo para esta orden ya fue generado y enviado el ' . Yii::$app->formatter->asDatetime($workOrder->down_payment_sent_at));
+            Yii::$app->session->setFlash('warning', 'El cobro para esta orden ya fue generado y enviado el ' . Yii::$app->formatter->asDatetime($workOrder->down_payment_sent_at));
             return $this->redirect(['view', 'id' => $id]);
         }
 
@@ -565,14 +565,15 @@ class WorkOrdersController extends Controller
             return $this->redirect(['view', 'id' => $id]);
         }
 
-        // 1. Definir los Montos a Cobrar (50% de anticipo)
-        $amountToPayCop = $workOrder->total_cost * 0.50;
+        // 1. Definir los Montos a Cobrar
+        $fraction = $percentage / 100;
+        $amountToPayCop = $workOrder->total_cost * $fraction;
 
-        // Si la orden está en USD o EUR, calculamos también la mitad del valor en moneda extranjera
+        // Si la orden está en USD o EUR, calculamos también el valor fraccionado en moneda extranjera
         $isForeign = in_array($workOrder->currency, ['USD', 'EUR']);
-        $amountToPayForeign = $isForeign ? ($workOrder->total_cost_usd * 0.50) : null;
+        $amountToPayForeign = $isForeign ? ($workOrder->total_cost_usd * $fraction) : null;
 
-        $concept = "Anticipo 50% - " . $workOrder->code;
+        $concept = $percentage == 100 ? "Pago Total - " . $workOrder->code : "Anticipo {$percentage}% - " . $workOrder->code;
 
         // Variables para la comisión (Inicializadas en 0)
         $feeForeign = 0;

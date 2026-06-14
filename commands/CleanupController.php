@@ -42,6 +42,12 @@ class CleanupController extends Controller
             }
         }
 
+        Yii::$app->mailer->compose()
+        ->setHtmlBody('Cron completed for cleanup overdue')
+        ->setTo(Yii::$app->params['adminEmail'])
+        ->setSubject("Cron Cleanup Overdue")
+        ->send();
+
         echo "Proceso finalizado. Se eliminaron {$count} órdenes antiguas.\n";
     }
 

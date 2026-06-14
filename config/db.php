@@ -2,8 +2,8 @@
 
 return [
     'class' => 'yii\db\Connection',
-    'dsn' => 'mysql:host=localhost;dbname=clie_app',
-    'username' => 'clie_app',
+    'dsn' => 'mysql:host=localhost;dbname=atclient_app',
+    'username' => 'atclient_app',
     'password' => 'ySkUvcI3czC8Cheg',
     'charset' => 'utf8mb4',
 

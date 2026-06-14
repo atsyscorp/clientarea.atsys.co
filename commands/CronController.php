@@ -89,6 +89,11 @@ class CronController extends Controller
         }
 
         echo "Terminado. Total procesados: $count\n";
+        Yii::$app->mailer->compose()
+        ->setHtmlBody('Cron completed for suspend overdue')
+        ->setTo(Yii::$app->params['adminEmail'])
+        ->setSubject("Cron Suspended Overdue")
+        ->send();
         return ExitCode::OK;
     }
 
@@ -198,6 +203,11 @@ class CronController extends Controller
         }
 
         echo "Terminado. Recordatorios enviados: $count\n";
+        Yii::$app->mailer->compose()
+        ->setHtmlBody('Cron completed for send reminders')
+        ->setTo(Yii::$app->params['adminEmail'])
+        ->setSubject("Cron Send Reminders")
+        ->send();
         return ExitCode::OK;
     }
 

@@ -346,13 +346,22 @@ if ($model->is_request == 1) {
                     <div class="mb-4">
                         <?php if ($model->down_payment_sent_at === null): ?>
 
-                            <?= \yii\helpers\Html::a('Generar Cobro 50%', ['generate-payment', 'id' => $model->id], [
-                                'class' => 'btn btn-primary gap-2',
-                                'data' => [
-                                    'confirm' => '¿Generar cobro del 50% y enviar correo?',
-                                    'method' => 'post',
-                                ]
-                            ]) ?>
+                            <div class="flex gap-2 justify-center">
+                                <?= \yii\helpers\Html::a('Generar Cobro 50%', ['generate-payment', 'id' => $model->id, 'percentage' => 50], [
+                                    'class' => 'btn btn-primary gap-2',
+                                    'data' => [
+                                        'confirm' => '¿Generar cobro del 50% y enviar correo?',
+                                        'method' => 'post',
+                                    ]
+                                ]) ?>
+                                <?= \yii\helpers\Html::a('Generar Cobro 100%', ['generate-payment', 'id' => $model->id, 'percentage' => 100], [
+                                    'class' => 'btn btn-secondary gap-2',
+                                    'data' => [
+                                        'confirm' => '¿Generar cobro del 100% y enviar correo?',
+                                        'method' => 'post',
+                                    ]
+                                ]) ?>
+                            </div>
 
                         <?php else: ?>
 
@@ -362,8 +371,8 @@ if ($model->is_request == 1) {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <div class="flex flex-col">
-                                    <span class="font-bold text-sm">Anticipo Solicitado</span>
+                                <div class="flex flex-col text-left">
+                                    <span class="font-bold text-sm">Cobro Solicitado</span>
                                     <span class="text-xs">Enviado el:
                                         <?= Yii::$app->formatter->asDatetime($model->down_payment_sent_at) ?></span>
                                 </div>

@@ -92,7 +92,17 @@ $estadosList = [
                     'visible' => Yii::$app->user->identity->isAdmin,
                     'label' => 'Cliente'
                 ],
-                'subject',
+                [
+                    'attribute' => 'subject',
+                    'format' => 'raw',
+                    'value' => function($model) {
+                        $responder = Html::encode($model->getLastResponderName());
+                        return "<div>" . Html::encode($model->subject) . "</div>" .
+                               "<div class='text-xs text-base-content/60 mt-1 flex items-center gap-1'>" .
+                               "<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' class='w-3 h-3'><path stroke-linecap='round' stroke-linejoin='round' d='M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3' /></svg>" .
+                               "Último msj: <span class='font-semibold'>{$responder}</span></div>";
+                    }
+                ],
                 [
                     'attribute' => 'department',
                     'format' => 'raw',

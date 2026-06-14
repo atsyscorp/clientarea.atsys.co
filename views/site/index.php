@@ -193,7 +193,10 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                                 <td class="font-mono text-xs"><?= $ticket->ticket_code ?></td>
                                 <td class="font-bold">
                                     <?= Html::encode(mb_strimwidth($ticket->subject, 0, 50, '...')) ?>
-                                    <div class="text-xs font-normal opacity-50"><?= $ticket->email ?></div>
+                                    <div class="text-xs font-normal opacity-50 mt-1 flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                                        Último msj: <span class="font-semibold"><?= Html::encode($ticket->getLastResponderName()) ?></span>
+                                    </div>
                                 </td>
                                 <td>
                                     <?php

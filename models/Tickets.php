@@ -429,6 +429,30 @@ class Tickets extends \yii\db\ActiveRecord
         return $statusLabels[$this->status] ?? 'Desconocido';
     }
 
+    public function getLastResponderName()
+    {
+        $lastReply = $this->getTicketReplies()->orderBy(['created_at' => SORT_DESC])->one();
+
+        if (!$lastReply) {
+            return 'Desconocido';
+        }
+
+        if ($lastReply->sender_type === 'admin') {
+            return ($this->department === 'support') ? 'Soporte' : (($this->department === 'commercial') ? 'Comercial' : 'ATSYS');
+        } else {
+            $senderUser = $lastReply->user;
+            if ($senderUser) {
+                return $senderUser->contact_name ?? $senderUser->email;
+            } else {
+                return $this->customer ? (
+                    $this->customer->contact_name == $this->customer->business_name ?
+                    $this->customer->contact_name :
+                    $this->customer->contact_name . ' (' . $this->customer->business_name . ')'
+                ) : $this->email;
+            }
+        }
+    }
+
     public static function getDepartmentList()
     {
         return [
