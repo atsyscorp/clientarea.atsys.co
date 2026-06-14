@@ -49,9 +49,24 @@ class WebhookController extends Controller
         $transaction = Yii::$app->db->beginTransaction();
         try {
             // 3. LOGICA DE CLIENTE
-            $customer = Customers::find()->where(['email' => $data['email']])->one();
-            $customerId = $customer ? $customer->id : null;
-            $customerName = $customer ? $customer->business_name : ($data['name'] ?? 'Usuario Externo');
+            $userData = \app\models\User::find()->where(['email' => $data['email']])->one();
+            $customerId = null;
+            $customerName = 'Usuario Externo';
+            
+            if ($userData) {
+                $customerId = $userData->getRealCustomerId();
+                $ownerId = $userData->parent_id ?: $userData->id;
+                $customer = \app\models\Customers::findOne(['user_id' => $ownerId]);
+                $customerName = $customer ? $customer->business_name : $userData->username;
+            } else {
+                $customer = \app\models\Customers::find()->where(['email' => $data['email']])->one();
+                if ($customer) {
+                    $customerId = $customer->id;
+                    $customerName = $customer->business_name;
+                } else {
+                    $customerName = $data['name'] ?? 'Usuario Externo';
+                }
+            }
 
             // =================================================================================
             // 4. DETECCIÓN INTELIGENTE (MEJORADA)
@@ -117,6 +132,40 @@ class WebhookController extends Controller
                 $finalTicketId = $existingTicket->id;
                 $finalTicketCode = $existingTicket->ticket_code;
 
+                // Enviar notificacion al admin
+                $tokens = \app\models\AdminTokens::find()->column();
+
+                // Definir la URL del Webhook (Nueva IP)
+                $webhookUrl = 'https://n8n-new.atsys.co/webhook/send-admin-push';
+
+                if (!empty($tokens)) {
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $webhookUrl);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                        'tokens' => $tokens,
+                        'title' => "Nueva respuesta en Ticket",
+                        'message' => "Respuesta de $customerName en el ticket #{$existingTicket->ticket_code}.",
+                        'type' => 'ticket'
+                    ]));
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                    curl_exec($ch);
+                    curl_close($ch);
+                }
+
+                // Enviar email a admin
+                Yii::$app->mailer->compose([
+                    'html' => 'ticket_reply'
+                ],[
+                    'ticket' => $existingTicket,
+                    'reply' => $reply
+                ])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setTo(Yii::$app->params['adminEmail'])
+                ->setSubject("[Ticket #{$existingTicket->ticket_code}] Nueva respuesta: {$existingTicket->subject}")
+                ->send();
+
             } else {
 
                 // ----------------------------------------------------------------
@@ -162,7 +211,7 @@ class WebhookController extends Controller
                 $reply->save();
 
                 // Emails
-                $this->sendNewTicketEmails($model, $data['body'], $customer);
+                $this->sendNewTicketEmails($model, $data['body'], $userData);
 
                 $notifTitle = "🎟️ Nuevo Ticket: " . $model->ticket_code;
                 $notifBody = $model->subject;
@@ -187,7 +236,7 @@ class WebhookController extends Controller
                 'message' => 'Procesado exitosamente.'
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $transaction->rollBack();
             return ['status' => 'error', 'message' => $e->getMessage()];
         }
@@ -206,7 +255,7 @@ class WebhookController extends Controller
 
         // Determinar nombre del cliente para el correo
         // Si $customerObj es null, usamos el email o un nombre genérico
-        $customerName = $customerObj ? $customerObj->business_name : 'Usuario Externo';
+        $customerName = $customerObj ? $customerObj->username : 'Usuario Externo';
 
         // 1. Correo al Cliente (Confirmación)
         // Asegúrate de tener la vista: views/mail/newTicket-html.php
@@ -223,9 +272,8 @@ class WebhookController extends Controller
             ->setTo($ticket->email)
             ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
             ->setSubject("[Ticket #{$ticket->ticket_code}] Recibido: {$ticket->subject}")
-            ->setBcc(Yii::$app->params['adminEmail'])
             ->send();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Yii::error("Error enviando email al cliente: " . $e->getMessage());
         }
 
@@ -237,14 +285,14 @@ class WebhookController extends Controller
                 [
                     'ticket' => $ticket, 
                     'message' => $messageContent, 
-                    'customer' => $customerObj // Pasamos el objeto completo (puede ser null)
+                    'user' => $customerObj
                 ]
             )
             ->setFrom([$senderEmail => Yii::$app->name])
             ->setTo($adminEmail)
             ->setSubject("[Nuevo Ticket] #{$ticket->ticket_code} - {$ticket->subject}")
             ->send();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
              Yii::error("Error enviando email al admin: " . $e->getMessage());
         }
     }

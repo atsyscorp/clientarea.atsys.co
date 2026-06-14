@@ -66,6 +66,13 @@ class TicketCronController extends Controller
             }
         }
 
+        Yii::$app->mailer->compose()
+        ->setHtmlBody('Cron completed for ticket autoclose')
+        ->setTo(Yii::$app->params['adminEmail'])
+        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+        ->setSubject("Cron Ticket Auto Close")
+        ->send();
+
         echo "   Total cerrados: $count\n\n";
     }
 
@@ -139,7 +146,7 @@ class TicketCronController extends Controller
         }
 
         // Define aquí la URL de tu webhook de N8N
-        $webhookUrl = 'https://n8n.atsys.co/webhook/send-admin-push';
+        $webhookUrl = 'https://n8n-new.atsys.co/webhook/send-admin-push';
 
         $data = [
             'tokens' => $tokens,

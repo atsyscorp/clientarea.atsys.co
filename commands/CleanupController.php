@@ -2,6 +2,7 @@
 
 namespace app\commands;
 
+use Yii;
 use yii\console\Controller;
 use app\models\WorkOrders;
 
@@ -45,6 +46,7 @@ class CleanupController extends Controller
         Yii::$app->mailer->compose()
         ->setHtmlBody('Cron completed for cleanup overdue')
         ->setTo(Yii::$app->params['adminEmail'])
+        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
         ->setSubject("Cron Cleanup Overdue")
         ->send();
 
@@ -61,7 +63,7 @@ class CleanupController extends Controller
         }
 
         // Define aquí la URL de tu webhook de N8N
-        $webhookUrl = 'https://n8n.atsys.co/webhook/send-admin-push';
+        $webhookUrl = 'https://n8n-new.atsys.co/webhook/send-admin-push';
 
         $data = [
             'tokens' => $tokens,

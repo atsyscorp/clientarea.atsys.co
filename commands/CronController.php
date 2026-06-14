@@ -92,6 +92,7 @@ class CronController extends Controller
         Yii::$app->mailer->compose()
         ->setHtmlBody('Cron completed for suspend overdue')
         ->setTo(Yii::$app->params['adminEmail'])
+        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
         ->setSubject("Cron Suspended Overdue")
         ->send();
         return ExitCode::OK;
@@ -135,7 +136,7 @@ class CronController extends Controller
         }
 
         // Define aquí la URL de tu webhook de N8N
-        $webhookUrl = 'https://n8n.atsys.co/webhook/send-admin-push';
+        $webhookUrl = 'https://n8n-new.atsys.co/webhook/send-admin-push';
 
         $data = [
             'tokens' => $tokens,
@@ -206,6 +207,7 @@ class CronController extends Controller
         Yii::$app->mailer->compose()
         ->setHtmlBody('Cron completed for send reminders')
         ->setTo(Yii::$app->params['adminEmail'])
+        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
         ->setSubject("Cron Send Reminders")
         ->send();
         return ExitCode::OK;

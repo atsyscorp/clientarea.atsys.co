@@ -26,9 +26,9 @@ $formatMessage = function($text, $dark = false) {
 };
 ?>
 <div style="font-family: Arial, sans-serif; color: #333;">
-    <h3 style="color: #d97706;">🔔 Nuevo Ticket de Soporte</h3>
+    <h3 style="color: #d97706;">🔔 Nuevo Ticket</h3>
     
-    <p>El cliente <strong><?= Html::encode($user->username) ?></strong> (<?= Html::encode($user->email) ?>) ha abierto un ticket.</p>
+    <p>El usuario <strong><?= Html::encode($user ? $user->username : 'Usuario Externo') ?></strong> (<?= Html::encode($user ? $user->email : $ticket->email) ?>) ha abierto un ticket.</p>
     
     <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
         <tr>
