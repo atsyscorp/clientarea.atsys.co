@@ -117,7 +117,8 @@ class TicketCronController extends Controller
             $mail = Yii::$app->mailer->compose([
                 'html' =>  'ticket_autoclose-html'
             ],[
-                'ticket' => $ticket
+                'ticket' => $ticket,
+                'hours' => $this->hoursToClose,
             ])
             ->setTo($ticket->email)
             ->setBcc(Yii::$app->params['adminEmail'])
