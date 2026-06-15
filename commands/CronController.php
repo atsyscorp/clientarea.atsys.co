@@ -11,6 +11,21 @@ use yii\httpclient\Client; // Asegúrate de tener yii2-httpclient o usa curl nat
 
 class CronController extends Controller
 {
+    public function init()
+    {
+        parent::init();
+        try {
+            if (Yii::$app->db->getTableSchema('system_settings', true) !== null) {
+                $settings = \app\models\SystemSettings::find()->all();
+                foreach ($settings as $setting) {
+                    Yii::$app->params[$setting->key] = $setting->value;
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::error("CronController failed to load settings from DB: " . $e->getMessage());
+        }
+    }
+
     /**
      * Revisa servicios vencidos, los suspende y notifica.
      * Ejecutar diariamente (03:00 AM).
@@ -136,7 +151,7 @@ class CronController extends Controller
         }
 
         // Define aquí la URL de tu webhook de N8N
-        $webhookUrl = 'https://n8n-new.atsys.co/webhook/send-admin-push';
+        $webhookUrl = Yii::$app->params['n8n_admin_push_url'] ?? 'https://n8n-new.atsys.co/webhook/send-admin-push';
 
         $data = [
             'tokens' => $tokens,

@@ -10,7 +10,12 @@ $config = [
     'sourceLanguage' => 'en-US',
     'timeZone' => 'America/Bogota',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log'],
+    'bootstrap' => [
+        'log',
+        function ($app) {
+            \app\models\SystemSettings::loadToParams();
+        }
+    ],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm' => '@vendor/npm-asset',

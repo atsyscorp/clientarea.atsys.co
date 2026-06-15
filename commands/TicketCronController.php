@@ -16,6 +16,26 @@ class TicketCronController extends Controller
     public $hoursToClose = 48; // Tiempo para cerrar tickets inactivos del cliente
     public $hoursSla = 24;     // Tiempo límite de respuesta para ATSYS
 
+    public function init()
+    {
+        parent::init();
+        try {
+            if (Yii::$app->db->getTableSchema('system_settings', true) !== null) {
+                $settings = \app\models\SystemSettings::find()->all();
+                foreach ($settings as $setting) {
+                    if ($setting->key === 'ticket_hours_to_close') {
+                        $this->hoursToClose = (int)$setting->value;
+                    } elseif ($setting->key === 'ticket_hours_sla') {
+                        $this->hoursSla = (int)$setting->value;
+                    }
+                    Yii::$app->params[$setting->key] = $setting->value;
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::error("TicketCronController failed to load settings from DB: " . $e->getMessage());
+        }
+    }
+
     /**
      * Acción principal a ejecutar en el Cron de Virtualmin
      */
@@ -147,7 +167,7 @@ class TicketCronController extends Controller
         }
 
         // Define aquí la URL de tu webhook de N8N
-        $webhookUrl = 'https://n8n-new.atsys.co/webhook/send-admin-push';
+        $webhookUrl = Yii::$app->params['n8n_admin_push_url'] ?? 'https://n8n-new.atsys.co/webhook/send-admin-push';
 
         $data = [
             'tokens' => $tokens,

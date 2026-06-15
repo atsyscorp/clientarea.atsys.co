@@ -22,8 +22,8 @@ return [
         'support' => 'soporte@atsys.co',
         'commercial' => 'hola@atsys.co'
     ],
-    'wmpi_pubKey' => '',
-    'wmpi_integrity' => '',
+    'wmpi_pubKey' => 'pub_prod_UbGVrJOt3EZ6xBKQaPy8lah9pFQchr0T',
+    'wmpi_integrity' => 'prod_integrity_qGF2hvg6bUCrUAY2qEK7yefE5soM5JZ0',
     'fbase_senderId' => '171390167252',
     'n8n' => [
         'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-clientarea-alert',
@@ -35,17 +35,17 @@ return [
     ],
     'paypalClientId' => '',
     'paypalSecret' => '',
-    'paypalMode' => '',
+    'paypalMode' => 'live',
     'googleDrive' => [
         'clientId' => '',
         'clientSecret' => '',
         'refreshToken' => '',
-        'folderId' => '',
+        'folderId' => '1W-TKUf_2kQ5JbNc9X61iAulweFJ_Zq48',
     ],
     'fallback_trm' => 4000.00,
     'fallback_trm_eur' => 4300.00,
     'whois' => [
-        'key' => ''
+        'key' => '7f041f7fd72736886ea4bfffa0e8dcec9e32fde4069065bde0b18622310bf0be'
     ]
 ];
 

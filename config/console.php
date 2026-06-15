@@ -8,7 +8,13 @@ $config = [
     'language' => 'es-CO',
     'timeZone' => 'America/Bogota',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log', 'queue'],
+    'bootstrap' => [
+        'log',
+        'queue',
+        function ($app) {
+            \app\models\SystemSettings::loadToParams();
+        }
+    ],
     'controllerNamespace' => 'app\commands',
     'aliases' => [
         '@bower' => '@vendor/bower-asset',

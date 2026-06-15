@@ -558,4 +558,51 @@ class SiteController extends Controller
         }
         return $this->asJson(['success' => false]);
     }
+
+    public function actionSettings()
+    {
+        if (Yii::$app->user->isGuest) {
+            return $this->redirect(['login']);
+        }
+        if (!Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permiso para acceder a esta página.');
+        }
+
+        $settings = \app\models\SystemSettings::find()->indexBy('id')->all();
+
+        if (Yii::$app->request->isPost) {
+            $postData = Yii::$app->request->post('SystemSettings', []);
+            $success = true;
+            
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                foreach ($postData as $id => $data) {
+                    if (isset($settings[$id])) {
+                        $setting = $settings[$id];
+                        $setting->value = $data['value'];
+                        if (!$setting->save()) {
+                            $success = false;
+                        }
+                    }
+                }
+                if ($success) {
+                    $transaction->commit();
+                    Yii::$app->session->setFlash('success', 'Configuraciones guardadas correctamente.');
+                    // Recargar params dinámicos
+                    \app\models\SystemSettings::loadToParams();
+                    return $this->refresh();
+                } else {
+                    $transaction->rollBack();
+                    Yii::$app->session->setFlash('error', 'Hubo un error al guardar algunas configuraciones.');
+                }
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', 'Error al procesar la solicitud: ' . $e->getMessage());
+            }
+        }
+
+        return $this->render('settings', [
+            'settings' => $settings,
+        ]);
+    }
 }

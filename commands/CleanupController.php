@@ -8,6 +8,21 @@ use app\models\WorkOrders;
 
 class CleanupController extends Controller
 {
+    public function init()
+    {
+        parent::init();
+        try {
+            if (Yii::$app->db->getTableSchema('system_settings', true) !== null) {
+                $settings = \app\models\SystemSettings::find()->all();
+                foreach ($settings as $setting) {
+                    Yii::$app->params[$setting->key] = $setting->value;
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::error("CleanupController failed to load settings from DB: " . $e->getMessage());
+        }
+    }
+
     /**
      * Elimina órdenes de trabajo en estado 'pending' con más de 5 días de antigüedad.
      * Uso: php yii cleanup/prune-work-orders
@@ -63,7 +78,7 @@ class CleanupController extends Controller
         }
 
         // Define aquí la URL de tu webhook de N8N
-        $webhookUrl = 'https://n8n-new.atsys.co/webhook/send-admin-push';
+        $webhookUrl = Yii::$app->params['n8n_admin_push_url'] ?? 'https://n8n-new.atsys.co/webhook/send-admin-push';
 
         $data = [
             'tokens' => $tokens,
