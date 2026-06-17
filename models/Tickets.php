@@ -52,6 +52,9 @@ class Tickets extends \yii\db\ActiveRecord
     // Propiedad virtual para adjuntar archivo, funciona solo al crear el ticket
     public $attachmentFile;
 
+    // Propiedad virtual para capturar los delegados mencionados
+    public $mentioned_delegates = [];
+
     /**
      * {@inheritdoc}
      */
@@ -65,6 +68,13 @@ class Tickets extends \yii\db\ActiveRecord
         if (parent::beforeSave($insert)) {
             if ($this->customer_id == 9999) {
                 $this->customer_id = null;
+            }
+
+            // Extracción al crear el ticket
+            if (!empty($this->message) && $this->customer_id) {
+                $emails = self::extractEmailsFromMessage($this->message);
+                $validEmails = self::filterDelegatesByCustomer($emails, $this->customer_id);
+                $this->cc_emails = !empty($validEmails) ? implode(', ', $validEmails) : null;
             }
             return true;
         }
@@ -103,6 +113,7 @@ class Tickets extends \yii\db\ActiveRecord
             [['priority'], 'default', 'value' => 'medium'],
             [['source'], 'default', 'value' => 'web'],
             [['customer_id'], 'integer'],
+            [['mentioned_delegates'], 'safe'],
             
             // ELIMINÉ 'subject' DE REQUIRED PORQUE EL EMAIL ES CONDICIONAL
             // Y SI ES UN CLIENTE REGISTRADO, EL EMAIL YA LO TIENES EN LA RELACIÓN.
@@ -597,6 +608,63 @@ class Tickets extends \yii\db\ActiveRecord
             'min_time' => $minTime,
             'max_time' => $maxTime,
         ];
+    }
+
+    /**
+     * Extrae correos electrónicos de los atributos data-email en etiquetas span de menciones.
+     * @param string $message
+     * @return array
+     */
+    public static function extractEmailsFromMessage($message)
+    {
+        if (empty($message)) {
+            return [];
+        }
+        $emails = [];
+        if (preg_match_all('/data-email=["\']([^"\']+)["\']/i', $message, $matches)) {
+            $emails = array_unique($matches[1]);
+        }
+        return $emails;
+    }
+
+    /**
+     * Filtra los correos para asegurarse de que pertenezcan a delegados activos del cliente.
+     * @param array $emails
+     * @param int $customerId
+     * @return array
+     */
+    public static function filterDelegatesByCustomer($emails, $customerId)
+    {
+        $customer = Customers::findOne($customerId);
+        if (!$customer || !$customer->user_id) {
+            return [];
+        }
+        return User::find()
+            ->select('email')
+            ->where(['email' => $emails])
+            ->andWhere([
+                'or',
+                ['id' => $customer->user_id],
+                ['parent_id' => $customer->user_id]
+            ])
+            ->andWhere(['status' => User::STATUS_ACTIVE])
+            ->column();
+    }
+
+    /**
+     * Obtiene los IDs de los usuarios correspondientes a los emails en cc_emails
+     * @return array
+     */
+    public function getCcUserIds()
+    {
+        if (empty($this->cc_emails)) {
+            return [];
+        }
+        $emails = array_map('trim', explode(',', $this->cc_emails));
+        return User::find()
+            ->select('id')
+            ->where(['email' => $emails])
+            ->column();
     }
 
 }

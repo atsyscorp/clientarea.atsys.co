@@ -10,6 +10,9 @@ $ticketUrl = Yii::$app->urlManager->createAbsoluteUrl(['tickets/view', 'id' => $
 $linkRegistro = Yii::$app->urlManager->createAbsoluteUrl(['signup']);
 
 $formatMessage = function($text, $dark = false) {
+    if (empty($text)) {
+        return '';
+    }
     if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
         $text = nl2br($text);
     }
@@ -17,13 +20,26 @@ $formatMessage = function($text, $dark = false) {
     $config = function ($conf) {
         $conf->set('HTML.TargetBlank', true);
         $conf->set('AutoFormat.Linkify', true);
-        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style|class|data-email],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+        
+        $def = $conf->getHTMLDefinition(true);
+        if ($def) {
+            $def->addAttribute('span', 'data-email', 'Text');
+        }
     };
 
     $cleanHtml = HtmlPurifier::process($text, $config);
-    $cssClass = $dark ? 'link link-white underline' : 'link link-primary underline';
 
-    return str_replace('<a ', '<a class="' . $cssClass . '" ', $cleanHtml);
+    // Apply inline style for links
+    $linkColor = $dark ? '#ffffff' : '#4F46E5';
+    $linkStyle = 'style="color: ' . $linkColor . '; text-decoration: underline; font-weight: 500;"';
+    $cleanHtml = str_replace('<a ', '<a ' . $linkStyle . ' ', $cleanHtml);
+
+    // Apply inline style for mentions
+    $mentionStyle = 'style="font-weight: bold; color: #4F46E5;"';
+    $cleanHtml = preg_replace('/class=["\']mention\s+font-bold\s+text-primary["\']/', 'class="mention" ' . $mentionStyle, $cleanHtml);
+
+    return $cleanHtml;
 };
 ?>
 <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
@@ -68,6 +84,9 @@ $formatMessage = function($text, $dark = false) {
     </p>
     <?php } ?>
     
-    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-    <p style="font-size: 12px; color: #777;">Detalle de tu mensaje:<br><em><?= $formatMessage($message) ?></em></p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
+    <p style="font-size: 14px; color: #4F46E5; font-weight: bold; margin-bottom: 10px;">Detalle de tu mensaje:</p>
+    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4F46E5; font-size: 14px; line-height: 1.6; color: #333;">
+        <?= $formatMessage($message) ?>
+    </div>
 </div>

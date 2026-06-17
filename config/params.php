@@ -22,30 +22,10 @@ return [
         'support' => 'soporte@atsys.co',
         'commercial' => 'hola@atsys.co'
     ],
-    'wmpi_pubKey' => '',
-    'wmpi_integrity' => '',
-    'fbase_senderId' => '171390167252',
     'n8n' => [
-        'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-clientarea-alert',
-    ],
-    'whatsapp' => [
-        'token' => 'EAA89uZCgaiuIBQ8Gv3eBWGh0G8CXUkcUBF7MhnyTQiW6mp9Hpy1n7T7prqHIhjLlKHsS2bc7nQ2dgaZB1bg1lXJ74pBnKGJxHIJF4YZAZCFoOfkynjqrgfTdnuee3ntwYJZCiZCE5GmepJemh3yuwTtZAW17LhIqEPEksH6Oo8ekvl353bdqZBH6eJAbvdC9YQZDZD',
-        'phoneId' => '974241165778303',
-        'businessId' => '1885925668728489'
-    ],
-    'paypalClientId' => '',
-    'paypalSecret' => '',
-    'paypalMode' => '',
-    'googleDrive' => [
-        'clientId' => '',
-        'clientSecret' => '',
-        'refreshToken' => '',
-        'folderId' => '',
+        'webhookUrl' => 'https://n8n-new.atsys.co/webhook/atsys-clientarea-alert',
     ],
     'fallback_trm' => 4000.00,
     'fallback_trm_eur' => 4300.00,
-    'whois' => [
-        'key' => ''
-    ]
 ];
 

@@ -155,16 +155,20 @@ class WebhookController extends Controller
                 }
 
                 // Enviar email a admin
-                Yii::$app->mailer->compose([
-                    'html' => 'ticket_reply'
-                ],[
-                    'ticket' => $existingTicket,
-                    'reply' => $reply
-                ])
-                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-                ->setTo(Yii::$app->params['adminEmail'])
-                ->setSubject("[Ticket #{$existingTicket->ticket_code}] Nueva respuesta: {$existingTicket->subject}")
-                ->send();
+                try {
+                    Yii::$app->mailer->compose([
+                        'html' => 'ticket_reply'
+                    ],[
+                        'ticket' => $existingTicket,
+                        'reply' => $reply
+                    ])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                    ->setTo(Yii::$app->params['adminEmail'])
+                    ->setSubject("[Ticket #{$existingTicket->ticket_code}] Nueva respuesta: {$existingTicket->subject}")
+                    ->send();
+                } catch (\Throwable $mailEx) {
+                    Yii::error("Error enviando email de respuesta al admin: " . $mailEx->getMessage());
+                }
 
             } else {
 
@@ -207,6 +211,7 @@ class WebhookController extends Controller
                 $reply->ticket_id = $model->id;
                 $reply->message = $data['body'];
                 $reply->sender_type = 'customer';
+                $reply->user_id = $userData ? $userData->id : null;
                 $reply->created_at = date('Y-m-d H:i:s');
                 $reply->save();
 

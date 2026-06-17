@@ -6,12 +6,27 @@ use dosamigos\tinymce\TinyMce;
 
 /** @var yii\web\View $this */
 /** @var app\models\Tickets $model */
-/** @var array $customers */ // Definimos que recibimos esta variable
+/** @var array $customers */
+/** @var array $delegates */
 
 $this->title = 'Abrir Nuevo Ticket';
 
 // Verificamos si es admin
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+
+// Registrar delegados iniciales en JS
+$delegatesData = [];
+if (!$isAdmin && !empty($delegates)) {
+    foreach ($delegates as $delegate) {
+        $delegatesData[] = [
+            'id' => $delegate->id,
+            'contact_name' => $delegate->contact_name,
+            'username' => $delegate->username,
+            'email' => $delegate->email,
+        ];
+    }
+}
+$this->registerJs('window.ticketDelegates = ' . json_encode($delegatesData) . ';', \yii\web\View::POS_HEAD);
 
 // A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
@@ -19,7 +34,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 ]);
 
 // B. Inicializamos el editor sobre el ID 'tickets-message'
-$js = <<<JS
+$js = <<<'JS'
 document.addEventListener("DOMContentLoaded", function() {
     const getCsrf = () => {
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -44,6 +59,38 @@ document.addEventListener("DOMContentLoaded", function() {
             // Esto asegura que el valor se guarde en el textarea al enviar el formulario
             editor.on('change', function () {
                 editor.save();
+            });
+
+            // Registrar autocompleter para menciones con @
+            editor.ui.registry.addAutocompleter('delegates', {
+                trigger: '@',
+                minChars: 0,
+                columns: 1,
+                fetch: function (pattern) {
+                    return new Promise(function (resolve) {
+                        const list = window.ticketDelegates || [];
+                        const matches = list.filter(function (user) {
+                            const name = (user.contact_name || user.username || '').toLowerCase();
+                            const email = (user.email || '').toLowerCase();
+                            const pat = pattern.toLowerCase();
+                            return name.includes(pat) || email.includes(pat);
+                        }).map(function (user) {
+                            const name = user.contact_name || user.username || 'Delegado';
+                            return {
+                                value: user.email,
+                                text: name,
+                                meta: { email: user.email, name: name }
+                            };
+                        });
+                        resolve(matches);
+                    });
+                },
+                onAction: function (autocompleteApi, rng, value, meta) {
+                    const mentionHtml = `<span class="mention font-bold text-primary" data-email="${meta.email}">@${meta.name}</span>&nbsp;`;
+                    editor.selection.setRng(rng);
+                    editor.insertContent(mentionHtml);
+                    autocompleteApi.hide();
+                }
             });
         },
         paste_data_images: true,
@@ -262,15 +309,35 @@ $this->registerJs($js, \yii\web\View::POS_END);
             document.getElementById('tickets-email').focus();
         } else {
             emailBlock.style.display = 'none';
-            // Opcional: Limpiar el campo si se oculta para no enviar basura
-            // document.getElementById('tickets-email').value = ''; 
         }
+        
+        // Cargar los delegados dinámicamente si es admin
+        loadCustomerDelegates(val);
+    }
+
+    function loadCustomerDelegates(customerId) {
+        if (!customerId || customerId == '9999') {
+            window.ticketDelegates = [];
+            return;
+        }
+        
+        fetch('/tickets/get-delegates?customer_id=' + customerId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.delegates) {
+                    window.ticketDelegates = data.delegates;
+                } else {
+                    window.ticketDelegates = [];
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching delegates:', err);
+                window.ticketDelegates = [];
+            });
     }
 
     // Ejecutar al cargar la página (por si falla la validación y recarga, mantener el estado)
     document.addEventListener("DOMContentLoaded", function () {
-        // Asegúrate de que el ID del input generado por Yii sea 'tickets-customer_id' o usa el ID que pusimos 'select-customer'
-        // Yii suele generar ids como 'nombredelmodelo-atributo'. Si tu modelo es Tickets:
         const currentVal = document.getElementById('tickets-customer_id').value;
         toggleEmailField(currentVal);
     });

@@ -12,6 +12,28 @@ $this->title = $model->ticket_code . ' - ' . $model->subject;
 // Verificamos si es admin
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
+// Registrar delegados del cliente del ticket en JS
+$delegatesData = [];
+if ($model->customer && $model->customer->user_id) {
+    $delegates = \app\models\User::find()
+        ->where([
+            'or',
+            ['id' => $model->customer->user_id],
+            ['parent_id' => $model->customer->user_id]
+        ])
+        ->andWhere(['status' => \app\models\User::STATUS_ACTIVE])
+        ->all();
+    foreach ($delegates as $delegate) {
+        $delegatesData[] = [
+            'id' => $delegate->id,
+            'contact_name' => $delegate->contact_name,
+            'username' => $delegate->username,
+            'email' => $delegate->email,
+        ];
+    }
+}
+$this->registerJs('window.ticketDelegates = ' . json_encode($delegatesData) . ';', \yii\web\View::POS_HEAD);
+
 // Helper para links
 $formatMessage = function ($text, $dark = false) {
     if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
@@ -21,7 +43,12 @@ $formatMessage = function ($text, $dark = false) {
     $config = function ($conf) {
         $conf->set('HTML.TargetBlank', true);
         $conf->set('AutoFormat.Linkify', true);
-        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+        $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style|class|data-email],div,h1,h2,h3,h4,h5,h6,a[href|target]');
+        
+        $def = $conf->getHTMLDefinition(true);
+        if ($def) {
+            $def->addAttribute('span', 'data-email', 'Text');
+        }
     };
 
     $cleanHtml = HtmlPurifier::process($text, $config);
@@ -57,7 +84,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 ]);
 
 // B. Inicializamos el editor
-$js = <<<JS
+$js = <<<'JS'
 document.addEventListener("DOMContentLoaded", function() {
 
     const currentHtmlTheme = document.documentElement.getAttribute('data-theme');
@@ -84,6 +111,38 @@ document.addEventListener("DOMContentLoaded", function() {
         setup: function (editor) {
             editor.on('change', function () {
                 editor.save();
+            });
+
+            // Registrar autocompleter para menciones con @
+            editor.ui.registry.addAutocompleter('delegates', {
+                trigger: '@',
+                minChars: 0,
+                columns: 1,
+                fetch: function (pattern) {
+                    return new Promise(function (resolve) {
+                        const list = window.ticketDelegates || [];
+                        const matches = list.filter(function (user) {
+                            const name = (user.contact_name || user.username || '').toLowerCase();
+                            const email = (user.email || '').toLowerCase();
+                            const pat = pattern.toLowerCase();
+                            return name.includes(pat) || email.includes(pat);
+                        }).map(function (user) {
+                            const name = user.contact_name || user.username || 'Delegado';
+                            return {
+                                value: user.email,
+                                text: name,
+                                meta: { email: user.email, name: name }
+                            };
+                        });
+                        resolve(matches);
+                    });
+                },
+                onAction: function (autocompleteApi, rng, value, meta) {
+                    const mentionHtml = `<span class="mention font-bold text-primary" data-email="${meta.email}">@${meta.name}</span>&nbsp;`;
+                    editor.selection.setRng(rng);
+                    editor.insertContent(mentionHtml);
+                    autocompleteApi.hide();
+                }
             });
         },
         paste_data_images: true,
@@ -521,6 +580,19 @@ $this->registerJs($js, \yii\web\View::POS_END);
                                     ]) ?>
                                 </td>
                             </tr>
+
+                            <?php if (!empty($model->cc_emails)): ?>
+                                <tr>
+                                    <th class="text-base-content/60 font-normal pl-0 pt-3 align-top">En copia (CC):</th>
+                                    <td class="text-right pr-0 pt-3">
+                                        <div class="flex flex-col gap-1 items-end">
+                                            <?php foreach (array_map('trim', explode(',', $model->cc_emails)) as $ccEmail): ?>
+                                                <span class="badge badge-sm badge-neutral font-semibold select-all"><?= Html::encode($ccEmail) ?></span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>

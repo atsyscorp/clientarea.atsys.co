@@ -861,46 +861,6 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                 });
             }
         });
-
-        // Global Preloader and Submit Button Disabler
-        document.addEventListener('DOMContentLoaded', function() {
-            // Function to disable button and show spinner
-            function disableSubmitButton(btn) {
-                if (!btn || btn.disabled) return;
-                btn.disabled = true;
-                btn.classList.add('loading', 'btn-disabled', 'opacity-80', 'cursor-not-allowed');
-                if (btn.tagName === 'BUTTON') {
-                    btn.innerHTML = '<span class="loading loading-spinner loading-sm mr-2"></span> Procesando...';
-                } else {
-                    btn.value = 'Procesando...';
-                }
-            }
-
-            // 1. Hook into jQuery for Yii 2 ActiveForms (only triggers after validation passes!)
-            if (typeof jQuery !== 'undefined') {
-                jQuery(document).on('beforeSubmit', 'form', function() {
-                    const form = jQuery(this);
-                    if (form.attr('method')?.toLowerCase() === 'get') return;
-                    const btn = form.find('button[type="submit"], input[type="submit"]');
-                    if (btn.length) {
-                        disableSubmitButton(btn[0]);
-                    }
-                });
-            }
-
-            // 2. Fallback for non-Yii or simple submit forms (e.g. Logout button, delete actions)
-            document.addEventListener('submit', function(e) {
-                const form = e.target;
-                // Skip search forms (GET) and forms already handled by ActiveForm to prevent double disabling
-                if (form.getAttribute('method')?.toLowerCase() === 'get' || (typeof jQuery !== 'undefined' && jQuery(form).data('yiiActiveForm'))) {
-                    return;
-                }
-                const btn = form.querySelector('button[type="submit"], input[type="submit"]');
-                if (btn) {
-                    disableSubmitButton(btn);
-                }
-            });
-        });
     </script>
 
     <?php if (!Yii::$app->user->isGuest && !Yii::$app->user->identity->isAdmin): ?>

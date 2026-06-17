@@ -6,6 +6,7 @@ use Yii;
 use app\models\Tickets;
 use app\models\TicketsSearch;
 use app\models\TicketReplies;
+use app\models\User;
 use yii\data\ActiveDataProvider;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
@@ -175,6 +176,18 @@ class TicketsController extends \yii\web\Controller
                     // Si responde el admin, pasa a 'answered'
                     $ticket->status = ($isAdmin) ? 'answered' : 'customer_reply';
                     $ticket->updated_at = date('Y-m-d H:i:s');
+                    
+                    // Extraer menciones del cuerpo de la respuesta, fusionarlas con la lista existente de CC del ticket
+                    $emails = Tickets::extractEmailsFromMessage($reply->message);
+                    if ($ticket->customer_id && !empty($emails)) {
+                        $validEmails = Tickets::filterDelegatesByCustomer($emails, $ticket->customer_id);
+                        $existingEmails = !empty($ticket->cc_emails) 
+                            ? array_map('trim', explode(',', $ticket->cc_emails)) 
+                            : [];
+                        $mergedEmails = array_unique(array_merge($existingEmails, $validEmails));
+                        $ticket->cc_emails = !empty($mergedEmails) ? implode(', ', $mergedEmails) : null;
+                    }
+                    
                     $ticket->save(false); // false para saltar validaciones estrictas del ticket si solo actualizamos fecha
 
                     // ========================================================
@@ -201,6 +214,12 @@ class TicketsController extends \yii\web\Controller
                             ->setTo($isAdmin ? $ticket->email : $adminEmail)
                             ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject);
 
+                        // CC mentioned delegates
+                        if (!empty($ticket->cc_emails)) {
+                            $ccList = array_map('trim', explode(',', $ticket->cc_emails));
+                            $mailer->setCc($ccList);
+                        }
+
                         if ($reply->attachment) {
                             $mailer->attach(Yii::getAlias('@webroot/') . $reply->attachment, [
                                 'fileName' => basename(Yii::getAlias('@webroot/') . $reply->attachment),
@@ -209,7 +228,7 @@ class TicketsController extends \yii\web\Controller
 
                         $mailer->send();
                         Yii::$app->session->setFlash('success', $isAdmin ? 'Respuesta enviada.' : 'Respuesta agregada correctamente.');
-                    } catch (\Exception $e) {
+                    } catch (\Throwable $e) {
                         Yii::$app->session->setFlash('warning', 'Respuesta guardada, pero falló el envío del correo: ' . $e->getMessage());
                     }
 
@@ -221,6 +240,32 @@ class TicketsController extends \yii\web\Controller
         }
 
         return $this->redirect(['view', 'id' => $id]);
+    }
+
+    /**
+     * Obtiene los delegados de un cliente específico por AJAX
+     */
+    public function actionGetDelegates($customer_id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $customer = \app\models\Customers::findOne($customer_id);
+        if (!$customer || !$customer->user_id) {
+            return ['success' => true, 'delegates' => []];
+        }
+        
+        $delegates = User::find()
+            ->select(['id', 'contact_name', 'username', 'email'])
+            ->where([
+                'or',
+                ['id' => $customer->user_id],
+                ['parent_id' => $customer->user_id]
+            ])
+            ->andWhere(['status' => User::STATUS_ACTIVE])
+            ->asArray()
+            ->all();
+            
+        return ['success' => true, 'delegates' => $delegates];
     }
 
     /**
@@ -311,10 +356,8 @@ class TicketsController extends \yii\web\Controller
 
         if ($this->request->isPost && $model->load($this->request->post())) {
 
-            if (Yii::$app->user->identity->isAdmin) {
-                $model->customer_id = $this->request->post('Tickets')['customer_id'];
-                $customer = \app\models\Customers::findOne(['id' => $model->customer_id]);
-            }
+            $model->customer_id = $this->request->post('Tickets')['customer_id'];
+            $customer = \app\models\Customers::findOne(['id' => $model->customer_id]);
 
             // 1. Capturamos el archivo desde el modelo Tickets
             $model->attachmentFile = \yii\web\UploadedFile::getInstance($model, 'attachmentFile');
@@ -332,10 +375,15 @@ class TicketsController extends \yii\web\Controller
                     $reply->ticket_id = $model->id;
                     $reply->message = $model->message; // Tomado del campo virtual
 
-                    // Definir quién escribe
-                    $reply->sender_type = $isAdmin ? 'admin' : 'customer';
+                    // Definir quién escribe (la primera respuesta representa la solicitud del cliente)
+                    $reply->sender_type = 'customer';
                     $reply->created_at = date('Y-m-d H:i:s');
-                    $reply->user_id = Yii::$app->user->id;
+                    
+                    if ($isAdmin) {
+                        $reply->user_id = ($customer && $customer->user_id) ? $customer->user_id : null;
+                    } else {
+                        $reply->user_id = Yii::$app->user->id;
+                    }
 
                     if ($model->attachmentFile) {
                         $uploadPath = Yii::getAlias('@webroot/uploads/tickets/' . $model->id . '/');
@@ -383,6 +431,24 @@ class TicketsController extends \yii\web\Controller
             }
         }
 
+        $delegates = [];
+        if (!$isAdmin) {
+            $customer_id = Yii::$app->user->identity->getRealCustomerId();
+            if ($customer_id) {
+                $customer = \app\models\Customers::findOne($customer_id);
+                if ($customer && $customer->user_id) {
+                    $delegates = User::find()
+                        ->where([
+                            'or',
+                            ['id' => $customer->user_id],
+                            ['parent_id' => $customer->user_id]
+                        ])
+                        ->andWhere(['status' => User::STATUS_ACTIVE])
+                        ->all();
+                }
+            }
+        }
+
         $customers = [];
         if (Yii::$app->user->identity->isAdmin) {
             $customers = \yii\helpers\ArrayHelper::map(
@@ -396,6 +462,7 @@ class TicketsController extends \yii\web\Controller
         return $this->render('create', [
             'model' => $model,
             'customers' => $customers,
+            'delegates' => $delegates,
         ]);
     }
 
@@ -406,15 +473,22 @@ class TicketsController extends \yii\web\Controller
     {
         $adminEmail = Yii::$app->params['adminEmail'];
 
-        Yii::$app->mailer->compose(
+        $email = Yii::$app->mailer->compose(
             ['html' => 'newTicket-html'],
             ['ticket' => $ticket, 'message' => $messageContent]
         )
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
             ->setTo($ticket->email)
             ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
-            ->setSubject('[#' . $ticket->ticket_code . '] ' . $ticket->subject)
-            ->send();
+            ->setSubject('[#' . $ticket->ticket_code . '] ' . $ticket->subject);
+
+        // CC mentioned delegates
+        if (!empty($ticket->cc_emails)) {
+            $ccList = array_map('trim', explode(',', $ticket->cc_emails));
+            $email->setCc($ccList);
+        }
+
+        $email->send();
 
         Yii::$app->mailer->compose(
             ['html' => 'adminNewTicket-html'],

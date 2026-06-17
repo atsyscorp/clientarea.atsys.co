@@ -26,7 +26,7 @@ return [
     'wmpi_integrity' => 'prod_integrity_qGF2hvg6bUCrUAY2qEK7yefE5soM5JZ0',
     'fbase_senderId' => '171390167252',
     'n8n' => [
-        'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-clientarea-alert',
+        'webhookUrl' => 'https://n8n-new.atsys.co/webhook/atsys-clientarea-alert',
     ],
     'whatsapp' => [
         'token' => 'EAA89uZCgaiuIBQ8Gv3eBWGh0G8CXUkcUBF7MhnyTQiW6mp9Hpy1n7T7prqHIhjLlKHsS2bc7nQ2dgaZB1bg1lXJ74pBnKGJxHIJF4YZAZCFoOfkynjqrgfTdnuee3ntwYJZCiZCE5GmepJemh3yuwTtZAW17LhIqEPEksH6Oo8ekvl353bdqZBH6eJAbvdC9YQZDZD',

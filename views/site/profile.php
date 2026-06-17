@@ -10,16 +10,6 @@ use borales\extensions\phoneInput\PhoneInput;
 
 $this->title = 'Mi Perfil';
 $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position' => \yii\web\View::POS_HEAD]);
-$this->registerJs('
-$("#profile-form").on("beforeSubmit", function (e) {
-	if ($("#profile-form").yiiActiveForm("validate") === false) {
-		return false;
-	}
-    $(this).find("button.btn-submit").html(\'<i class="fa fa-spinner fa-spin"></i>\').prop("disabled", true);
-	return true;
-});
-', \yii\web\View::POS_END);
-
 ?>
 
 <div class="max-w-4xl mx-auto mt-6 mb-12">
