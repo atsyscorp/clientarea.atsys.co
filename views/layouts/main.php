@@ -205,12 +205,17 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
     <?php $this->beginBody() ?>
 
     <!-- Offline Overlay -->
-    <div id="offline-overlay" class="fixed inset-0 z-[999999] hidden flex-col items-center justify-center bg-base-100/30 backdrop-blur-[5px]">
+    <div id="offline-overlay" style="display: none; z-index: 999999; backdrop-filter: blur(5px);" class="fixed inset-0 flex-col items-center justify-center bg-base-100/50">
         <div class="relative overflow-hidden rounded-2xl shadow-2xl px-10 py-8 max-w-md text-center">
             <div class="absolute inset-0 offline-bg-animation opacity-95"></div>
             <div class="relative z-10 text-white flex flex-col items-center gap-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-16 h-16">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M9.9 8.6a8.96 8.96 0 014.2-.6c3.48 0 6.64 1.35 9 3.6l-2 2a6.16 6.16 0 00-7-.18m-1.2-1.2l-3.3-3.3m13.7 13.7a8.96 8.96 0 01-14.2-3.6l2-2a6.16 6.16 0 007 .18m1.2 1.2l3.3 3.3" />
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" class="w-16 h-16 opacity-90 mb-2">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <line x1="12" y1="20" x2="12.01" y2="20" stroke-width="3" />
+                    <path d="M8.5 16.5a5 5 0 0 1 7 0" />
+                    <path d="M7 11.5a8 8 0 0 1 10 0" />
+                    <path d="M5.5 6.5a11 11 0 0 1 13 0" />
+                    <line x1="3" y1="3" x2="21" y2="21" />
                 </svg>
                 <h2 class="text-3xl font-bold tracking-tight">Sin Conexión</h2>
                 <p class="text-base opacity-90 font-medium">Se ha perdido la conexión a internet. Esperando a que se restablezca...</p>

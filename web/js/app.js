@@ -89,11 +89,9 @@ function updateOnlineStatus() {
     if (!offlineOverlay) return;
     
     if (navigator.onLine) {
-        offlineOverlay.classList.add('hidden');
-        offlineOverlay.classList.remove('flex');
+        offlineOverlay.style.display = 'none';
     } else {
-        offlineOverlay.classList.remove('hidden');
-        offlineOverlay.classList.add('flex');
+        offlineOverlay.style.display = 'flex';
     }
 }
 window.addEventListener('online', updateOnlineStatus);
