@@ -30,7 +30,7 @@ class TicketsController extends \yii\web\Controller
                     'rules' => [
                         // REGLA 1: Usuarios autenticados pueden ver, crear y cerrar SUS tickets
                         [
-                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk', 'upload-image'],
+                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk', 'upload-image', 'badge-count'],
                             'allow' => true,
                             'roles' => ['@'],
                         ],
@@ -356,8 +356,10 @@ class TicketsController extends \yii\web\Controller
 
         if ($this->request->isPost && $model->load($this->request->post())) {
 
-            $model->customer_id = $this->request->post('Tickets')['customer_id'];
-            $customer = \app\models\Customers::findOne(['id' => $model->customer_id]);
+            if (Yii::$app->user->identity->isAdmin) {
+                $model->customer_id = $this->request->post('Tickets')['customer_id'];
+                $customer = \app\models\Customers::findOne(['id' => $this->request->post('Tickets')['customer_id']]);
+            }
 
             // 1. Capturamos el archivo desde el modelo Tickets
             $model->attachmentFile = \yii\web\UploadedFile::getInstance($model, 'attachmentFile');
@@ -645,6 +647,31 @@ class TicketsController extends \yii\web\Controller
         }
 
         return ['error' => 'Error interno al guardar el archivo.'];
+    }
+
+    public function actionBadgeCount()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $ticketBadgeCount = 0;
+        if (!Yii::$app->user->isGuest) {
+            if (Yii::$app->user->identity->isAdmin) {
+                $ticketBadgeCount = (int) \app\models\Tickets::find()
+                    ->where(['in', 'status', ['open', 'customer_reply']])
+                    ->count();
+            } else {
+                $realCustomerId = Yii::$app->user->identity->getRealCustomerId() ?? -1;
+                $ticketBadgeCount = (int) \app\models\Tickets::find()
+                    ->where(['customer_id' => $realCustomerId])
+                    ->andWhere(['status' => 'answered'])
+                    ->count();
+            }
+        }
+
+        return [
+            'success' => true,
+            'count' => $ticketBadgeCount,
+        ];
     }
 
 }

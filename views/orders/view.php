@@ -118,23 +118,85 @@ $paypalClientId = Yii::$app->params['paypalClientId'] ?? '';
                 <div id="payment-cop-sec" class="payment-section">
                     <h3 class="font-bold text-lg mb-2">Finalizar Pago Seguro en COP</h3>
                     <p class="text-sm mb-6 opacity-70">
-                        Aceptamos tarjetas de crédito/débito, PSE, Nequi y Bancolombia.<br>
-                        La transacción es procesada de forma segura por Wompi.
+                        Selecciona tu método de pago preferido para transacciones en pesos colombianos (COP).
                     </p>
 
                     <?php if (isset($wompi)): ?>
-                        <?php if ((isset($isWeekend) && $isWeekend)): ?>
-                            <div class="alert alert-warning shadow-lg mb-6 bg-warning/10 border border-warning/20">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 text-warning" fill="none"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                                <div>
-                                    <h3 class="font-bold">Aviso de fin de semana</h3>
-                                    <div class="text-xs">Para garantizar la activación inmediata de tu servicio durante el fin de semana, por favor realiza una transferencia directa escaneando el código QR.</div>
+                        <!-- Subselector para COP (Wompi vs QR) -->
+                        <div class="tabs tabs-boxed mb-6 justify-center bg-base-200/50 p-1 rounded-xl max-w-md mx-auto no-print">
+                            <a id="tab-cop-wompi" class="tab tab-md font-bold px-4 md:px-6 transition-all duration-200">💳 Pago en Línea (Wompi)</a>
+                            <a id="tab-cop-qr" class="tab tab-md font-bold px-4 md:px-6 transition-all duration-200">📲 Transferencia / QR</a>
+                        </div>
+
+                        <!-- Sección de Wompi -->
+                        <div id="cop-wompi-sec" class="cop-sub-section transition-all duration-300">
+                            <?php if (isset($isWeekend) && $isWeekend): ?>
+                                <div class="alert alert-info shadow-sm mb-6 bg-info/10 border border-info/20 text-xs">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5 text-info" fill="none" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div>
+                                        <h4 class="font-bold">Aviso de fin de semana</h4>
+                                        <div>Los pagos realizados por Wompi durante el fin de semana se concilian el próximo día hábil, lo cual puede retrasar la activación automática de tu servicio. Si requieres activación inmediata hoy mismo, por favor usa el método <strong>Transferencia / QR</strong>.</div>
+                                    </div>
                                 </div>
-                            </div>
+                            <?php endif; ?>
+                            
+                            <p class="text-sm mb-6 opacity-70">
+                                Aceptamos tarjetas de crédito/débito, PSE, Nequi y Bancolombia.<br>
+                                La transacción es procesada de forma segura por Wompi.
+                            </p>
+
+                            <!-- FORMULARIO WOMPI (COP) -->
+                            <form action="https://checkout.wompi.co/p/" method="GET">
+                                <input type="hidden" name="public-key" value="<?= $wompi['publicKey'] ?>" />
+                                <input type="hidden" name="currency" value="<?= $wompi['currency'] ?>" />
+                                <input type="hidden" name="amount-in-cents" value="<?= $wompi['amountInCents'] ?>" />
+                                <input type="hidden" name="reference" value="<?= $wompi['reference'] ?>" />
+                                <input type="hidden" name="signature:integrity" value="<?= $wompi['signature'] ?>" />
+                                <input type="hidden" name="redirect-url" value="<?= $wompi['redirectUrl'] ?>" />
+                                <input type="hidden" name="customer-data:email" value="<?= $model->customer->email ?>" />
+                                <input type="hidden" name="customer-data:full-name" value="<?= $model->customer->business_name ?>" />
+                                <input type="hidden" name="customer-data:phone-number" value="<?= $model->customer->primary_phone ?>" />
+                                <input type="hidden" name="customer-data:legal-id" value="<?= $model->customer->document_number ?>" />
+                                <input type="hidden" name="customer-data:legal-id-type" value="CC" />
+
+                                <button type="submit" class="btn btn-primary btn-block btn-lg shadow-lg animate-pulse gap-2 text-white">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                        stroke="currentColor" class="w-6 h-6">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                                    </svg>
+                                    Pagar <?= Yii::$app->formatter->asCurrency($model->total) ?> COP con Wompi
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Sección de Transferencia / QR -->
+                        <div id="cop-qr-sec" class="cop-sub-section transition-all duration-300">
+                            <?php if (isset($isWeekend) && $isWeekend): ?>
+                                <div class="alert alert-warning shadow-lg mb-6 bg-warning/10 border border-warning/20">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 text-warning" fill="none"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <div>
+                                        <h3 class="font-bold">Aviso de fin de semana</h3>
+                                        <div class="text-xs">Para garantizar la activación inmediata de tu servicio durante el fin de semana, por favor realiza una transferencia directa escaneando el código QR.</div>
+                                    </div>
+                                </div>
+                            <?php else: ?>
+                                <div class="alert alert-info shadow-sm mb-6 bg-info/10 border border-info/20 text-xs">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5 text-info" fill="none" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div>
+                                        <h4 class="font-bold">Transferencia Directa</h4>
+                                        <div>Puedes realizar una transferencia directa para registrar tu pago de forma manual. Una vez transferido, envíanos el comprobante a través del botón inferior.</div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-base-50 p-6 rounded-2xl border border-base-200">
                                 <div class="flex flex-col justify-center items-center">
@@ -184,31 +246,7 @@ $paypalClientId = Yii::$app->params['paypalClientId'] ?? '';
                                     </div>
                                 </div>
                             </div>
-                        <?php else: ?>
-                            <!-- FORMULARIO WOMPI (COP) -->
-                            <form action="https://checkout.wompi.co/p/" method="GET">
-                                <input type="hidden" name="public-key" value="<?= $wompi['publicKey'] ?>" />
-                                <input type="hidden" name="currency" value="<?= $wompi['currency'] ?>" />
-                                <input type="hidden" name="amount-in-cents" value="<?= $wompi['amountInCents'] ?>" />
-                                <input type="hidden" name="reference" value="<?= $wompi['reference'] ?>" />
-                                <input type="hidden" name="signature:integrity" value="<?= $wompi['signature'] ?>" />
-                                <input type="hidden" name="redirect-url" value="<?= $wompi['redirectUrl'] ?>" />
-                                <input type="hidden" name="customer-data:email" value="<?= $model->customer->email ?>" />
-                                <input type="hidden" name="customer-data:full-name" value="<?= $model->customer->business_name ?>" />
-                                <input type="hidden" name="customer-data:phone-number" value="<?= $model->customer->primary_phone ?>" />
-                                <input type="hidden" name="customer-data:legal-id" value="<?= $model->customer->document_number ?>" />
-                                <input type="hidden" name="customer-data:legal-id-type" value="CC" />
-
-                                <button type="submit" class="btn btn-primary btn-block btn-lg shadow-lg animate-pulse gap-2 text-white">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                        stroke="currentColor" class="w-6 h-6">
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                            d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                                    </svg>
-                                    Pagar <?= Yii::$app->formatter->asCurrency($model->total) ?> COP con Wompi
-                                </button>
-                            </form>
-                        <?php endif; ?>
+                        </div>
                     <?php endif; ?>
                 </div>
 
@@ -280,11 +318,12 @@ $paypalClientId = Yii::$app->params['paypalClientId'] ?? '';
 
 <?php
 /* --- SCRIPT DE TABS Y PAYPAL --- */
-if ($model->status == 0 && !empty($paypalClientId) && (isset($paypalUsd) || isset($paypalEur))):
+if ($model->status == 0):
 
-    $paypalClientId = isset($paypalUsd) ? $paypalUsd['clientId'] : $paypalEur['clientId'];
+    $paypalClientIdVal = !empty($paypalClientId) ? $paypalClientId : '';
     $paypalUsdAmount = isset($paypalUsd) ? number_format($paypalUsd['amount'], 2, '.', '') : '0.00';
     $paypalEurAmount = isset($paypalEur) ? number_format($paypalEur['amount'], 2, '.', '') : '0.00';
+    $isWeekendVal = (isset($isWeekend) && $isWeekend) ? 'true' : 'false';
 
     // URL Absoluta
     $confirmUrl = Url::to(['orders/paypal-confirm'], true);
@@ -303,6 +342,42 @@ document.addEventListener("DOMContentLoaded", function() {
     const dispCop = document.getElementById('total-cop-display');
     const dispUsd = document.getElementById('total-usd-display');
     const dispEur = document.getElementById('total-eur-display');
+
+    // COP Sub-tabs
+    const tabCopWompi = document.getElementById('tab-cop-wompi');
+    const tabCopQr = document.getElementById('tab-cop-qr');
+    const secCopWompi = document.getElementById('cop-wompi-sec');
+    const secCopQr = document.getElementById('cop-qr-sec');
+
+    function selectCopWompi() {
+        if(tabCopWompi && tabCopQr) {
+            tabCopWompi.classList.add('tab-active', 'btn-primary', 'text-white');
+            tabCopQr.classList.remove('tab-active', 'btn-primary', 'text-white');
+        }
+        if(secCopWompi) secCopWompi.classList.remove('hidden');
+        if(secCopQr) secCopQr.classList.add('hidden');
+    }
+
+    function selectCopQr() {
+        if(tabCopWompi && tabCopQr) {
+            tabCopQr.classList.add('tab-active', 'btn-primary', 'text-white');
+            tabCopWompi.classList.remove('tab-active', 'btn-primary', 'text-white');
+        }
+        if(secCopQr) secCopQr.classList.remove('hidden');
+        if(secCopWompi) secCopWompi.classList.add('hidden');
+    }
+
+    if (tabCopWompi && tabCopQr) {
+        tabCopWompi.addEventListener('click', selectCopWompi);
+        tabCopQr.addEventListener('click', selectCopQr);
+        
+        // Determinar qué sub-tab de COP activar por defecto
+        if ({$isWeekendVal}) {
+            selectCopQr();
+        } else {
+            selectCopWompi();
+        }
+    }
 
     function selectCop() {
         if(tabCop && tabUsd && tabEur) {
@@ -332,7 +407,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if(dispEur) dispEur.classList.add('hidden');
 
         // Inicializar PayPal USD
-        if (typeof window.initPaypalButton === 'function') {
+        if ('{$paypalClientIdVal}' !== '' && typeof window.initPaypalButton === 'function') {
             window.initPaypalButton('USD', '{$paypalUsdAmount}', 'paypal-usd-button-container', 'paypal-usd-processing');
         }
     }
@@ -351,7 +426,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if(dispUsd) dispUsd.classList.add('hidden');
 
         // Inicializar PayPal EUR
-        if (typeof window.initPaypalButton === 'function') {
+        if ('{$paypalClientIdVal}' !== '' && typeof window.initPaypalButton === 'function') {
             window.initPaypalButton('EUR', '{$paypalEurAmount}', 'paypal-eur-button-container', 'paypal-eur-processing');
         }
     }
@@ -361,7 +436,7 @@ document.addEventListener("DOMContentLoaded", function() {
         tabUsd.addEventListener('click', selectUsd);
         tabEur.addEventListener('click', selectEur);
 
-        // Inicializar según la moneda original de la factura
+        // Inicializar según la moneda original de la factura o por defecto COP
         if ('{$model->currency}' === 'USD') {
             selectUsd();
         } else if ('{$model->currency}' === 'EUR') {
@@ -369,106 +444,111 @@ document.addEventListener("DOMContentLoaded", function() {
         } else {
             selectCop();
         }
+    } else {
+        // Si no hay tabs principales de moneda, nos aseguramos que se muestre COP
+        selectCop();
     }
 });
 
-window.initPaypalButton = function(currency, amount, containerId, processingId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    // Si ya está inicializado este contenedor, no hacer nada
-    if (container.dataset.initialized === 'true') return;
-    
-    // Marcar como inicializado
-    container.dataset.initialized = 'true';
+if ('{$paypalClientIdVal}' !== '') {
+    window.initPaypalButton = function(currency, amount, containerId, processingId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        // Si ya está inicializado este contenedor, no hacer nada
+        if (container.dataset.initialized === 'true') return;
+        
+        // Marcar como inicializado
+        container.dataset.initialized = 'true';
 
-    // Remover script anterior para evitar conflicto de divisas
-    const oldScript = document.getElementById('paypal-sdk-script');
-    if (oldScript) {
-        oldScript.remove();
-        delete window.paypal;
-    }
-
-    // Resetear el estado de inicialización del otro botón para que pueda alternar libremente
-    const otherContainerId = containerId === 'paypal-usd-button-container' ? 'paypal-eur-button-container' : 'paypal-usd-button-container';
-    const otherContainer = document.getElementById(otherContainerId);
-    if (otherContainer) {
-        otherContainer.dataset.initialized = 'false';
-        otherContainer.innerHTML = '';
-    }
-
-    // Asegurarse de que el contenedor actual esté limpio y visible
-    container.innerHTML = '';
-    container.style.display = 'block';
-
-    const script = document.createElement('script');
-    script.id = 'paypal-sdk-script';
-    script.src = "https://www.paypal.com/sdk/js?client-id={$paypalClientId}&currency=" + currency;
-    script.onload = function() {
-        if (typeof paypal !== 'undefined') {
-            paypal.Buttons({
-                createOrder: function(data, actions) {
-                    return actions.order.create({
-                        purchase_units: [{
-                            amount: {
-                                value: amount 
-                            },
-                            description: 'Orden de Trabajo {$model->code}'
-                        }]
-                    });
-                },
-                onApprove: function(data, actions) {
-                    document.getElementById(containerId).style.display = 'none';
-                    document.getElementById(processingId).style.display = 'block';
-
-                    return actions.order.capture().then(function(details) {
-                        fetch('{$confirmUrl}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-Token': '{$csrfToken}'
-                            },
-                            body: JSON.stringify({
-                                order_id: {$model->id},
-                                transaction_id: details.id,
-                                status: details.status,
-                                currency: currency
-                            })
-                        })
-                        .then(response => {
-                            if (!response.ok) throw new Error("HTTP " + response.status);
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.success) {
-                                window.location.reload();
-                            } else {
-                                alert('El pago fue recibido, pero hubo un problema al procesar los servicios: ' + data.message);
-                                window.location.reload();
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Fetch error:', error);
-                            alert('El pago se realizó con éxito en PayPal, pero ATSYS tardó en responder. La página se recargará para verificar el estado.');
-                            window.location.reload();
-                        });
-                    }).catch(function(err) {
-                        document.getElementById(processingId).style.display = 'none';
-                        document.getElementById(containerId).style.display = 'block';
-                        console.error('Error en captura de PayPal:', err);
-                        alert('La transacción en PayPal no pudo completarse. Por favor, intenta de nuevo.');
-                    });
-                },
-                onError: function (err) {
-                    console.error('PayPal Error:', err);
-                    alert('Ocurrió un error de conexión con PayPal. Intenta de nuevo.');
-                    window.location.reload();
-                }
-            }).render('#' + containerId);
+        // Remover script anterior para evitar conflicto de divisas
+        const oldScript = document.getElementById('paypal-sdk-script');
+        if (oldScript) {
+            oldScript.remove();
+            delete window.paypal;
         }
+
+        // Resetear el estado de inicialización del otro botón para que pueda alternar libremente
+        const otherContainerId = containerId === 'paypal-usd-button-container' ? 'paypal-eur-button-container' : 'paypal-usd-button-container';
+        const otherContainer = document.getElementById(otherContainerId);
+        if (otherContainer) {
+            otherContainer.dataset.initialized = 'false';
+            otherContainer.innerHTML = '';
+        }
+
+        // Asegurarse de que el contenedor actual esté limpio y visible
+        container.innerHTML = '';
+        container.style.display = 'block';
+
+        const script = document.createElement('script');
+        script.id = 'paypal-sdk-script';
+        script.src = "https://www.paypal.com/sdk/js?client-id={$paypalClientIdVal}&currency=" + currency;
+        script.onload = function() {
+            if (typeof paypal !== 'undefined') {
+                paypal.Buttons({
+                    createOrder: function(data, actions) {
+                        return actions.order.create({
+                            purchase_units: [{
+                                amount: {
+                                    value: amount 
+                                },
+                                description: 'Orden de Trabajo {$model->code}'
+                            }]
+                        });
+                    },
+                    onApprove: function(data, actions) {
+                        document.getElementById(containerId).style.display = 'none';
+                        document.getElementById(processingId).style.display = 'block';
+
+                        return actions.order.capture().then(function(details) {
+                            fetch('{$confirmUrl}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-Token': '{$csrfToken}'
+                                },
+                                body: JSON.stringify({
+                                    order_id: {$model->id},
+                                    transaction_id: details.id,
+                                    status: details.status,
+                                    currency: currency
+                                })
+                            })
+                            .then(response => {
+                                if (!response.ok) throw new Error("HTTP " + response.status);
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    window.location.reload();
+                                } else {
+                                    alert('El pago fue recibido, pero hubo un problema al procesar los servicios: ' + data.message);
+                                    window.location.reload();
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Fetch error:', error);
+                                alert('El pago se realizó con éxito en PayPal, pero ATSYS tardó en responder. La página se recargará para verificar el estado.');
+                                window.location.reload();
+                            });
+                        }).catch(function(err) {
+                            document.getElementById(processingId).style.display = 'none';
+                            document.getElementById(containerId).style.display = 'block';
+                            console.error('Error en captura de PayPal:', err);
+                            alert('La transacción en PayPal no pudo completarse. Por favor, intenta de nuevo.');
+                        });
+                    },
+                    onError: function (err) {
+                        console.error('PayPal Error:', err);
+                        alert('Ocurrió un error de conexión con PayPal. Intenta de nuevo.');
+                        window.location.reload();
+                    }
+                }).render('#' + containerId);
+            }
+        };
+        document.head.appendChild(script);
     };
-    document.head.appendChild(script);
-};
+}
 
 // Iniciar GLightbox
 if (typeof GLightbox !== 'undefined') {
@@ -481,9 +561,9 @@ if (typeof GLightbox !== 'undefined') {
 }
 JS;
 
-$this->registerCssFile('https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css', ['position' => \yii\web\View::POS_HEAD]);
-$this->registerJsFile('https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js', ['position' => \yii\web\View::POS_END]);
-$this->registerJs($jsTabsAndPaypal, \yii\web\View::POS_END);
+    $this->registerCssFile('https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css', ['position' => \yii\web\View::POS_HEAD]);
+    $this->registerJsFile('https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js', ['position' => \yii\web\View::POS_END]);
+    $this->registerJs($jsTabsAndPaypal, \yii\web\View::POS_END);
 
 endif;
 ?>

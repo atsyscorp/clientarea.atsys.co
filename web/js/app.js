@@ -13,8 +13,10 @@ document.addEventListener('click', function(e) {
 
         const method = link.getAttribute('data-method').toUpperCase();
         const action = link.getAttribute('href');
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        const csrfParam = document.querySelector('meta[name="csrf-param"]').getAttribute('content');
+        const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfParamMeta = document.querySelector('meta[name="csrf-param"]');
+        const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
+        const csrfParam = csrfParamMeta ? csrfParamMeta.getAttribute('content') : '';
 
         // Creamos un formulario invisible y lo enviamos
         const form = document.createElement('form');
@@ -35,6 +37,7 @@ document.addEventListener('click', function(e) {
 
 function Marquee(selector, speed) {
     const parentSelector = document.querySelector(selector);
+    if (!parentSelector) return;
     const clone = parentSelector.innerHTML;
     const firstElement = parentSelector.children[0];
     let i = 0;
@@ -67,19 +70,68 @@ function Marquee(selector, speed) {
 
 window.addEventListener('load', () => Marquee('.marquee-animation', 0.7));
 
+// Global Top Preloader (Virtualmin style)
+window.addEventListener('beforeunload', function() {
+    const preloader = document.getElementById('top-preloader');
+    if (preloader) preloader.style.display = 'block';
+});
+
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        const preloader = document.getElementById('top-preloader');
+        if (preloader) preloader.style.display = 'none';
+    }
+});
+
+// Offline detection
+function updateOnlineStatus() {
+    const offlineOverlay = document.getElementById('offline-overlay');
+    if (!offlineOverlay) return;
+    
+    if (navigator.onLine) {
+        offlineOverlay.classList.add('hidden');
+        offlineOverlay.classList.remove('flex');
+    } else {
+        offlineOverlay.classList.remove('hidden');
+        offlineOverlay.classList.add('flex');
+    }
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+// Check on load in case it started offline
+document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+
 // Global Preloader and Submit Button Disabler
 document.addEventListener('DOMContentLoaded', function() {
     // Function to disable button and show spinner
     function disableSubmitButton(btn) {
         if (!btn || btn.disabled) return;
-        btn.disabled = true;
-        btn.classList.add('btn-disabled', 'opacity-80', 'cursor-not-allowed');
-        // Do not add the 'loading' class to the button itself, as it applies DaisyUI's mask-image causing the button to stretch and distort.
+        
+        // Show top preloader
+        const preloader = document.getElementById('top-preloader');
+        if (preloader) preloader.style.display = 'block';
+
+        // Instant visual feedback: replace or prepend <i> icon
         if (btn.tagName === 'BUTTON') {
-            btn.innerHTML = '<span class="loading loading-spinner loading-sm mr-2"></span> Procesando...';
+            const icon = btn.querySelector('i, svg');
+            if (icon) {
+                const spinner = document.createElement('i');
+                spinner.className = 'loading loading-spinner loading-sm mr-2';
+                icon.replaceWith(spinner);
+            } else {
+                const spinner = document.createElement('i');
+                spinner.className = 'loading loading-spinner loading-sm mr-2';
+                btn.prepend(spinner);
+            }
         } else {
             btn.value = 'Procesando...';
         }
+
+        // Disable button in the next event loop tick to prevent blocking standard submissions
+        setTimeout(() => {
+            btn.disabled = true;
+            btn.classList.add('btn-disabled', 'opacity-80', 'cursor-not-allowed');
+        }, 0);
     }
 
     // 1. Hook into jQuery for Yii 2 ActiveForms (only triggers after validation passes!)
@@ -106,4 +158,40 @@ document.addEventListener('DOMContentLoaded', function() {
             disableSubmitButton(btn);
         }
     });
+});
+
+// Automatic Tickets Badge Update
+document.addEventListener('DOMContentLoaded', function() {
+    const badge = document.getElementById('ticket-badge-count');
+    if (!badge) return;
+
+    function updateTicketBadge() {
+        fetch('/tickets/badge-count')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && typeof data.count !== 'undefined') {
+                    const count = parseInt(data.count, 10);
+                    badge.textContent = count;
+                    if (count > 0) {
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching ticket badge count:', error);
+            });
+    }
+
+    // Expose globally so other actions can trigger an immediate update
+    window.updateTicketBadge = updateTicketBadge;
+
+    // Update every 60 seconds (60000 ms)
+    setInterval(updateTicketBadge, 60000);
 });

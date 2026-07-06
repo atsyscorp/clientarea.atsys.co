@@ -164,11 +164,64 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                 display: none !important;
             }
         }
+        
+        /* Top Preloader Animation (Virtualmin style) */
+        #top-preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            z-index: 99999;
+            display: none;
+            background-color: transparent;
+        }
+        #top-preloader .preloader-bar {
+            position: absolute;
+            height: 100%;
+            background-color: #dc2626; /* red-600 */
+            animation: virtualmin-loader 1.2s ease-in-out infinite alternate;
+        }
+        @keyframes virtualmin-loader {
+            0% { left: 0%; width: 10%; }
+            50% { width: 30%; }
+            100% { left: 90%; width: 10%; }
+        }
+        
+        /* Offline Overlay Styles */
+        .offline-bg-animation {
+            background: linear-gradient(90deg, #991b1b 0%, #ef4444 50%, #991b1b 100%);
+            background-size: 200% 100%;
+            animation: offline-slide-bg 2s ease-in-out infinite alternate;
+        }
+        @keyframes offline-slide-bg {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 0%; }
+        }
     </style>
 </head>
 
 <body class="bg-base-100 text-base-content min-h-screen">
     <?php $this->beginBody() ?>
+
+    <!-- Offline Overlay -->
+    <div id="offline-overlay" class="fixed inset-0 z-[999999] hidden flex-col items-center justify-center bg-base-100/30 backdrop-blur-[5px]">
+        <div class="relative overflow-hidden rounded-2xl shadow-2xl px-10 py-8 max-w-md text-center">
+            <div class="absolute inset-0 offline-bg-animation opacity-95"></div>
+            <div class="relative z-10 text-white flex flex-col items-center gap-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-16 h-16">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M9.9 8.6a8.96 8.96 0 014.2-.6c3.48 0 6.64 1.35 9 3.6l-2 2a6.16 6.16 0 00-7-.18m-1.2-1.2l-3.3-3.3m13.7 13.7a8.96 8.96 0 01-14.2-3.6l2-2a6.16 6.16 0 007 .18m1.2 1.2l3.3 3.3" />
+                </svg>
+                <h2 class="text-3xl font-bold tracking-tight">Sin Conexión</h2>
+                <p class="text-base opacity-90 font-medium">Se ha perdido la conexión a internet. Esperando a que se restablezca...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Preloader -->
+    <div id="top-preloader">
+        <div class="preloader-bar"></div>
+    </div>
 
     <div class="drawer lg:drawer-open" id="main-drawer">
         <script>
@@ -494,9 +547,7 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                                 <a href="/tickets/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isTicketsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v9.632c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" /></svg>
                                     Tickets
-                                    <?php if ($ticketBadgeCount > 0): ?>
-                                        <span class="badge badge-error badge-sm font-bold ml-auto animate-pulse text-white shadow-sm"><?= $ticketBadgeCount ?></span>
-                                    <?php endif; ?>
+                                    <span id="ticket-badge-count" class="badge badge-error badge-sm font-bold ml-auto animate-pulse text-white shadow-sm <?= $ticketBadgeCount > 0 ? '' : 'hidden' ?>"><?= $ticketBadgeCount ?></span>
                                 </a>
                             </li>
 
@@ -581,9 +632,7 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                                 <a href="/tickets/index" id="tour-tickets" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isTicketsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" /></svg>
                                     Tickets
-                                    <?php if ($ticketBadgeCount > 0): ?>
-                                        <span class="badge badge-accent badge-sm font-bold ml-auto animate-pulse text-white shadow-sm"><?= $ticketBadgeCount ?></span>
-                                    <?php endif; ?>
+                                    <span id="ticket-badge-count" class="badge badge-accent badge-sm font-bold ml-auto animate-pulse text-white shadow-sm <?= $ticketBadgeCount > 0 ? '' : 'hidden' ?>"><?= $ticketBadgeCount ?></span>
                                 </a>
                             </li>
                         <?php endif; ?>

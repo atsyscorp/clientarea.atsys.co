@@ -86,13 +86,6 @@ class TicketCronController extends Controller
             }
         }
 
-        Yii::$app->mailer->compose()
-        ->setHtmlBody('Cron completed for ticket autoclose')
-        ->setTo(Yii::$app->params['adminEmail'])
-        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-        ->setSubject("Cron Ticket Auto Close")
-        ->send();
-
         echo "   Total cerrados: $count\n\n";
     }
 
@@ -134,6 +127,10 @@ class TicketCronController extends Controller
     protected function sendEmailAlert($ticket) {
 
         try {
+            $sender = [Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']];
+            $subject = 'Ticket Cerrado por Inactividad: ' . $ticket->ticket_code;
+
+            // 1. Enviar al cliente
             $mail = Yii::$app->mailer->compose([
                 'html' =>  'ticket_autoclose-html'
             ],[
@@ -141,12 +138,31 @@ class TicketCronController extends Controller
                 'hours' => $this->hoursToClose,
             ])
             ->setTo($ticket->email)
-            ->setBcc(Yii::$app->params['adminEmail'])
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-            ->setSubject('Ticket Cerrado por Inactividad: ' . $ticket->ticket_code);
+            ->setFrom($sender)
+            ->setSubject($subject);
 
             if(!$mail->send()) {
-                Yii::error("No se pudo enviar el email.", __METHOD__);
+                Yii::error("No se pudo enviar el email al cliente: " . $ticket->email, __METHOD__);
+            }
+
+            // 2. Enviar copia al admin (en lugar de BCC para evitar bloqueos/filtros de SMTP)
+            $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+            $adminEmails = !empty($adminEmail) 
+                ? array_map('trim', explode(',', $adminEmail)) 
+                : ['gerencia@atsys.co'];
+
+            $mailAdmin = Yii::$app->mailer->compose([
+                'html' =>  'ticket_autoclose-html'
+            ],[
+                'ticket' => $ticket,
+                'hours' => $this->hoursToClose,
+            ])
+            ->setTo($adminEmails)
+            ->setFrom($sender)
+            ->setSubject('[Copia Admin] ' . $subject);
+
+            if(!$mailAdmin->send()) {
+                Yii::error("No se pudo enviar la copia del email al administrador: " . implode(', ', $adminEmails), __METHOD__);
             }
         } catch(\Exception $e) {
             Yii::error("No se pudo enviar el email.", __METHOD__ . " \n Error: " . $e->getMessage());
