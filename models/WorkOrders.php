@@ -22,6 +22,7 @@ use yii\db\Expression;
  * @property float|null $total_cost_usd
  * @property int|null $status 0: Borrador, 1: Enviada/Pendiente, 2: Aprobada, 3: Rechazada, 4: Finalizada
  * @property int $is_request
+ * @property int|null $is_preapproved
  * @property string|null $down_payment_sent_at
  * @property string|null $created_at
  * @property string|null $updated_at
@@ -55,13 +56,13 @@ class WorkOrders extends \yii\db\ActiveRecord
             // Valores por defecto
             [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url', 'pause_reason'], 'default', 'value' => null],
             [['total_cost', 'total_cost_usd'], 'default', 'value' => 0.00],
-            [['status', 'is_request', 'has_service_contract'], 'default', 'value' => 0],
+            [['status', 'is_request', 'has_service_contract', 'is_preapproved'], 'default', 'value' => 0],
             [['currency'], 'default', 'value' => 'COP'],
             
             [['customer_id', 'title', 'requirements'], 'required'],
             
             // Tipos de datos
-            [['customer_id', 'status', 'is_request', 'has_service_contract'], 'integer'],
+            [['customer_id', 'status', 'is_request', 'has_service_contract', 'is_preapproved'], 'integer'],
             [['requirements', 'notes', 'original_request', 'attachment_url', 'pause_reason'], 'string'],
             [['total_cost', 'total_cost_usd', 'exchange_rate'], 'number'],
             [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'safe'],
@@ -160,6 +161,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             'created_at'          => 'Fecha Creación',
             'attachmentFile'      => 'Archivo Adjunto (Opcional)',
             'has_service_contract'=> 'Contrato de Servicios (Evita vencimiento)',
+            'is_preapproved'      => 'Pre-Aprobar Orden de Trabajo',
         ];
     }
 

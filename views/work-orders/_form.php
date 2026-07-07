@@ -148,6 +148,18 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 </div>
             </div>
 
+            <?php if ($model->isNewRecord): ?>
+            <div class="form-control w-full md:col-span-2">
+                <div class="flex items-center gap-4 p-4 bg-primary/10 rounded-xl border border-primary/20">
+                    <?= $form->field($model, 'is_preapproved')->checkbox(['class' => 'checkbox checkbox-primary'], false)->label(false) ?>
+                    <div>
+                        <span class="font-bold text-sm block text-primary">Pre-Aprobar Orden de Trabajo</span>
+                        <span class="text-xs opacity-70">Al marcar esta opción, la orden se creará en estado Aprobada de inmediato y no se enviará el correo de confirmación de apertura al cliente. Permite usar la bitácora directamente.</span>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="form-control w-full md:col-span-2">
                 <label class="label"><span class="label-text font-bold">Notas o Condiciones Especiales</span></label>
                 <?= $form->field($model, 'notes', ['template' => '{input}{error}'])->textarea([

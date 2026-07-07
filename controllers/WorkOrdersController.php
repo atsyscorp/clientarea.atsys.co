@@ -358,11 +358,17 @@ class WorkOrdersController extends Controller
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
 
-                $send = $this->pdfAndEmailOrder($model);
-                if ($send === true) {
-                    Yii::$app->session->setFlash('success', 'Orden creada y enviada al cliente exitosamente.');
+                if ($model->is_preapproved == 1) {
+                    $model->status = WorkOrders::STATUS_APPROVED;
+                    $model->save(false);
+                    Yii::$app->session->setFlash('success', 'Orden creada y pre-aprobada exitosamente (sin envío de email de confirmación).');
                 } else {
-                    Yii::$app->session->setFlash('warning', 'La orden se guardó, pero hubo un error enviando el email: ' . $send);
+                    $send = $this->pdfAndEmailOrder($model);
+                    if ($send === true) {
+                        Yii::$app->session->setFlash('success', 'Orden creada y enviada al cliente exitosamente.');
+                    } else {
+                        Yii::$app->session->setFlash('warning', 'La orden se guardó, pero hubo un error enviando el email: ' . $send);
+                    }
                 }
 
                 return $this->redirect(['view', 'id' => $model->id]);
@@ -515,7 +521,7 @@ class WorkOrdersController extends Controller
             if ($update->save()) {
 
                 // Lógica opcional de notificación
-                if ($update->notify_email && $update->allow_reply == 1) {
+                if ($update->notify_email) {
                     try {
                         Yii::$app->mailer->compose(['html' => 'admin-notification'], [
                             'title' => '🚀 Nuevo Avance en tu Proyecto',

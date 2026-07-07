@@ -346,6 +346,7 @@ if ($model->is_request == 1) {
                     <div class="mb-4">
                         <?php if ($model->down_payment_sent_at === null): ?>
 
+                            <?php if (!$model->is_preapproved): ?>
                             <div class="flex gap-2 justify-center">
                                 <?= \yii\helpers\Html::a('Generar Cobro 50%', ['generate-payment', 'id' => $model->id, 'percentage' => 50], [
                                     'class' => 'btn btn-primary gap-2',
@@ -362,6 +363,7 @@ if ($model->is_request == 1) {
                                     ]
                                 ]) ?>
                             </div>
+                            <?php endif; ?>
 
                         <?php else: ?>
 
