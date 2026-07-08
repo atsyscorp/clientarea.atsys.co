@@ -102,12 +102,14 @@ class SignupForm extends Model
             ->setSubject('Confirma tu registro en ' . Yii::$app->name)
             ->send();
 
+        /*
         $job = new \app\jobs\WhatsappJob([
             'phone' => $this->mobile,
             'message' => $user->verification_token,
             'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-clientarea-alert' // Usamos TEST para debug
         ]);
         Yii::$app->queue->push($job);
+        */
 
         return true;
     }

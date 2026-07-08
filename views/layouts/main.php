@@ -805,6 +805,11 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                         }
                     });
                 }
+
+                // 3. Actualizar el contador de tickets en tiempo real
+                if (typeof window.updateTicketBadge === 'function') {
+                    window.updateTicketBadge();
+                }
             });
         </script>
     <?php endif; ?>
