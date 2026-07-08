@@ -251,151 +251,25 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     <?php
                     // EXTRAEMOS EL PRIMER MENSAJE (El requerimiento original)
                     $firstReply = array_shift($replies);
-
-                    // Calculamos los estilos para el primer mensaje
-                    $isSupportFirst = ($firstReply->sender_type === 'admin');
-                    $alignmentFirst = $isSupportFirst ? 'chat-end' : 'chat-start';
-                    $darkLinkFirst = $isSupportFirst ? true : false;
-                    $bubbleColorFirst = $isSupportFirst ? 'chat-bubble-primary text-primary-content' : 'dark:bg-base-300 dark:text-base-content bg-white text-base-content border border-base-300';
-
-                    // --- LÓGICA DE IDENTIFICACIÓN: PRIMER MENSAJE ---
-                    $nameFirst = 'Usuario Desconocido';
-                    $badgeRolFirst = '';
-                    $avatarFirst = '👤';
-
-                    if ($isSupportFirst) {
-                        $nameFirst = ($model->department === 'support') ? 'Soporte' : (($model->department === 'sales') ? 'Comercial' : 'ATSYS');
-                        $avatarFirst = '🛡️';
-                        $badgeRolFirst = '<span class="badge badge-primary badge-xs ml-2">' . $nameFirst . '</span>';
-                    } else {
-                        // Intentamos obtener el usuario que envió la respuesta
-                        $senderUserFirst = $firstReply->user;
-
-                        if ($senderUserFirst) {
-                            $nameFirst = Html::encode($senderUserFirst->contact_name ?? $senderUserFirst->email);
-
-                            // Determinamos si es Sub-cuenta o Titular
-                            if ($senderUserFirst->getIsSubAccount()) {
-                                $badgeRolFirst = '<span class="badge badge-ghost badge-xs ml-2 text-base-content/60">Delegado</span>';
-                            } else {
-                                $badgeRolFirst = '<span class="badge badge-neutral badge-xs ml-2 font-bold">Titular</span>';
-                            }
-                        } else {
-                            // Fallback si no hay usuario asociado a la respuesta
-                            $nameFirst = $model->customer ? (
-                                $model->customer->contact_name == $model->customer->business_name ?
-                                $model->customer->contact_name :
-                                $model->customer->contact_name . ' (' . $model->customer->business_name . ')'
-                            ) : $model->email;
-                        }
+                    if ($firstReply) {
+                        echo $this->render('_reply', [
+                            'reply' => $firstReply,
+                            'model' => $model,
+                            'formatMessage' => $formatMessage
+                        ]);
                     }
                     ?>
-
-                    <div class="chat <?= $alignmentFirst ?>">
-                        <div class="chat-header text-xs opacity-50 mb-1 flex items-center">
-                            <?= $nameFirst ?>
-                            <?= $badgeRolFirst ?>
-                            <time class="text-xs opacity-50 ml-2">
-                                <?= Yii::$app->formatter->asRelativeTime($firstReply->created_at) ?>
-                            </time>
-                        </div>
-                        <div class="chat-image avatar placeholder">
-                            <div
-                                class="w-8 rounded-full bg-base-300 text-center flex items-center justify-center text-xs cursor-default select-none">
-                                <span><?= $avatarFirst ?></span>
-                            </div>
-                        </div>
-                        <div class="chat-bubble <?= $bubbleColorFirst ?> shadow-sm">
-                            <?= $formatMessage($firstReply->message, $darkLinkFirst) ?>
-
-                            <?php if (!empty($firstReply->attachment)): ?>
-                                <div class="mt-3 pt-4 border-t border-white/10">
-                                    <a href="<?= Yii::getAlias('@web') . '/' . $firstReply->attachment ?>" target="_blank"
-                                        class="btn btn-xs btn-outline gap-2 bg-base-100 text-base-content border-0 shadow-sm">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                            stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-                                        </svg>
-                                        Ver Archivo Adjunto
-                                    </a>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
 
                     <?php if (!empty($replies)): ?>
                         <div class="divider text-xs opacity-30 my-2">Respuestas</div>
                     <?php endif; ?>
 
                     <?php foreach ($replies as $reply): ?>
-                        <?php
-                        $isSupport = ($reply->sender_type === 'admin');
-                        $alignment = $isSupport ? 'chat-end' : 'chat-start';
-                        $darkLink = $isSupport ? true : false;
-                        $bubbleColor = $isSupport ? 'chat-bubble-primary text-primary-content' : 'dark:bg-base-300 dark:text-base-content bg-white text-base-content border border-base-300';
-
-                        // --- LÓGICA DE IDENTIFICACIÓN: RESPUESTAS ---
-                        $name = 'Usuario Desconocido';
-                        $badgeRol = '';
-                        $avatar = '👤';
-
-                        if ($isSupport) {
-                            $name = ($model->department === 'support') ? 'Soporte' : (($model->department === 'sales') ? 'Comercial' : 'ATSYS');
-                            $avatar = '🛡️';
-                            $badgeRol = '<span class="badge badge-primary badge-xs ml-2">' . ucfirst($name) . '</span>';
-                        } else {
-                            $senderUser = $reply->user;
-
-                            if ($senderUser) {
-                                $name = Html::encode($senderUser->contact_name ?? $senderUser->email);
-
-                                if ($senderUser->getIsSubAccount()) {
-                                    $badgeRol = '<span class="badge badge-ghost badge-xs ml-2 text-base-content/60">Delegado</span>';
-                                } else {
-                                    $badgeRol = '<span class="badge badge-neutral badge-xs ml-2 font-bold">Titular</span>';
-                                }
-                            } else {
-                                $name = $model->customer ? (
-                                    $model->customer->contact_name . ' (' . $model->customer->business_name . ')'
-                                ) : $model->email;
-                            }
-                        }
-                        ?>
-
-                        <div class="chat <?= $alignment ?>">
-                            <div class="chat-header text-xs opacity-50 mb-1 flex items-center">
-                                <?= $name ?>
-                                <?= $badgeRol ?>
-                                <time class="text-xs opacity-50 ml-2">
-                                    <?= Yii::$app->formatter->asRelativeTime($reply->created_at) ?>
-                                </time>
-                            </div>
-                            <div class="chat-image avatar placeholder">
-                                <div
-                                    class="w-8 rounded-full bg-base-300 text-center flex items-center justify-center text-xs cursor-default select-none">
-                                    <span><?= $avatar ?></span>
-                                </div>
-                            </div>
-
-                            <div class="chat-bubble <?= $bubbleColor ?> shadow-sm">
-                                <?= $formatMessage($reply->message, $darkLink) ?>
-
-                                <?php if (!empty($reply->attachment)): ?>
-                                    <div class="mt-3 pt-4 border-t border-white/10">
-                                        <a href="<?= Yii::getAlias('@web') . '/' . $reply->attachment ?>" target="_blank"
-                                            class="btn btn-xs btn-outline gap-2 bg-base-100 text-base-content border-0 shadow-sm">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-                                            </svg>
-                                            Ver Archivo Adjunto
-                                        </a>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
+                        <?= $this->render('_reply', [
+                            'reply' => $reply,
+                            'model' => $model,
+                            'formatMessage' => $formatMessage
+                        ]) ?>
                     <?php endforeach; ?>
 
                 <?php endif; ?>
@@ -647,4 +521,69 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 JS;
 $this->registerJs($jsLightbox, \yii\web\View::POS_END);
+
+$jsPolling = <<<JS
+document.addEventListener("DOMContentLoaded", function() {
+    setInterval(function() {
+        const replyItems = document.querySelectorAll('.reply-item');
+        let lastReplyId = 0;
+        if (replyItems.length > 0) {
+            const lastItem = replyItems[replyItems.length - 1];
+            lastReplyId = lastItem.getAttribute('data-reply-id') || 0;
+        }
+
+        fetch(`/tickets/get-new-replies?id={$model->id}&lastReplyId=\${lastReplyId}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            if (html.trim() !== '') {
+                const chatBottom = document.getElementById('chat-bottom');
+                chatBottom.insertAdjacentHTML('beforebegin', html);
+                
+                // Scroll to bottom smoothly
+                const chatContainer = chatBottom.parentElement;
+                chatContainer.scrollTo({
+                    top: chatContainer.scrollHeight,
+                    behavior: 'smooth'
+                });
+
+                // Re-init glightbox for new images
+                const newImages = chatContainer.querySelectorAll('.chat-bubble img:not(.max-w-full)');
+                if (newImages.length > 0) {
+                    newImages.forEach(img => {
+                        if (img.parentElement && img.parentElement.classList.contains('glightbox')) return;
+                        img.classList.add('max-w-full', 'rounded', 'shadow-sm', 'transition-all', 'duration-300', 'group-hover:brightness-75');
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'relative group inline-block cursor-pointer my-2 max-w-full align-middle';
+                        const link = document.createElement('a');
+                        link.href = img.src;
+                        link.className = 'glightbox block';
+                        link.setAttribute('data-gallery', 'ticket-images');
+                        const iconDiv = document.createElement('div');
+                        iconDiv.className = 'absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded';
+                        iconDiv.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="white" class="w-10 h-10 drop-shadow-md"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" /></svg>';
+                        img.parentNode.insertBefore(wrapper, img);
+                        link.appendChild(img);
+                        link.appendChild(iconDiv);
+                        wrapper.appendChild(link);
+                    });
+                    if (typeof GLightbox !== 'undefined') {
+                        GLightbox({
+                            selector: '.glightbox',
+                            touchNavigation: true,
+                            loop: true,
+                            zoomable: true
+                        });
+                    }
+                }
+            }
+        })
+        .catch(err => console.error('Error fetching new replies:', err));
+    }, 10000); // 10 seconds
+});
+JS;
+$this->registerJs($jsPolling, \yii\web\View::POS_END);
 ?>

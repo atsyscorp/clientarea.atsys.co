@@ -30,7 +30,7 @@ class TicketsController extends \yii\web\Controller
                     'rules' => [
                         // REGLA 1: Usuarios autenticados pueden ver, crear y cerrar SUS tickets
                         [
-                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk', 'upload-image', 'badge-count'],
+                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk', 'upload-image', 'badge-count', 'get-new-replies'],
                             'allow' => true,
                             'roles' => ['@'],
                         ],
@@ -116,6 +116,42 @@ class TicketsController extends \yii\web\Controller
             'newReply' => $newReply,
             'replies' => $model->getTicketReplies()->orderBy('created_at ASC')->all(),
         ]);
+    }
+
+    /**
+     * Devuelve las respuestas nuevas de un ticket por AJAX (Polling)
+     */
+    public function actionGetNewReplies($id, $lastReplyId)
+    {
+        $this->layout = false;
+        
+        $model = $this->findModel($id);
+        
+        // Verificación de permisos (igual que view)
+        if (!Yii::$app->user->identity->isAdmin) {
+            $ownerId = (!empty(Yii::$app->user->identity->parent_id)) ? Yii::$app->user->identity->parent_id : Yii::$app->user->identity->id;
+            $myCustomer = \app\models\Customers::findOne(['user_id' => $ownerId]);
+            $realCustomerId = $myCustomer ? $myCustomer->id : -1;
+            
+            if ($model->customer_id != $realCustomerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para ver este ticket.');
+            }
+        }
+        
+        $newReplies = $model->getTicketReplies()
+            ->where(['>', 'id', $lastReplyId])
+            ->orderBy('created_at ASC')
+            ->all();
+            
+        $html = '';
+        foreach ($newReplies as $reply) {
+            $html .= $this->renderPartial('/tickets/_reply', [
+                'reply' => $reply,
+                'model' => $model,
+            ]);
+        }
+        
+        return $html;
     }
 
     protected function findModel($id)
