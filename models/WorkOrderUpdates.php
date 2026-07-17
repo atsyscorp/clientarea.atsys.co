@@ -8,6 +8,16 @@ use yii\db\Expression;
 
 class WorkOrderUpdates extends \yii\db\ActiveRecord
 {
+    /**
+     * @var \yii\web\UploadedFile
+     */
+    public $attachmentFile;
+    
+    /**
+     * @var \yii\web\UploadedFile
+     */
+    public $replyAttachmentFile;
+
     public static function tableName()
     {
         return 'work_order_updates';
@@ -34,13 +44,14 @@ class WorkOrderUpdates extends \yii\db\ActiveRecord
             [['description'], 'string'],
             */
 
-            [['created_at', 'client_reply', 'replied_by', 'replied_at'], 'default', 'value' => null],
+            [['created_at', 'client_reply', 'replied_by', 'replied_at', 'attachment_url', 'reply_attachment_url'], 'default', 'value' => null],
             [['allow_reply'], 'default', 'value' => 0],
             [['work_order_id', 'description'], 'required'],
             [['work_order_id', 'created_by', 'is_visible', 'notify_email', 'allow_reply', 'replied_by'], 'integer'],
-            [['description', 'client_reply'], 'string'],
+            [['description', 'client_reply', 'attachment_url', 'reply_attachment_url'], 'string'],
             [['created_at', 'replied_at'], 'safe'],
             [['work_order_id'], 'exist', 'skipOnError' => true, 'targetClass' => WorkOrders::class, 'targetAttribute' => ['work_order_id' => 'id']],
+            [['attachmentFile', 'replyAttachmentFile'], 'file', 'skipOnEmpty' => true, 'maxSize' => 1024 * 1024 * 15],
         ];
     }
 

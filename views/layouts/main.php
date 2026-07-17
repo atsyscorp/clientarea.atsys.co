@@ -11,6 +11,18 @@ AppAsset::register($this);
 // Nos aseguramos de tener el meta viewport para móviles
 $this->registerCsrfMetaTags();
 $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, initial-scale=1, shrink-to-fit=no']);
+
+// Cargar notificaciones para el usuario actual
+$unreadNotificationsCount = 0;
+$recentNotifications = [];
+if (!Yii::$app->user->isGuest) {
+    try {
+        $unreadNotificationsCount = \app\models\Notifications::find()->where(['user_id' => Yii::$app->user->id, 'is_read' => 0])->count();
+        $recentNotifications = \app\models\Notifications::find()->where(['user_id' => Yii::$app->user->id])->orderBy(['created_at' => SORT_DESC])->limit(5)->all();
+    } catch (\Exception $e) {
+        // En caso de que la tabla aún no esté migrada
+    }
+}
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>
@@ -278,6 +290,36 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                             </button>
                         <?php endif; ?>
                         
+                        <!-- Notifications Dropdown (Mobile) -->
+                        <div class="dropdown dropdown-end">
+                            <label tabindex="0" class="btn btn-ghost btn-circle btn-sm relative hover:scale-105 active:scale-95 transition-all text-base-content/85">
+                                <div class="indicator">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                                    </svg>
+                                    <span id="notifications-badge-mobile" class="badge badge-xs badge-error indicator-item font-bold text-white <?= $unreadNotificationsCount > 0 ? '' : 'hidden' ?>"><?= $unreadNotificationsCount ?></span>
+                                </div>
+                            </label>
+                            <div tabindex="0" class="dropdown-content z-[100] card card-compact w-72 p-2 shadow-2xl bg-base-100 rounded-2xl border border-base-200 mt-2">
+                                <div class="card-body p-2">
+                                    <h3 class="font-bold text-sm text-base-content flex justify-between items-center px-1">
+                                        <span>Notificaciones</span>
+                                        <?php if ($unreadNotificationsCount > 0): ?>
+                                            <a href="/notifications/mark-all-read" class="text-[11px] text-primary hover:underline font-semibold">Marcar todo leído</a>
+                                        <?php endif; ?>
+                                    </h3>
+                                    <div class="divider my-1 opacity-40"></div>
+                                    <ul id="notifications-list-mobile" class="menu p-0 max-h-64 overflow-y-auto gap-0.5">
+                                        <?= $this->render('@app/views/notifications/_dropdown', ['recentNotifications' => $recentNotifications, 'isMobile' => true]) ?>
+                                    </ul>
+                                    <div class="divider my-1 opacity-40"></div>
+                                    <div class="text-center">
+                                        <a href="/notifications" class="text-xs font-bold text-primary hover:underline">Ver todas</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Avatar / Link to profile -->
                         <a href="/profile" class="btn btn-ghost btn-sm btn-circle avatar placeholder">
                             <div class="bg-primary text-primary-content rounded-full w-8">
@@ -311,6 +353,36 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                             </button>
                         <?php endif; ?>
 
+                        <!-- Notifications Dropdown (Desktop) -->
+                        <div class="dropdown dropdown-end">
+                            <label tabindex="0" class="btn btn-ghost btn-circle relative hover:scale-105 active:scale-95 transition-all text-base-content/85">
+                                <div class="indicator">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                                    </svg>
+                                    <span id="notifications-badge-desktop" class="badge badge-sm badge-error indicator-item font-bold text-white <?= $unreadNotificationsCount > 0 ? '' : 'hidden' ?>"><?= $unreadNotificationsCount ?></span>
+                                </div>
+                            </label>
+                            <div tabindex="0" class="dropdown-content z-[100] card card-compact w-80 p-2 shadow-2xl bg-base-100 rounded-2xl border border-base-200 mt-4">
+                                <div class="card-body p-2">
+                                    <h3 class="font-bold text-base text-base-content flex justify-between items-center px-2 py-0.5">
+                                        <span>Notificaciones</span>
+                                        <?php if ($unreadNotificationsCount > 0): ?>
+                                            <a href="/notifications/mark-all-read" class="text-xs text-primary hover:underline font-semibold">Marcar todo como leído</a>
+                                        <?php endif; ?>
+                                    </h3>
+                                    <div class="divider my-1 opacity-50"></div>
+                                    <ul id="notifications-list-desktop" class="menu p-0 max-h-80 overflow-y-auto gap-0.5">
+                                        <?= $this->render('@app/views/notifications/_dropdown', ['recentNotifications' => $recentNotifications, 'isMobile' => false]) ?>
+                                    </ul>
+                                    <div class="divider my-1 opacity-50"></div>
+                                    <div class="text-center py-1">
+                                        <a href="/notifications" class="btn btn-ghost btn-sm w-full text-xs font-bold text-primary rounded-xl">Ver todas las notificaciones</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- User Profile Dropdown -->
                         <div class="dropdown dropdown-end">
                             <label tabindex="0" class="btn btn-ghost btn-circle avatar placeholder hover:ring-2 hover:ring-primary transition-all">
@@ -333,6 +405,14 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                                     </a>
                                 </li>
                                 <?php if (Yii::$app->user->identity->isAdmin): ?>
+                                    <li>
+                                        <a href="/notifications/create" class="flex items-center gap-3 py-2.5 rounded-lg">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-base-content/60">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.357.205a1.125 1.125 0 01-1.424-.282l-2.078-2.497m5.337-1.724a18.396 18.396 0 010-9.18m0 9.18a18.425 18.425 0 003.38 1.11m-3.38-10.29a18.425 18.425 0 013.38-1.11M19.5 12h.008v.008H19.5V12z" />
+                                            </svg>
+                                            Nueva Campaña
+                                        </a>
+                                    </li>
                                     <li>
                                         <a href="/site/settings" class="flex items-center gap-3 py-2.5 rounded-lg">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-base-content/60">
@@ -503,6 +583,7 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                     $isSpamBlacklistActive = ($controllerId === 'ticket-spam-blacklist');
                     $isHelpActive = ($controllerId === 'help');
                     $isDomainSearchActive = ($controllerId === 'site' && $actionId === 'domain-search');
+                    $isNotificationsActive = ($controllerId === 'notifications');
 
                     // Compute badge counts
                     $ticketBadgeCount = 0;
@@ -659,6 +740,14 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
 
                         <?php if (!Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin): ?>
                             <div class="divider text-xs font-bold opacity-50 px-4 my-2 uppercase tracking-wider">Ajustes</div>
+
+                            <!-- Admin Notifications (Campaigns) -->
+                            <li>
+                                <a href="/notifications/create" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isNotificationsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.357.205a1.125 1.125 0 01-1.424-.282l-2.078-2.497m5.337-1.724a18.396 18.396 0 010-9.18m0 9.18a18.425 18.425 0 003.38 1.11m-3.38-10.29a18.425 18.425 0 013.38-1.11M19.5 12h.008v.008H19.5V12z" /></svg>
+                                    Campañas Publicitarias
+                                </a>
+                            </li>
 
                             <!-- Admin Announcements -->
                             <li>
@@ -1015,6 +1104,60 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
                     }, 1500);
                     localStorage.setItem('atsys_tour_done', 'true');
                 }
+            });
+        </script>
+    <?php endif; ?>
+    <?php if (!Yii::$app->user->isGuest): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                function pollNotifications() {
+                    fetch('/notifications/poll')
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok');
+                            return response.json();
+                        })
+                        .then(data => {
+                            // 1. Update unread count badges
+                            const count = parseInt(data.unreadCount) || 0;
+                            
+                            const badgeMobile = document.getElementById('notifications-badge-mobile');
+                            const badgeDesktop = document.getElementById('notifications-badge-desktop');
+                            
+                            if (badgeMobile) {
+                                badgeMobile.textContent = count;
+                                if (count > 0) {
+                                    badgeMobile.classList.remove('hidden');
+                                } else {
+                                    badgeMobile.classList.add('hidden');
+                                }
+                            }
+                            if (badgeDesktop) {
+                                badgeDesktop.textContent = count;
+                                if (count > 0) {
+                                    badgeDesktop.classList.remove('hidden');
+                                } else {
+                                    badgeDesktop.classList.add('hidden');
+                                }
+                            }
+                            
+                            // 2. Update list contents
+                            const listMobile = document.getElementById('notifications-list-mobile');
+                            const listDesktop = document.getElementById('notifications-list-desktop');
+                            
+                            if (listMobile && data.htmlMobile !== undefined) {
+                                listMobile.innerHTML = data.htmlMobile;
+                            }
+                            if (listDesktop && data.htmlDesktop !== undefined) {
+                                listDesktop.innerHTML = data.htmlDesktop;
+                            }
+                        })
+                        .catch(err => {
+                            // Fail silently to avoid spamming logs on session timeout or offline states
+                        });
+                }
+                
+                // Poll every 30 seconds
+                setInterval(pollNotifications, 30000);
             });
         </script>
     <?php endif; ?>

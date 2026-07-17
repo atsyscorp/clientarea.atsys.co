@@ -6,6 +6,7 @@ use Yii;
 use app\models\WorkOrders;
 use app\models\WorkOrdersSearch; // Crea este search model igual que hiciste con customers
 use app\models\WorkOrderUpdates;
+use app\models\Notifications;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
@@ -358,6 +359,15 @@ class WorkOrdersController extends Controller
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
 
+                // Notificación en plataforma
+                Notifications::notifyCustomer(
+                    $model->customer_id,
+                    "🛠️ Nueva Orden de Trabajo: " . $model->code,
+                    "Se ha generado una nueva orden de trabajo para tu proyecto: " . $model->title,
+                    "/work-orders/view?id=" . $model->id,
+                    Notifications::TYPE_INFO
+                );
+
                 if ($model->is_preapproved == 1) {
                     $model->status = WorkOrders::STATUS_APPROVED;
                     $model->save(false);
@@ -385,6 +395,66 @@ class WorkOrdersController extends Controller
         ]);
     }
 
+    public function actionCreateFromTicket($ticket_id)
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
+        }
+
+        $ticket = \app\models\Tickets::findOne($ticket_id);
+        if (!$ticket) {
+            throw new \yii\web\NotFoundHttpException('El ticket seleccionado no existe.');
+        }
+
+        if (!$ticket->customer_id) {
+            Yii::$app->session->setFlash('error', 'El ticket debe tener un cliente asignado para poder generar una orden de trabajo.');
+            return $this->redirect(['tickets/view', 'id' => $ticket->id]);
+        }
+
+        // Build requirements from ticket messages
+        $requirements = "<h3>Requerimiento original (Ticket #{$ticket->ticket_code})</h3>";
+        $requirements .= "<div><strong>Asunto:</strong> " . \yii\helpers\Html::encode($ticket->subject) . "</div>";
+        $requirements .= "<div><strong>Creado:</strong> " . Yii::$app->formatter->asDatetime($ticket->created_at, 'medium') . "</div>";
+        $requirements .= "<hr style='border: 0; border-top: 1px solid #ddd; margin: 15px 0;' />";
+
+        $replies = $ticket->getTicketReplies()->orderBy('created_at ASC')->all();
+        if (empty($replies)) {
+            $requirements .= "<p>No hay mensajes registrados en el ticket.</p>";
+        } else {
+            foreach ($replies as $reply) {
+                $senderName = $reply->isSenderTypeAdmin() 
+                    ? 'Soporte ATSYS' 
+                    : ($reply->user ? \yii\helpers\Html::encode($reply->user->contact_name) : 'Cliente');
+                
+                $date = Yii::$app->formatter->asDatetime($reply->created_at, 'medium');
+                
+                $requirements .= "<div style='margin-bottom: 20px; padding: 12px; background-color: #fcfcfc; border: 1px solid #e3e3e3; border-left: 4px solid #134C42; border-radius: 4px;'>";
+                $requirements .= "  <div style='font-size: 0.9em; margin-bottom: 8px;'>";
+                $requirements .= "    <strong>{$senderName}</strong> <span style='color: #666; margin-left: 10px;'>{$date}</span>";
+                $requirements .= "  </div>";
+                $requirements .= "  <div class='message-content'>" . $reply->message . "</div>";
+                $requirements .= "</div>";
+            }
+        }
+
+        $model = new WorkOrders();
+        $model->ticket_id = $ticket->id;
+        $model->customer_id = $ticket->customer_id;
+        $model->title = 'Ticket #' . $ticket->ticket_code . ': ' . $ticket->subject;
+        $model->requirements = $requirements;
+        $model->status = WorkOrders::STATUS_DRAFT; // Nace como borrador
+        $model->currency = 'COP'; // COP por defecto
+        
+        // Deshabilitar temporalmente la validación del total_cost, TRM, etc. al crear
+        if ($model->save(false)) {
+            Yii::$app->session->setFlash('success', 'Orden de trabajo borrador generada exitosamente. Por favor, completa la información comercial.');
+            return $this->redirect(['update', 'id' => $model->id]);
+        } else {
+            Yii::$app->session->setFlash('error', 'Error al guardar la orden de trabajo: ' . json_encode($model->getErrors()));
+            return $this->redirect(['tickets/view', 'id' => $ticket->id]);
+        }
+    }
+
     public function actionApproveRequest($id)
     {
         if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
@@ -407,6 +477,15 @@ class WorkOrdersController extends Controller
                 $model->code = preg_replace('/^OTR-/', 'OT-', $model->code);
 
                 if ($model->save()) {
+                    // Notificación en plataforma
+                    Notifications::notifyCustomer(
+                        $model->customer_id,
+                        "🛠️ Orden de Trabajo Aprobada: " . $model->code,
+                        "Tu solicitud ha sido aprobada y se ha convertido en la orden: " . $model->title,
+                        "/work-orders/view?id=" . $model->id,
+                        Notifications::TYPE_SUCCESS
+                    );
+
                     $send = $this->pdfAndEmailOrder($model);
 
                     if ($send === true) {
@@ -435,9 +514,31 @@ class WorkOrdersController extends Controller
         $model = $this->findModel($id);
 
         if ($this->request->isPost) {
-            if ($model->load($this->request->post()) && $model->save()) {
-                Yii::$app->session->setFlash('success', 'Orden actualizada exitosamente.');
-                return $this->redirect(['view', 'id' => $model->id]);
+            if ($model->load($this->request->post())) {
+                $ticketAction = Yii::$app->request->post('WorkOrders')['ticket_action'] ?? null;
+                
+                // Si la orden viene de un ticket y está en Borrador, permitimos cambiar el estado
+                if ($model->status == WorkOrders::STATUS_DRAFT && $model->ticket_id && $ticketAction) {
+                    if ($ticketAction === 'preapprove') {
+                        $model->status = WorkOrders::STATUS_APPROVED;
+                    } elseif ($ticketAction === 'send') {
+                        $model->status = WorkOrders::STATUS_PENDING;
+                    }
+                }
+
+                if ($model->save()) {
+                    if ($ticketAction === 'send') {
+                        $send = $this->pdfAndEmailOrder($model);
+                        if ($send === true) {
+                            Yii::$app->session->setFlash('success', 'Orden actualizada y enviada al cliente exitosamente.');
+                        } else {
+                            Yii::$app->session->setFlash('warning', 'La orden se actualizó, pero hubo un error enviando el email: ' . $send);
+                        }
+                    } else {
+                        Yii::$app->session->setFlash('success', 'Orden actualizada exitosamente.');
+                    }
+                    return $this->redirect(['view', 'id' => $model->id]);
+                }
             }
         }
 
@@ -477,6 +578,14 @@ class WorkOrdersController extends Controller
                     }
                 }
                 if ($model->request()) {
+                    // Notificación en plataforma para Admins
+                    Notifications::notifyAdmins(
+                        "🛠️ Nueva Solicitud de Orden: " . $model->code,
+                        "El cliente " . $model->customer->business_name . " ha solicitado una nueva orden de trabajo: " . $model->title,
+                        "/work-orders/view?id=" . $model->id,
+                        Notifications::TYPE_INFO
+                    );
+
                     Yii::$app->session->setFlash('success', 'Orden solicitada exitosamente, pronto recibirás un correo con el detalle propuesto para que lo revises.');
                     return $this->redirect(['index']);
                 }
@@ -518,7 +627,25 @@ class WorkOrdersController extends Controller
             $update->work_order_id = $workOrder->id;
             $update->created_by = Yii::$app->user->id;
 
+            // Capturar y subir archivo del admin a Google Drive
+            $file = \yii\web\UploadedFile::getInstance($update, 'attachmentFile');
+            if ($file) {
+                $uploadUrl = Yii::$app->googleDrive->upload($file, $workOrder->code);
+                if ($uploadUrl) {
+                    $update->attachment_url = $uploadUrl;
+                }
+            }
+
             if ($update->save()) {
+
+                // Notificación en plataforma para el Cliente
+                Notifications::notifyCustomer(
+                    $workOrder->customer_id,
+                    "🚀 Nuevo avance en Orden: " . $workOrder->code,
+                    "Se ha registrado un nuevo avance en tu orden de trabajo: " . substr(strip_tags($update->description), 0, 80) . "...",
+                    "/work-orders/view?id=" . $workOrder->id,
+                    Notifications::TYPE_INFO
+                );
 
                 // Lógica opcional de notificación
                 if ($update->notify_email) {
@@ -553,11 +680,14 @@ class WorkOrdersController extends Controller
      * Genera una Orden de Pago (Orders) basada en la Orden de Trabajo.
      * Puede ser por el total o un porcentaje (ej: 50% o 100%).
      */
-    public function actionGeneratePayment($id, $percentage = 50)
+    public function actionGeneratePayment($id, $percentage = null)
     {
         if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
             throw new \yii\web\ForbiddenHttpException();
         }
+
+        $percentage = Yii::$app->request->post('percentage', Yii::$app->request->get('percentage', $percentage ?? 50));
+        $percentage = (int) $percentage;
 
         $workOrder = $this->findModel($id);
 
@@ -664,6 +794,15 @@ class WorkOrdersController extends Controller
                 throw new \Exception('Error actualizando estado de OT.');
 
             $transaction->commit();
+
+            // Notificación en plataforma para el Cliente
+            Notifications::notifyCustomer(
+                $workOrder->customer_id,
+                "💳 Pago Requerido: " . $workOrder->code,
+                "Se ha generado una solicitud de cobro anticipado para la orden " . $workOrder->code . ". Total a pagar: " . Yii::$app->formatter->asCurrency($order->total) . " " . $order->currency,
+                "/orders/view?id=" . $order->id,
+                Notifications::TYPE_WARNING
+            );
 
             // E. ENVIAR EL EMAIL DE COBRO
             $this->sendPaymentRequestEmail($order, $workOrder);
@@ -791,6 +930,16 @@ class WorkOrdersController extends Controller
             return $this->redirect(['view', 'id' => $id]);
         }
 
+        // 3.5. Capturar y subir archivo a Google Drive (segmentado por código de OT)
+        $file = \yii\web\UploadedFile::getInstanceByName('attachmentFile');
+        if ($file) {
+            $workOrder = $this->findModel($id);
+            $uploadUrl = Yii::$app->googleDrive->upload($file, $workOrder->code);
+            if ($uploadUrl) {
+                $update->reply_attachment_url = $uploadUrl;
+            }
+        }
+
         // 4. Sanitizar y guardar los datos
         // Usamos HtmlPurifier por seguridad, para evitar inyección de scripts si el cliente copia/pega algo extraño
         $update->client_reply = \yii\helpers\HtmlPurifier::process(trim($replyText));
@@ -805,6 +954,14 @@ class WorkOrdersController extends Controller
             $workOrder = \app\models\WorkOrders::findOne($id);
 
             if ($workOrder) {
+                // Notificación en plataforma para Admins
+                Notifications::notifyAdmins(
+                    "💬 Respuesta en Avance de Orden: " . $workOrder->code,
+                    "El cliente ha respondido al avance en la orden: " . substr(strip_tags($update->client_reply), 0, 80) . "...",
+                    "/work-orders/view?id=" . $workOrder->id,
+                    Notifications::TYPE_INFO
+                );
+
                 try {
                     Yii::$app->mailer->compose(
                         [

@@ -11,6 +11,7 @@ use yii\db\Expression;
  *
  * @property int $id
  * @property int $customer_id
+ * @property int|null $ticket_id
  * @property string $code
  * @property string $title
  * @property string $requirements
@@ -29,12 +30,14 @@ use yii\db\Expression;
  * @property string|null $completed_at
  *
  * @property Customers $customer
+ * @property Tickets|null $ticket
  * @property WorkOrderUpdates[] $workOrderUpdates
  */
 
 class WorkOrders extends \yii\db\ActiveRecord
 {
     public $attachmentFile;
+    public $ticket_action;
 
     // Constantes de Estado...
     const STATUS_DRAFT = 0;
@@ -54,7 +57,7 @@ class WorkOrders extends \yii\db\ActiveRecord
     {
         return [
             // Valores por defecto
-            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url', 'pause_reason'], 'default', 'value' => null],
+            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url', 'pause_reason', 'ticket_id'], 'default', 'value' => null],
             [['total_cost', 'total_cost_usd'], 'default', 'value' => 0.00],
             [['status', 'is_request', 'has_service_contract', 'is_preapproved'], 'default', 'value' => 0],
             [['currency'], 'default', 'value' => 'COP'],
@@ -62,10 +65,10 @@ class WorkOrders extends \yii\db\ActiveRecord
             [['customer_id', 'title', 'requirements'], 'required'],
             
             // Tipos de datos
-            [['customer_id', 'status', 'is_request', 'has_service_contract', 'is_preapproved'], 'integer'],
+            [['customer_id', 'status', 'is_request', 'has_service_contract', 'is_preapproved', 'ticket_id'], 'integer'],
             [['requirements', 'notes', 'original_request', 'attachment_url', 'pause_reason'], 'string'],
             [['total_cost', 'total_cost_usd', 'exchange_rate'], 'number'],
-            [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at'], 'safe'],
+            [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'ticket_action'], 'safe'],
             
             // Validaciones de longitud y formato
             [['code'], 'string', 'max' => 50],
@@ -83,6 +86,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             
             // Integridad referencial
             [['customer_id'], 'exist', 'skipOnError' => true, 'targetClass' => Customers::class, 'targetAttribute' => ['customer_id' => 'id']],
+            [['ticket_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tickets::class, 'targetAttribute' => ['ticket_id' => 'id']],
 
             // VALIDACIÓN CONDICIONAL: TRM obligatoria si es USD o EUR
             [['exchange_rate'], 'required', 'when' => function ($model) {
@@ -168,6 +172,11 @@ class WorkOrders extends \yii\db\ActiveRecord
     public function getCustomer()
     {
         return $this->hasOne(Customers::class, ['id' => 'customer_id']);
+    }
+
+    public function getTicket()
+    {
+        return $this->hasOne(Tickets::class, ['id' => 'ticket_id']);
     }
 
     public function getStatusHtml()

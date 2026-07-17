@@ -7,6 +7,7 @@ use app\models\Tickets;
 use app\models\TicketsSearch;
 use app\models\TicketReplies;
 use app\models\User;
+use app\models\Notifications;
 use yii\data\ActiveDataProvider;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
@@ -236,6 +237,23 @@ class TicketsController extends \yii\web\Controller
                             "Mensaje: " . substr(strip_tags($reply->message), 0, 50) . "...",
                             $ticket->id
                         );
+
+                        // Notificación en plataforma para Admins
+                        Notifications::notifyAdmins(
+                            "💬 Respuesta en Ticket " . $ticket->ticket_code,
+                            "El cliente ha respondido al ticket: " . substr(strip_tags($reply->message), 0, 80) . "...",
+                            "/tickets/view?id=" . $ticket->id,
+                            Notifications::TYPE_INFO
+                        );
+                    } else {
+                        // Notificación en plataforma para Cliente
+                        Notifications::notifyCustomer(
+                            $ticket->customer_id,
+                            "💬 Nueva Respuesta en Ticket " . $ticket->ticket_code,
+                            "Soporte ha respondido a tu ticket: " . substr(strip_tags($reply->message), 0, 80) . "...",
+                            "/tickets/view?id=" . $ticket->id,
+                            Notifications::TYPE_SUCCESS
+                        );
                     }
                     // ========================================================
 
@@ -448,6 +466,13 @@ class TicketsController extends \yii\web\Controller
                                 "Nuevo ticket: " . $model->ticket_code . " enviado por: " . $model->customer->business_name,
                                 "Mensaje: " . substr(strip_tags($reply->message), 0, 50) . "...",
                                 $model->id
+                            );
+
+                            Notifications::notifyAdmins(
+                                "🎫 Nuevo Ticket: " . $model->ticket_code,
+                                "El cliente " . $model->customer->business_name . " ha creado el ticket: " . $model->subject,
+                                "/tickets/view?id=" . $model->id,
+                                Notifications::TYPE_INFO
                             );
                         }
 

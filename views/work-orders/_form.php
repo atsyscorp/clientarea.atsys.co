@@ -160,6 +160,35 @@ $this->registerJs($js, \yii\web\View::POS_END);
             </div>
             <?php endif; ?>
 
+            <?php if (!$model->isNewRecord && $model->ticket_id && $model->status == \app\models\WorkOrders::STATUS_DRAFT): ?>
+            <div class="form-control w-full md:col-span-2">
+                <label class="label"><span class="label-text font-bold">Estado final de la Orden</span></label>
+                <div class="flex flex-col gap-3 border border-base-200 p-4 rounded-xl bg-base-50">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="radio" name="WorkOrders[ticket_action]" value="draft" checked class="radio radio-primary mt-1" />
+                        <div>
+                            <span class="font-bold text-sm block">Mantener como Borrador</span>
+                            <span class="text-xs opacity-70">Guarda los cambios pero la orden permanecerá en estado borrador.</span>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="radio" name="WorkOrders[ticket_action]" value="send" class="radio radio-primary mt-1" />
+                        <div>
+                            <span class="font-bold text-sm block text-primary">Enviar para aprobación al cliente</span>
+                            <span class="text-xs opacity-70">La orden cambiará a estado Pendiente, se generará el PDF y se enviará por correo al cliente.</span>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="radio" name="WorkOrders[ticket_action]" value="preapprove" class="radio radio-primary mt-1" />
+                        <div>
+                            <span class="font-bold text-sm block text-success">Pre-Aprobar Orden de Trabajo</span>
+                            <span class="text-xs opacity-70">La orden cambiará a estado Aprobada de inmediato. No se enviará correo al cliente.</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="form-control w-full md:col-span-2">
                 <label class="label"><span class="label-text font-bold">Notas o Condiciones Especiales</span></label>
                 <?= $form->field($model, 'notes', ['template' => '{input}{error}'])->textarea([

@@ -6,6 +6,7 @@ use Yii;
 use yii\console\Controller;
 use yii\console\ExitCode;
 use app\models\CustomerServices;
+use app\models\Notifications;
 use app\components\CyberPanel;
 use yii\httpclient\Client; // Asegúrate de tener yii2-httpclient o usa curl nativo
 
@@ -93,6 +94,15 @@ class CronController extends Controller
                     "⚠️ Servicio Suspendido",
                     "El servicio {$service->domain} ha sido suspendido.",
                     $service->id
+                );
+
+                // Notificación en plataforma
+                Notifications::notifyCustomer(
+                    $service->customer_id,
+                    "⚠️ Servicio Suspendido: " . $service->domain,
+                    "El servicio {$service->domain} ha sido suspendido por vencimiento. Por favor realiza el pago para reactivarlo.",
+                    "/customer-services",
+                    Notifications::TYPE_DANGER
                 );
 
                 echo "SUSPENDIDO Y NOTIFICADO.\n";
@@ -186,8 +196,7 @@ class CronController extends Controller
     {
         echo "Iniciando envío de recordatorios...\n";
 
-        // Buscamos servicios ACTIVOS que venzan en los próximos 31 días
-        // (No tiene sentido buscar más allá)
+        // 1. Recordatorios preventivos (Servicios Activos que venzan en los próximos 31 días)
         $services = CustomerServices::find()
             ->with(['customer'])
             ->where(['status' => 1])
@@ -196,7 +205,7 @@ class CronController extends Controller
             ->all();
 
         $count = 0;
-        // Días gatillo para enviar correo
+        // Días gatillo para enviar recordatorio preventivo
         $triggerDays = [30, 20, 15, 10, 7, 5, 2, 1];
 
         foreach ($services as $service) {
@@ -210,15 +219,60 @@ class CronController extends Controller
             // (El diff->invert == 0 asegura que sea fecha futura)
             if ($diff->invert == 0 && in_array($daysLeft, $triggerDays)) {
 
-                echo "Enviando aviso de {$daysLeft} días a {$service->domain}... ";
+                echo "Enviando aviso preventivo de {$daysLeft} días a {$service->domain}... ";
                 $this->sendRenewalReminderEmail($service, $daysLeft);
+
+                // Notificación en plataforma
+                Notifications::notifyCustomer(
+                    $service->customer_id,
+                    "📅 Servicio por vencer: {$service->domain}",
+                    "Tu servicio {$service->domain} vence en {$daysLeft} días (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando hoy.",
+                    "/customer-services",
+                    ($daysLeft <= 5) ? Notifications::TYPE_DANGER : (($daysLeft <= 15) ? Notifications::TYPE_WARNING : Notifications::TYPE_INFO)
+                );
+
                 $count++;
                 echo "OK.\n";
 
             }
         }
 
-        echo "Terminado. Recordatorios enviados: $count\n";
+        // 2. Alertas de Servicios Vencidos (Suspendidos hasta 30 días después)
+        $expiredServices = CustomerServices::find()
+            ->with(['customer'])
+            ->where(['status' => 2]) // Suspendido
+            ->andWhere(['<', 'next_due_date', date('Y-m-d')])
+            ->andWhere(['>=', 'next_due_date', date('Y-m-d', strtotime('-30 days'))])
+            ->all();
+
+        // Días gatillo después de vencimiento para notificar
+        $triggerExpiredDays = [1, 3, 7, 14, 21, 30];
+
+        foreach ($expiredServices as $service) {
+            $today = new \DateTime(date('Y-m-d'));
+            $dueDate = new \DateTime($service->next_due_date);
+            $diff = $today->diff($dueDate);
+            $daysExpired = $diff->days;
+
+            // Verificamos si hoy coincide con los días gatillo posteriores
+            if ($diff->invert == 1 && in_array($daysExpired, $triggerExpiredDays)) {
+                echo "Enviando aviso de vencimiento de {$daysExpired} días para {$service->domain}... ";
+
+                // Notificación en plataforma
+                Notifications::notifyCustomer(
+                    $service->customer_id,
+                    "🚨 Servicio vencido hace {$daysExpired} días: {$service->domain}",
+                    "El servicio {$service->domain} se encuentra vencido desde el " . Yii::$app->formatter->asDate($service->next_due_date, 'long') . ". Tienes hasta 30 días después del vencimiento para renovarlo antes de su desconexión definitiva.",
+                    "/customer-services",
+                    Notifications::TYPE_DANGER
+                );
+
+                $count++;
+                echo "OK.\n";
+            }
+        }
+
+        echo "Terminado. Recordatorios y alertas enviadas: $count\n";
         Yii::$app->mailer->compose()
         ->setHtmlBody('Cron completed for send reminders')
         ->setTo(Yii::$app->params['adminEmail'])

@@ -37,6 +37,9 @@ function formatMessage($text, $dark = false)
 $this->title = $model->code . ' - ' . $model->title;
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 $newUpdate = new \app\models\WorkOrderUpdates();
+$newUpdate->allow_reply = 1;
+$newUpdate->is_visible = 1;
+$newUpdate->notify_email = 1;
 
 
 
@@ -128,6 +131,19 @@ if ($model->is_request == 1) {
                 </div>
             </div>
         </div>
+
+        <?php if ($model->ticket_id && $model->ticket): ?>
+            <div class="alert bg-base-200 border-base-300 p-4 rounded-xl flex justify-between items-center mb-8 no-print shadow-sm">
+                <div class="flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-3-12h.008v.008H13.5V6zm0 3h.008v.008H13.5V9zm0 3h.008v.008H13.5v-.008zm0 3h.008v.008H13.5v-.008zM5.625 20.25h12.75c.621 0 1.125-.504 1.125-1.125V3.375c0-.621-.504-1.125-1.125-1.125H5.625c-.621 0-1.125.504-1.125 1.125v15.75c0 .621.504 1.125 1.125 1.125z" /></svg>
+                    <div>
+                        <span class="font-bold text-sm block">Generada desde Ticket</span>
+                        <span class="text-xs opacity-75">Esta orden de trabajo fue creada a partir del ticket <strong><?= Html::encode($model->ticket->ticket_code) ?></strong>.</span>
+                    </div>
+                </div>
+                <?= Html::a('Ver Ticket', ['tickets/view', 'id' => $model->ticket_id], ['class' => 'btn btn-outline btn-xs btn-primary shrink-0']) ?>
+            </div>
+        <?php endif; ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
             <div>
@@ -347,22 +363,139 @@ if ($model->is_request == 1) {
                         <?php if ($model->down_payment_sent_at === null): ?>
 
                             <?php if (!$model->is_preapproved): ?>
-                            <div class="flex gap-2 justify-center">
-                                <?= \yii\helpers\Html::a('Generar Cobro 50%', ['generate-payment', 'id' => $model->id, 'percentage' => 50], [
-                                    'class' => 'btn btn-primary gap-2',
-                                    'data' => [
-                                        'confirm' => '¿Generar cobro del 50% y enviar correo?',
-                                        'method' => 'post',
-                                    ]
-                                ]) ?>
-                                <?= \yii\helpers\Html::a('Generar Cobro 100%', ['generate-payment', 'id' => $model->id, 'percentage' => 100], [
-                                    'class' => 'btn btn-secondary gap-2',
-                                    'data' => [
-                                        'confirm' => '¿Generar cobro del 100% y enviar correo?',
-                                        'method' => 'post',
-                                    ]
-                                ]) ?>
+                            <div class="card bg-base-200 border border-base-300 shadow-md max-w-md mx-auto my-6 text-left">
+                                <div class="card-body p-6">
+                                    <h3 class="font-bold text-lg text-center mb-4">Generar Solicitud de Cobro</h3>
+                                    
+                                    <?= \yii\helpers\Html::beginForm(['generate-payment', 'id' => $model->id], 'post', ['id' => 'payment-form']) ?>
+                                    
+                                    <div class="form-control mb-4">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-sm font-semibold label-text">Porcentaje a cobrar:</span>
+                                            <span class="text-lg font-bold text-primary" id="percentage-label">50%</span>
+                                        </div>
+                                        <input type="range" min="1" max="100" value="50" class="range range-primary range-sm" name="percentage" id="percentage-slider" />
+                                        <div class="flex justify-between text-xs px-1 mt-2 font-mono">
+                                            <button type="button" class="btn btn-xs btn-ghost btn-outline preset-btn" data-value="30">30%</button>
+                                            <button type="button" class="btn btn-xs btn-ghost btn-outline preset-btn" data-value="50">50%</button>
+                                            <button type="button" class="btn btn-xs btn-ghost btn-outline preset-btn" data-value="70">70%</button>
+                                            <button type="button" class="btn btn-xs btn-ghost btn-outline preset-btn" data-value="100">100%</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="divider my-2"></div>
+
+                                    <div class="space-y-2 text-sm font-medium">
+                                        <div class="flex justify-between">
+                                            <span>Monto Base:</span>
+                                            <span id="base-amount-display">-</span>
+                                        </div>
+                                        <?php if (in_array($model->currency, ['USD', 'EUR'])): ?>
+                                            <div class="flex justify-between text-base-content/70">
+                                                <span>Recargo PayPal (5.4% + $0.30):</span>
+                                                <span id="fee-amount-display">-</span>
+                                            </div>
+                                        <?php endif; ?>
+                                        <div class="flex justify-between text-base font-bold border-t border-base-300 pt-2 text-primary">
+                                            <span>Total a Facturar:</span>
+                                            <span id="total-amount-display">-</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-6">
+                                        <button type="submit" class="btn btn-primary w-full text-white gap-2" id="submit-payment-btn">
+                                            Generar Cobro <span id="btn-percentage-label">50%</span>
+                                        </button>
+                                    </div>
+
+                                    <?= \yii\helpers\Html::endForm() ?>
+                                </div>
                             </div>
+
+                            <?php
+                            $isForeignJson = in_array($model->currency, ['USD', 'EUR']) ? 'true' : 'false';
+                            $exchangeRateJson = (float) ($model->exchange_rate ?? 1);
+                            $totalCostVal = (float) ($model->total_cost ?? 0);
+                            $totalCostUsdVal = (float) ($model->total_cost_usd ?? 0);
+                            
+                            $jsCode = <<<JS
+                                document.addEventListener("DOMContentLoaded", function() {
+                                    function initPaymentCalculator() {
+                                        const slider = document.getElementById('percentage-slider');
+                                        const label = document.getElementById('percentage-label');
+                                        const btnLabel = document.getElementById('btn-percentage-label');
+                                        const baseDisplay = document.getElementById('base-amount-display');
+                                        const feeDisplay = document.getElementById('fee-amount-display');
+                                        const totalDisplay = document.getElementById('total-amount-display');
+
+                                        if (!slider) return;
+
+                                        const totalCost = {$totalCostVal};
+                                        const totalCostUsd = {$totalCostUsdVal};
+                                        const currency = "{$model->currency}";
+                                        const isForeign = {$isForeignJson};
+                                        const exchangeRate = {$exchangeRateJson};
+
+                                        const formatCurrency = (val) => {
+                                            if (currency === 'COP') {
+                                                return '$' + Math.round(val).toLocaleString('es-CO');
+                                            } else {
+                                                const prefix = currency === 'EUR' ? '€' : '$';
+                                                return prefix + val.toFixed(2) + ' ' + currency;
+                                            }
+                                        };
+
+                                        const updateAmounts = (percentage) => {
+                                            label.textContent = percentage + '%';
+                                            btnLabel.textContent = percentage + '%';
+                                            
+                                            const fraction = percentage / 100;
+                                            
+                                            if (isForeign) {
+                                                const amountToPayForeign = totalCostUsd * fraction;
+                                                const paypalPercentage = 0.054;
+                                                const paypalFixed = 0.30;
+                                                const grossForeign = (amountToPayForeign + paypalFixed) / (1 - paypalPercentage);
+                                                const feeForeign = Math.round((grossForeign - amountToPayForeign) * 100) / 100;
+                                                const totalForeign = amountToPayForeign + feeForeign;
+
+                                                baseDisplay.textContent = formatCurrency(amountToPayForeign);
+                                                if (feeDisplay) feeDisplay.textContent = formatCurrency(feeForeign);
+                                                totalDisplay.textContent = formatCurrency(totalForeign);
+                                            } else {
+                                                const amountToPayCop = totalCost * fraction;
+                                                baseDisplay.textContent = formatCurrency(amountToPayCop);
+                                                totalDisplay.textContent = formatCurrency(amountToPayCop);
+                                            }
+                                        };
+
+                                        slider.addEventListener('input', function() {
+                                            updateAmounts(this.value);
+                                        });
+
+                                        document.querySelectorAll('.preset-btn').forEach(btn => {
+                                            btn.addEventListener('click', function() {
+                                                const val = parseInt(this.getAttribute('data-value'));
+                                                slider.value = val;
+                                                updateAmounts(val);
+                                            });
+                                        });
+
+                                        updateAmounts(50);
+
+                                        const form = document.getElementById('payment-form');
+                                        form.addEventListener('submit', function(e) {
+                                            const val = slider.value;
+                                            if (!confirm('¿Generar cobro del ' + val + '% y enviar correo al cliente?')) {
+                                                e.preventDefault();
+                                            }
+                                        });
+                                    }
+                                    initPaymentCalculator();
+                                });
+JS;
+                            $this->registerJs($jsCode, \yii\web\View::POS_END);
+                            ?>
                             <?php endif; ?>
 
                         <?php else: ?>
@@ -396,146 +529,186 @@ if ($model->is_request == 1) {
     ])): ?>
         <div class="divider my-10">LÍNEA DE TIEMPO / AVANCES</div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <?php if ($isAdmin && !in_array($model->status, [
+            \app\models\WorkOrders::STATUS_COMPLETED,
+            \app\models\WorkOrders::STATUS_NOT_COMPLETED,
+            \app\models\WorkOrders::STATUS_PARTIAL
+        ])): ?>
+            <div class="max-w-4xl mx-auto w-full mb-8">
+                <div class="card bg-base-200 shadow-inner border border-base-300">
+                    <div class="card-body p-6">
+                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Registrar Avance en Bitácora
+                        </h3>
 
-            <div class="lg:col-span-2">
-                <ul class="timeline timeline-snap-icon max-md:timeline-compact timeline-vertical">
-                    <?php
-                    // Obtenemos los avances
-                    $query = \app\models\WorkOrderUpdates::find()->where(['work_order_id' => $model->id]);
+                        <?php $form = \yii\widgets\ActiveForm::begin([
+                            'action' => ['add-update', 'id' => $model->id],
+                            'options' => ['enctype' => 'multipart/form-data']
+                        ]); ?>
 
-                    // Si NO es admin, solo mostrar los visibles
-                    if (!$isAdmin) {
-                        $query->andWhere(['is_visible' => 1]);
-                    }
+                        <?= $form->field($newUpdate, 'description')->textarea([
+                            'rows' => 4,
+                            'class' => 'textarea textarea-bordered w-full',
+                            'placeholder' => 'Describe detalladamente qué se trabajó hoy...'
+                        ])->label(false) ?>
 
-                    $updates = $query->orderBy(['created_at' => SORT_DESC])->all();
-                    ?>
-
-                    <?php if (empty($updates)): ?>
-                        <div class="text-center opacity-50 py-10">
-                            <p>Aún no hay reportes de avance en este proyecto.</p>
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($updates as $index => $update): ?>
-                            <li>
-                                <div class="timeline-middle">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                                        class="h-5 w-5 text-primary">
-                                        <path fill-rule="evenodd"
-                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                </div>
-                                <div
-                                    class="timeline-<?= $index % 2 == 0 ? 'start' : 'end' ?> mb-10 bg-base-100 p-4 rounded-box shadow-sm border border-base-200 w-full">
-                                    <time class="font-mono italic text-xs opacity-50 block mb-1">
-                                        <?= Yii::$app->formatter->asDatetime($update->created_at) ?>
-                                        <?php if ($isAdmin && !$update->is_visible): ?>
-                                            <span class="badge badge-xs badge-ghost ml-2">Privado 🔒</span>
-                                        <?php endif; ?>
-                                    </time>
-                                    <div class="text-sm text-justify">
-                                        <?= nl2br(\yii\helpers\Html::encode($update->description)) ?>
-                                    </div>
-
-                                    <?php if ($update->allow_reply == 1): ?>
-                                        <?php if (!empty($update->client_reply)): ?>
-                                            <div class="bg-base-200 p-3 rounded-lg border-l-4 border-primary mt-4">
-                                                <div class="text-xs font-bold text-primary mb-1">Respuesta del cliente:</div>
-                                                <div class="text-sm italic text-justify">
-                                                    <?= nl2br(\yii\helpers\Html::encode($update->client_reply)) ?>
-                                                </div>
-                                            </div>
-                                        <?php else: ?>
-                                            <?php //if(!$isAdmin) { ?>
-                                            <div class="bg-base-200 p-3 rounded-lg border-l-4 border-primary mt-4">
-                                                <div class="text-xs font-bold text-primary mb-2">Este avance requiere tu respuesta:</div>
-                                                <div class="text-sm text-justify">
-                                                    <?= \yii\helpers\Html::beginForm(['work-orders/add-reply', 'id' => $model->id], 'post') ?>
-                                                    <?= \yii\helpers\Html::hiddenInput('update_id', $update->id) ?>
-                                                    <?= \yii\helpers\Html::textarea('reply', '', [
-                                                        'class' => 'textarea textarea-bordered w-full',
-                                                        'rows' => 2,
-                                                        'placeholder' => 'Tu respuesta (solo podrás enviarla una vez)...',
-                                                        'required' => true
-                                                    ]) ?>
-                                                    <?= \yii\helpers\Html::submitButton('Enviar Respuesta', [
-                                                        'class' => 'btn btn-primary btn-sm mt-2',
-                                                        'data' => ['confirm' => '¿Estás seguro de enviar esta respuesta? No podrás modificarla después.']
-                                                    ]) ?>
-                                                    <?= \yii\helpers\Html::endForm() ?>
-                                                </div>
-                                            </div>
-                                            <?php //} ?>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
-                                <hr class="bg-primary" />
-                            </li>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </ul>
-            </div>
-
-            <?php if ($isAdmin && !in_array($model->status, [
-                \app\models\WorkOrders::STATUS_COMPLETED,
-                \app\models\WorkOrders::STATUS_NOT_COMPLETED,
-                \app\models\WorkOrders::STATUS_PARTIAL
-            ])): ?>
-                <div>
-                    <div class="card bg-base-200 shadow-inner">
-                        <div class="card-body p-5">
-                            <h3 class="font-bold text-lg mb-4">Registrar Avance</h3>
-
-                            <?php $form = \yii\widgets\ActiveForm::begin(['action' => ['add-update', 'id' => $model->id]]); ?>
-
-                            <?= $form->field($newUpdate, 'description')->textarea([
-                                'rows' => 4,
-                                'class' => 'textarea textarea-bordered w-full',
-                                'placeholder' => 'Describe qué se trabajó hoy...'
+                        <div class="form-control mb-4">
+                            <label class="label p-0 mb-1">
+                                <span class="label-text text-xs font-semibold opacity-75">Adjuntar archivo a este avance (opcional - Google Drive):</span>
+                            </label>
+                            <?= $form->field($newUpdate, 'attachmentFile')->fileInput([
+                                'class' => 'file-input file-input-bordered file-input-sm w-full bg-base-100'
                             ])->label(false) ?>
+                        </div>
 
+                        <div class="flex flex-wrap gap-4 mt-3">
                             <div class="form-control">
-                                <label class="label cursor-pointer justify-start gap-4">
+                                <label class="label cursor-pointer justify-start gap-3 p-0">
                                     <?= $form->field($newUpdate, 'is_visible')->checkbox(['class' => 'checkbox checkbox-sm checkbox-primary'], false)->label(false) ?>
-                                    <span class="label-text">Visible para el Cliente</span>
+                                    <span class="label-text font-medium text-xs md:text-sm">Visible para el Cliente</span>
                                 </label>
                             </div>
 
                             <div class="form-control">
-                                <label class="label cursor-pointer justify-start gap-4">
+                                <label class="label cursor-pointer justify-start gap-3 p-0">
                                     <?= $form->field($newUpdate, 'notify_email')->checkbox(['class' => 'checkbox checkbox-sm checkbox-secondary'], false)->label(false) ?>
-                                    <span class="label-text">Notificar por Email</span>
+                                    <span class="label-text font-medium text-xs md:text-sm">Notificar por Email</span>
                                 </label>
                             </div>
 
                             <div class="form-control">
-                                <label class="label cursor-pointer justify-start gap-4">
+                                <label class="label cursor-pointer justify-start gap-3 p-0">
                                     <?= $form->field($newUpdate, 'allow_reply')->checkbox([
                                         'class' => 'checkbox checkbox-sm checkbox-accent',
                                         'onclick' => 'if(this.checked === true) { if(document.getElementById("workorderupdates-is_visible").checked == false) { document.getElementById("workorderupdates-is_visible").checked = true; } if(document.getElementById("workorderupdates-notify_email").checked == false) { document.getElementById("workorderupdates-notify_email").checked = true; } alert("Para que el cliente pueda responder se activará automáticamente las opciones de notificar por email y hacer visible este avance para el cliente."); }'
                                     ], false)->label(false) ?>
-                                    <span class="label-text font-bold">Solicitar respuesta / aclaración del cliente</span>
+                                    <span class="label-text font-bold text-xs md:text-sm">Solicitar respuesta / aclaración del cliente</span>
                                 </label>
                             </div>
+                        </div>
 
-                            <div class="mt-4">
-                                <button type="submit" class="btn btn-primary btn-sm w-full">Publicar en Bitácora</button>
+                        <div class="mt-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+                            <button type="submit" class="btn btn-primary btn-sm px-6 w-full md:w-auto">Publicar Avance</button>
+                            <span class="text-xs opacity-60">💡 <strong>Tip:</strong> Usa notas privadas (sin el check "Visible") para tus recordatorios técnicos internos.</span>
+                        </div>
+
+                        <?php \yii\widgets\ActiveForm::end(); ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <div class="max-w-4xl mx-auto w-full">
+            <div class="flex flex-col items-center w-full">
+                <?php
+                // Obtenemos los avances
+                $query = \app\models\WorkOrderUpdates::find()->where(['work_order_id' => $model->id]);
+
+                // Si NO es admin, solo mostrar los visibles
+                if (!$isAdmin) {
+                    $query->andWhere(['is_visible' => 1]);
+                }
+
+                $updates = $query->orderBy(['created_at' => SORT_DESC])->all();
+                $updatesCount = count($updates);
+                ?>
+
+                <?php if (empty($updates)): ?>
+                    <div class="text-center opacity-50 py-10 w-full">
+                        <p>Aún no hay reportes de avance en este proyecto.</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($updates as $index => $update): ?>
+                        
+                        <!-- Tarjeta de Avance -->
+                        <div class="bg-base-100 p-6 rounded-box shadow-sm border border-base-200 w-full text-left">
+                            <time class="font-mono italic text-xs opacity-50 block mb-2">
+                                <?= Yii::$app->formatter->asDatetime($update->created_at) ?>
+                                <?php if ($isAdmin && !$update->is_visible): ?>
+                                    <span class="badge badge-xs badge-ghost ml-2">Privado 🔒</span>
+                                <?php endif; ?>
+                            </time>
+                            <div class="text-sm text-justify leading-relaxed whitespace-pre-line text-base-content/90">
+                                <?= \yii\helpers\Html::encode($update->description) ?>
                             </div>
 
-                            <?php \yii\widgets\ActiveForm::end(); ?>
+                            <?php if (!empty($update->attachment_url)): ?>
+                                <div class="mt-2 text-xs flex items-center gap-1.5 opacity-80">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-primary">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636l-3.536 3.536m0 0A5 5 0 118.05 4.95m5.778 4.222L12 12m0 0L7.05 16.95m4.95-4.95a5 5 0 11-7.07 7.07m7.07-7.07L12 12" />
+                                    </svg>
+                                    <a href="<?= \yii\helpers\Html::encode($update->attachment_url) ?>" target="_blank" class="link link-primary font-semibold">Ver Documento Adjunto</a>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($update->allow_reply == 1): ?>
+                                <?php if (!empty($update->client_reply)): ?>
+                                    <div class="bg-base-200 p-4 rounded-lg border-l-4 border-primary mt-4">
+                                        <div class="text-xs font-bold text-primary mb-2">Respuesta del cliente:</div>
+                                        <div class="text-sm italic text-justify leading-relaxed whitespace-pre-line text-base-content/85">
+                                            <?= \yii\helpers\Html::encode($update->client_reply) ?>
+                                        </div>
+                                        <?php if (!empty($update->attachment_url)): ?>
+                                            <div class="mt-3 text-xs flex items-center gap-1.5 border-t border-base-300 pt-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-primary">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636l-3.536 3.536m0 0A5 5 0 118.05 4.95m5.778 4.222L12 12m0 0L7.05 16.95m4.95-4.95a5 5 0 11-7.07 7.07m7.07-7.07L12 12" />
+                                                </svg>
+                                                <a href="<?= \yii\helpers\Html::encode($update->attachment_url) ?>" target="_blank" class="link link-primary font-semibold">Ver Archivo Adjunto</a>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="bg-base-200 p-4 rounded-lg border-l-4 border-primary mt-4">
+                                        <div class="text-xs font-bold text-primary mb-2">Este avance requiere tu respuesta:</div>
+                                        <div class="text-sm text-justify">
+                                            <?= \yii\helpers\Html::beginForm(['work-orders/add-reply', 'id' => $model->id], 'post', ['enctype' => 'multipart/form-data']) ?>
+                                            <?= \yii\helpers\Html::hiddenInput('update_id', $update->id) ?>
+                                            <?= \yii\helpers\Html::textarea('reply', '', [
+                                                'class' => 'textarea textarea-bordered w-full bg-base-100',
+                                                'rows' => 3,
+                                                'placeholder' => 'Tu respuesta (solo podrás enviarla una vez)...',
+                                                'required' => true
+                                            ]) ?>
+                                            <div class="mt-3">
+                                                <label class="label p-0 mb-1">
+                                                    <span class="label-text-alt text-xs font-semibold opacity-75">Adjuntar archivo (opcional - Google Drive):</span>
+                                                </label>
+                                                <?= \yii\helpers\Html::fileInput('attachmentFile', null, [
+                                                    'class' => 'file-input file-input-bordered file-input-sm w-full bg-base-100'
+                                                ]) ?>
+                                            </div>
+                                            <?= \yii\helpers\Html::submitButton('Enviar Respuesta', [
+                                                'class' => 'btn btn-primary btn-sm mt-3 px-6',
+                                                'data' => ['confirm' => '¿Estás seguro de enviar esta respuesta? No podrás modificarla después.']
+                                            ]) ?>
+                                            <?= \yii\helpers\Html::endForm() ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endif; ?>
                         </div>
-                    </div>
 
-                    <div class="alert alert-info shadow-sm mt-4 text-xs">
-                        <span>💡 <strong>Tip:</strong> Usa "Visible" para logros completados. Usa notas privadas (sin check)
-                            para tus propios recordatorios técnicos.</span>
-                    </div>
-                 <?php endif; ?>
+                        <!-- Línea Conectora e Icono en el centro -->
+                        <?php if ($index < $updatesCount - 1): ?>
+                            <div class="flex flex-col items-center my-3">
+                                <div class="w-0.5 h-6 bg-primary opacity-60"></div>
+                                <div class="bg-primary text-primary-content rounded-full p-1 shadow-sm flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="w-0.5 h-6 bg-primary opacity-60"></div>
+                            </div>
+                        <?php endif; ?>
 
-        </div><!-- end grid -->
-    <?php endif; ?><!-- end timeline block -->
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <?php if ($model->status === \app\models\WorkOrders::STATUS_APPROVED && $isAdmin): ?>
         <div class="card bg-base-100 shadow-xl border border-success/30 mt-8">

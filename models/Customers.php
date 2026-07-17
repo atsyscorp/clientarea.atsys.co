@@ -289,6 +289,16 @@ class Customers extends \yii\db\ActiveRecord
     }
 
     /**
+     * Gets query for [[WorkOrders]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getWorkOrders()
+    {
+        return $this->hasMany(WorkOrders::class, ['customer_id' => 'id']);
+    }
+
+    /**
      * Relación con el usuario Titular (dueño).
      * @return \yii\db\ActiveQuery
      */

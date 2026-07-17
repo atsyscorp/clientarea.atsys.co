@@ -20,6 +20,7 @@ use Yii;
  *
  * @property Customers $customer
  * @property TicketReplies[] $ticketReplies
+ * @property WorkOrders[] $workOrders
  */
 class Tickets extends \yii\db\ActiveRecord
 {
@@ -218,6 +219,16 @@ class Tickets extends \yii\db\ActiveRecord
     public function getTicketReplies()
     {
         return $this->hasMany(TicketReplies::class, ['ticket_id' => 'id']);
+    }
+
+    /**
+     * Gets query for [[WorkOrders]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getWorkOrders()
+    {
+        return $this->hasMany(WorkOrders::class, ['ticket_id' => 'id']);
     }
 
     /**

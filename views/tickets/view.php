@@ -388,7 +388,24 @@ $this->registerJs($js, \yii\web\View::POS_END);
         <?php endif; ?>
 
         <?php if ($isAdmin): ?>
-            <div class="card bg-base-100 shadow-xl border-l-4 border-error">
+            <div class="card bg-base-100 shadow-xl border border-base-200 mb-4">
+                <div class="card-body p-5">
+                    <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Administración</h3>
+                    <?= Html::a(
+                        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg> Generar Orden de Trabajo',
+                        ['work-orders/create-from-ticket', 'ticket_id' => $model->id],
+                        [
+                            'class' => 'btn btn-primary btn-block gap-2 text-white shadow-md',
+                            'data' => [
+                                'confirm' => '¿Deseas generar una orden de trabajo a partir de este ticket?',
+                                'method' => 'post'
+                            ]
+                        ]
+                    ) ?>
+                </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl border border-base-200 border-l-4 border-error mb-4">
                 <div class="card-body p-5">
                     <h3 class="card-title text-xs uppercase text-error font-bold tracking-wider mb-2">Zona de Peligro</h3>
                     <div class="flex flex-col gap-2">
@@ -403,6 +420,34 @@ $this->registerJs($js, \yii\web\View::POS_END);
                                 ],
                             ]
                         ) ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php 
+        $relatedWorkOrders = $model->workOrders; 
+        if (!empty($relatedWorkOrders)): 
+        ?>
+            <div class="card bg-base-100 shadow-xl border border-base-200 mb-4">
+                <div class="card-body p-5">
+                    <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Órdenes de Trabajo</h3>
+                    <div class="flex flex-col gap-2">
+                        <?php foreach ($relatedWorkOrders as $wo): ?>
+                            <div class="flex justify-between items-center bg-base-200/50 p-2 rounded-lg border border-base-300">
+                                <div class="min-w-0 flex-1 mr-2">
+                                    <?= Html::a(
+                                        Html::encode($wo->code),
+                                        ['work-orders/view', 'id' => $wo->id],
+                                        ['class' => 'font-bold link link-primary text-sm']
+                                    ) ?>
+                                    <span class="block text-xs opacity-65 truncate" title="<?= Html::encode($wo->title) ?>"><?= Html::encode($wo->title) ?></span>
+                                </div>
+                                <div class="shrink-0">
+                                    <?= $wo->getStatusHtml() ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>

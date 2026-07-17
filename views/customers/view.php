@@ -2,6 +2,8 @@
 
 use yii\helpers\Html;
 use yii\widgets\DetailView;
+use app\models\WorkOrders;
+use app\models\Tickets;
 
 /** @var yii\web\View $this */
 /** @var app\models\Customers $model */
@@ -209,9 +211,12 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
     $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
     if ($isAdmin): 
     ?>
-    <div class="tabs tabs-boxed mb-6 justify-center bg-base-200 p-1 rounded-xl max-w-md mx-auto">
+    <div class="tabs tabs-boxed mb-6 justify-center bg-base-200 p-1 rounded-xl max-w-2xl mx-auto">
         <a id="tab-services" class="tab tab-lg font-bold px-6 transition-all duration-200 tab-active btn-primary text-white">
             <i class="fas fa-server mr-2"></i> Servicios
+        </a>
+        <a id="tab-work-orders" class="tab tab-lg font-bold px-6 transition-all duration-200">
+            <i class="fas fa-clipboard-list mr-2"></i> Órdenes
         </a>
         <a id="tab-tickets" class="tab tab-lg font-bold px-6 transition-all duration-200">
             <i class="fas fa-ticket-alt mr-2"></i> Tickets
@@ -393,6 +398,82 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
     </div>
 
     <?php if ($isAdmin): ?>
+    <!-- SECCIÓN: ÓRDENES DE TRABAJO -->
+    <div id="work-orders-sec" class="tab-content-sec hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" /></svg>
+                Últimas Órdenes de Trabajo
+            </h2>
+            
+            <?= Html::a('<i class="fas fa-external-link-alt mr-1"></i> Ver Todas', 
+                ['/work-orders/index', 'WorkOrdersSearch[customer_id]' => $model->id], 
+                ['class' => 'btn btn-primary btn-sm text-white']
+            ) ?>
+        </div>
+
+        <div class="overflow-x-auto bg-base-100 shadow-xl rounded-box border border-base-200">
+            <?php
+            $recentWorkOrders = $model->getWorkOrders()
+                ->orderBy(['created_at' => SORT_DESC])
+                ->limit(10)
+                ->all();
+            ?>
+            <?php if (!empty($recentWorkOrders)): ?>
+            <table class="table table-zebra w-full">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Título</th>
+                        <th>Estado</th>
+                        <th>Costo</th>
+                        <th>Fecha</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recentWorkOrders as $wo): ?>
+                    <tr class="hover">
+                        <td>
+                            <?= Html::a(
+                                Html::encode($wo->code), 
+                                ['/work-orders/view', 'id' => $wo->id], 
+                                ['class' => 'font-bold link link-primary no-underline']
+                            ) ?>
+                        </td>
+                        <td class="max-w-xs truncate"><?= Html::encode($wo->title) ?></td>
+                        <td><?= $wo->getStatusHtml() ?></td>
+                        <td class="font-mono text-sm">
+                            <?php if ($wo->total_cost > 0): ?>
+                                $<?= Yii::$app->formatter->asDecimal($wo->total_cost, 0) ?>
+                                <span class="text-xs text-gray-400"><?= $wo->currency ?></span>
+                            <?php else: ?>
+                                <span class="text-gray-400">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-sm text-gray-500">
+                            <?= Yii::$app->formatter->asDate($wo->created_at, 'php:d M, Y') ?>
+                        </td>
+                        <td class="text-right">
+                            <?= Html::a(
+                                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
+                                ['/work-orders/view', 'id' => $wo->id],
+                                ['class' => 'btn btn-square btn-ghost btn-sm text-primary tooltip tooltip-left', 'data-tip' => 'Ver Detalle', 'title' => 'Ver Detalle']
+                            ) ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php else: ?>
+                <div class="p-8 text-center text-gray-400">
+                    <i class="fas fa-clipboard-list text-4xl mb-2 opacity-50"></i>
+                    <p class="text-sm font-bold">Este cliente no tiene órdenes de trabajo aún.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <!-- SECCIÓN: ANÁLISIS DE TICKETS -->
     <div id="tickets-sec" class="tab-content-sec hidden">
         <?php
@@ -438,7 +519,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <!-- Columna del Doughnut Chart -->
             <div class="card bg-base-100 shadow-xl border border-base-200">
                 <div class="card-body p-6 flex flex-col justify-between">
@@ -483,6 +564,100 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                 </div>
             </div>
         </div>
+
+        <!-- Tabla de Últimos Tickets -->
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" /></svg>
+                Últimos Tickets
+            </h2>
+            
+            <?= Html::a('<i class="fas fa-external-link-alt mr-1"></i> Ver Todos', 
+                ['/tickets/index', 'TicketsSearch[customer_id]' => $model->id], 
+                ['class' => 'btn btn-primary btn-sm text-white']
+            ) ?>
+        </div>
+
+        <div class="overflow-x-auto bg-base-100 shadow-xl rounded-box border border-base-200">
+            <?php
+            $recentTickets = $model->getTickets()
+                ->orderBy(['updated_at' => SORT_DESC])
+                ->limit(10)
+                ->all();
+            
+            $ticketStatusColors = [
+                'open' => 'badge-warning',
+                'answered' => 'badge-success text-white',
+                'customer_reply' => 'badge-info text-white',
+                'closed' => 'badge-ghost',
+                'in_progress' => 'badge-secondary text-white',
+            ];
+            $ticketPriorityColors = [
+                'low' => 'badge-ghost',
+                'medium' => 'badge-info badge-outline',
+                'high' => 'badge-warning badge-outline',
+                'critical' => 'badge-error text-white',
+            ];
+            ?>
+            <?php if (!empty($recentTickets)): ?>
+            <table class="table table-zebra w-full">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Asunto</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                        <th>Departamento</th>
+                        <th>Actualización</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recentTickets as $ticket): ?>
+                    <tr class="hover">
+                        <td>
+                            <?= Html::a(
+                                Html::encode($ticket->ticket_code), 
+                                ['/tickets/view', 'id' => $ticket->id], 
+                                ['class' => 'font-bold link link-primary no-underline']
+                            ) ?>
+                        </td>
+                        <td class="max-w-xs truncate"><?= Html::encode($ticket->subject) ?></td>
+                        <td>
+                            <span class="badge <?= $ticketStatusColors[$ticket->status] ?? 'badge-ghost' ?> font-bold">
+                                <?= Html::encode($ticket->getStatusText()) ?>
+                            </span>
+                        </td>
+                        <td>
+                            <?php 
+                            $priorityLabels = ['low' => 'Baja', 'medium' => 'Media', 'high' => 'Alta', 'critical' => 'Crítica'];
+                            ?>
+                            <span class="badge <?= $ticketPriorityColors[$ticket->priority] ?? 'badge-ghost' ?> font-bold">
+                                <?= $priorityLabels[$ticket->priority] ?? $ticket->priority ?>
+                            </span>
+                        </td>
+                        <td><?= $ticket->getDepartmentLabelShort() ?></td>
+                        <td class="text-sm text-gray-500">
+                            <?= Yii::$app->formatter->asDate($ticket->updated_at, 'php:d M, Y') ?>
+                        </td>
+                        <td class="text-right">
+                            <?= Html::a(
+                                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
+                                ['/tickets/view', 'id' => $ticket->id],
+                                ['class' => 'btn btn-square btn-ghost btn-sm text-primary tooltip tooltip-left', 'data-tip' => 'Ver Ticket', 'title' => 'Ver Ticket']
+                            ) ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php else: ?>
+                <div class="p-8 text-center text-gray-400">
+                    <i class="fas fa-ticket-alt text-4xl mb-2 opacity-50"></i>
+                    <p class="text-sm font-bold">Este cliente no tiene tickets aún.</p>
+                </div>
+            <?php endif; ?>
+        </div>
     </div>
 
     <!-- Scripts de Gráficos e Interactividad -->
@@ -493,32 +668,29 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
     document.addEventListener("DOMContentLoaded", function() {
         // LÓGICA PARA NAVEGAR ENTRE PESTAÑAS (TABS)
         const tabServices = document.getElementById('tab-services');
+        const tabWorkOrders = document.getElementById('tab-work-orders');
         const tabTickets = document.getElementById('tab-tickets');
         const secServices = document.getElementById('services-sec');
+        const secWorkOrders = document.getElementById('work-orders-sec');
         const secTickets = document.getElementById('tickets-sec');
 
-        function selectServices() {
-            if (tabServices && tabTickets) {
-                tabServices.classList.add('tab-active', 'btn-primary', 'text-white');
-                tabTickets.classList.remove('tab-active', 'btn-primary', 'text-white');
-            }
-            if (secServices) secServices.classList.remove('hidden');
-            if (secTickets) secTickets.classList.add('hidden');
+        const allTabs = [tabServices, tabWorkOrders, tabTickets];
+        const allSections = [secServices, secWorkOrders, secTickets];
+
+        function selectTab(activeTab, activeSection) {
+            allTabs.forEach(function(tab) {
+                if (tab) tab.classList.remove('tab-active', 'btn-primary', 'text-white');
+            });
+            allSections.forEach(function(sec) {
+                if (sec) sec.classList.add('hidden');
+            });
+            if (activeTab) activeTab.classList.add('tab-active', 'btn-primary', 'text-white');
+            if (activeSection) activeSection.classList.remove('hidden');
         }
 
-        function selectTickets() {
-            if (tabServices && tabTickets) {
-                tabTickets.classList.add('tab-active', 'btn-primary', 'text-white');
-                tabServices.classList.remove('tab-active', 'btn-primary', 'text-white');
-            }
-            if (secTickets) secTickets.classList.remove('hidden');
-            if (secServices) secServices.classList.add('hidden');
-        }
-
-        if (tabServices && tabTickets) {
-            tabServices.addEventListener('click', selectServices);
-            tabTickets.addEventListener('click', selectTickets);
-        }
+        if (tabServices) tabServices.addEventListener('click', function() { selectTab(tabServices, secServices); });
+        if (tabWorkOrders) tabWorkOrders.addEventListener('click', function() { selectTab(tabWorkOrders, secWorkOrders); });
+        if (tabTickets) tabTickets.addEventListener('click', function() { selectTab(tabTickets, secTickets); });
 
         // INICIALIZACIÓN DE CHART.JS PARA TICKETS (DOUGHNUT)
         const chartCanvas = document.getElementById('ticketsChart');
