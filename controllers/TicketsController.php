@@ -603,6 +603,18 @@ class TicketsController extends \yii\web\Controller
         $model->status = 'in_progress';
 
         if ($model->save(false)) { // save(false) para saltar validaciones de otros campos si no son necesarias
+            // Notificación en plataforma para el Cliente
+            $list = $model::getDepartmentListShort();
+            $deptName = $list[$model->department] ?? 'Soporte';
+
+            Notifications::notifyCustomer(
+                $model->customer_id,
+                "⚙️ Ticket en Proceso: " . $model->ticket_code,
+                "El departamento de {$deptName} ha marcado tu ticket en proceso: " . $model->subject,
+                "/tickets/view?id=" . $model->id,
+                Notifications::TYPE_INFO
+            );
+
             Yii::$app->session->setFlash('success', 'El ticket ahora está marcado como En Progreso.');
         } else {
             Yii::$app->session->setFlash('error', 'Hubo un error al actualizar el estado.');

@@ -68,7 +68,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             <?php if (isset($customers)): ?>
-            <div class="form-control w-full md:col-span-2">
+            <div class="form-control w-full">
                 <label class="label"><span class="label-text font-bold">Cliente</span></label>
                 <?= $form->field($model, 'customer_id', ['template' => '{input}{error}'])->dropDownList(
                     ArrayHelper::map($customers, 'id', 'business_name'),
@@ -76,6 +76,44 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 ) ?>
             </div>
             <?php endif; ?>
+
+            <!-- Contrato Relacionado -->
+            <?php
+            $contractsQuery = \app\models\Contracts::find();
+            if ($model->customer_id) {
+                $contractsQuery->andWhere(['customer_id' => $model->customer_id]);
+            }
+            $contractsList = ArrayHelper::map($contractsQuery->all(), 'id', function($c) {
+                return $c->code . ' - ' . $c->title;
+            });
+            ?>
+            <div class="form-control w-full <?= isset($customers) ? '' : 'md:col-span-2' ?>">
+                <label class="label"><span class="label-text font-bold">Contrato Relacionado (Opcional)</span></label>
+                <?= $form->field($model, 'contract_id', ['template' => '{input}{error}'])->dropDownList(
+                    $contractsList,
+                    ['prompt' => '-- Sin Contrato Vinculado --', 'class' => 'select select-bordered w-full']
+                ) ?>
+            </div>
+
+            <!-- Porcentaje de Avance -->
+            <div class="form-control w-full md:col-span-2">
+                <div class="flex items-center justify-between p-4 bg-info/10 rounded-xl border border-info/20">
+                    <div>
+                        <span class="font-bold text-sm block text-info">Porcentaje de Avance Físico / Técnico</span>
+                        <span class="text-xs opacity-70">Permite registrar el % de progreso completado de esta orden.</span>
+                    </div>
+                    <div class="w-32">
+                        <?= $form->field($model, 'progress_percentage', ['template' => '{input}{error}'])->textInput([
+                            'type' => 'number',
+                            'step' => '0.1',
+                            'min' => '0',
+                            'max' => '100',
+                            'class' => 'input input-bordered input-info w-full text-right font-mono font-bold',
+                            'placeholder' => '0.0%'
+                        ]) ?>
+                    </div>
+                </div>
+            </div>
 
             <!-- Nueva Agrupación: Costo, Moneda y TRM -->
             <div class="form-control w-full md:col-span-2">

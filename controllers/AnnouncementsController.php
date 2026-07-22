@@ -11,6 +11,7 @@ use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use yii\web\Response;
+use app\models\Notifications;
 
 /**
  * AnnouncementsController implementa el CRUD para el modelo Announcements.
@@ -129,6 +130,10 @@ class AnnouncementsController extends Controller
                     ['reaction_type' => $type],
                     ['id' => $existing['id']]
                 )->execute();
+
+                // Notificar al administrador
+                $this->notifyAdminOfReaction($announcementId, $type);
+
                 return ['status' => 'updated'];
             }
         } else {
@@ -138,7 +143,49 @@ class AnnouncementsController extends Controller
                 'user_id' => $userId,
                 'reaction_type' => $type
             ])->execute();
+
+            // Notificar al administrador
+            $this->notifyAdminOfReaction($announcementId, $type);
+
             return ['status' => 'created'];
+        }
+    }
+
+    /**
+     * Envía una notificación al administrador cuando un cliente reacciona a una novedad.
+     */
+    private function notifyAdminOfReaction($announcementId, $type)
+    {
+        try {
+            $announcement = Announcements::findOne($announcementId);
+            if ($announcement) {
+                $emojis = [
+                    'like' => '👍 Me gusta',
+                    'love' => '❤️ Me encanta',
+                    'clap' => '👏 Aplauso',
+                    'idea' => '💡 Buena idea',
+                ];
+                $emojiLabel = $emojis[$type] ?? $type;
+
+                $user = Yii::$app->user->identity;
+                $senderName = $user->username;
+                if (!$user->isAdmin) {
+                    $customerId = $user->getRealCustomerId();
+                    $customer = Customers::findOne($customerId);
+                    if ($customer) {
+                        $senderName = $customer->business_name;
+                    }
+                }
+
+                Notifications::notifyAdmins(
+                    "📢 Reacción en Novedad",
+                    "El cliente {$senderName} reaccionó con {$emojiLabel} al anuncio: \"{$announcement->title}\"",
+                    "/announcements/view?id=" . $announcement->id,
+                    Notifications::TYPE_INFO
+                );
+            }
+        } catch (\Exception $e) {
+            Yii::error("Error enviando notificación de reacción: " . $e->getMessage());
         }
     }
 

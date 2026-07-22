@@ -356,6 +356,18 @@ class WorkOrdersController extends Controller
         // Por defecto, si se envía email, nace como PENDIENTE (1)
         $model->status = WorkOrders::STATUS_PENDING;
 
+        if ($contractId = Yii::$app->request->get('contract_id')) {
+            $model->contract_id = $contractId;
+            $contract = \app\models\Contracts::findOne($contractId);
+            if ($contract) {
+                $model->customer_id = $contract->customer_id;
+                $model->has_service_contract = 1;
+            }
+        }
+        if ($customerId = Yii::$app->request->get('customer_id')) {
+            $model->customer_id = $customerId;
+        }
+
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
 

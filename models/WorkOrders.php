@@ -57,17 +57,17 @@ class WorkOrders extends \yii\db\ActiveRecord
     {
         return [
             // Valores por defecto
-            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url', 'pause_reason', 'ticket_id'], 'default', 'value' => null],
-            [['total_cost', 'total_cost_usd'], 'default', 'value' => 0.00],
+            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url', 'pause_reason', 'ticket_id', 'contract_id'], 'default', 'value' => null],
+            [['total_cost', 'total_cost_usd', 'progress_percentage'], 'default', 'value' => 0.00],
             [['status', 'is_request', 'has_service_contract', 'is_preapproved'], 'default', 'value' => 0],
             [['currency'], 'default', 'value' => 'COP'],
             
             [['customer_id', 'title', 'requirements'], 'required'],
             
             // Tipos de datos
-            [['customer_id', 'status', 'is_request', 'has_service_contract', 'is_preapproved', 'ticket_id'], 'integer'],
+            [['customer_id', 'status', 'is_request', 'has_service_contract', 'is_preapproved', 'ticket_id', 'contract_id'], 'integer'],
             [['requirements', 'notes', 'original_request', 'attachment_url', 'pause_reason'], 'string'],
-            [['total_cost', 'total_cost_usd', 'exchange_rate'], 'number'],
+            [['total_cost', 'total_cost_usd', 'exchange_rate', 'progress_percentage'], 'number'],
             [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'ticket_action'], 'safe'],
             
             // Validaciones de longitud y formato
@@ -87,6 +87,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             // Integridad referencial
             [['customer_id'], 'exist', 'skipOnError' => true, 'targetClass' => Customers::class, 'targetAttribute' => ['customer_id' => 'id']],
             [['ticket_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tickets::class, 'targetAttribute' => ['ticket_id' => 'id']],
+            [['contract_id'], 'exist', 'skipOnError' => true, 'targetClass' => Contracts::class, 'targetAttribute' => ['contract_id' => 'id']],
 
             // VALIDACIÓN CONDICIONAL: TRM obligatoria si es USD o EUR
             [['exchange_rate'], 'required', 'when' => function ($model) {
@@ -106,6 +107,11 @@ class WorkOrders extends \yii\db\ActiveRecord
                 $lastOrder = self::find()->orderBy(['id' => SORT_DESC])->one();
                 $nextId = $lastOrder ? ($lastOrder->id + 1) : 1;
                 $this->code = 'OT'.(($this->is_request == 1) ? 'R' : '').'-' . date('Y') . '-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+            }
+
+            // Si se completa la OT, asegurar que el porcentaje sea 100% si no se especificó otro
+            if ($this->status == self::STATUS_COMPLETED && $this->progress_percentage < 100) {
+                $this->progress_percentage = 100.00;
             }
 
             // --- PROTECCIÓN CONTRA RECÁLCULOS INFINITOS ---
@@ -136,6 +142,14 @@ class WorkOrders extends \yii\db\ActiveRecord
         return false;
     }
 
+    public function afterSave($insert, $changedAttributes)
+    {
+        parent::afterSave($insert, $changedAttributes);
+        if ($this->contract) {
+            $this->contract->recalculateProgress();
+        }
+    }
+
     public function behaviors()
     {
         return [
@@ -151,6 +165,7 @@ class WorkOrders extends \yii\db\ActiveRecord
         return [
             'id'                  => 'ID',
             'customer_id'         => 'Cliente',
+            'contract_id'         => 'Contrato Asociado',
             'code'                => 'Código (OT)',
             'title'               => 'Título del Proyecto',
             'requirements'        => 'Detalle de Requerimientos',
@@ -160,6 +175,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             'exchange_rate'       => 'TRM',
             'total_cost_usd'      => 'Inversión Total (USD)',
             'status'              => 'Estado',
+            'progress_percentage' => '% de Avance',
             'pause_reason'        => 'Motivo de Pausa',
             'down_payment_sent_at'=> 'Anticipo enviado el',
             'created_at'          => 'Fecha Creación',
@@ -172,6 +188,11 @@ class WorkOrders extends \yii\db\ActiveRecord
     public function getCustomer()
     {
         return $this->hasOne(Customers::class, ['id' => 'customer_id']);
+    }
+
+    public function getContract()
+    {
+        return $this->hasOne(Contracts::class, ['id' => 'contract_id']);
     }
 
     public function getTicket()
