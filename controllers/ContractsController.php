@@ -112,6 +112,7 @@ class ContractsController extends Controller
                         "/contracts/view?id=" . $model->id,
                         Notifications::TYPE_SUCCESS
                     );
+                    $this->sendContractEmail($model);
                 }
                 Yii::$app->session->setFlash('success', 'Contrato registrado con éxito. Código: ' . $model->code);
                 return $this->redirect(['view', 'id' => $model->id]);
@@ -162,6 +163,7 @@ class ContractsController extends Controller
                         "/contracts/view?id=" . $model->id,
                         Notifications::TYPE_INFO
                     );
+                    $this->sendContractEmail($model);
                 }
 
                 Yii::$app->session->setFlash('success', 'Contrato actualizado correctamente.');
@@ -294,35 +296,58 @@ class ContractsController extends Controller
         }
 
         $contract = $this->findModel($id);
-        $file = UploadedFile::getInstanceByName('docFile');
+        $files = UploadedFile::getInstancesByName('docFiles');
+        // Fallback si enviaron solo uno con docFile
+        if (empty($files)) {
+            $singleFile = UploadedFile::getInstanceByName('docFile');
+            if ($singleFile) {
+                $files = [$singleFile];
+            }
+        }
 
-        if ($file) {
+        $titles = Yii::$app->request->post('doc_titles', []);
+        $singleTitle = Yii::$app->request->post('doc_title');
+        if (empty($titles) && !empty($singleTitle)) {
+            $titles = [$singleTitle];
+        }
+
+        $uploadedCount = 0;
+
+        if (!empty($files)) {
             $uploadDir = Yii::getAlias('@webroot/uploads/contracts/docs/');
             if (!is_dir($uploadDir)) {
                 FileHelper::createDirectory($uploadDir);
             }
-            $fileName = 'doc_' . time() . '_' . rand(1000, 9999) . '.' . $file->extension;
-            $filePath = $uploadDir . $fileName;
 
-            if ($file->saveAs($filePath)) {
-                $doc = new ContractDocuments();
-                $doc->contract_id = $contract->id;
-                $doc->title = Yii::$app->request->post('doc_title', $file->name);
-                $doc->file_url = '/uploads/contracts/docs/' . $fileName;
-                if ($doc->save()) {
-                    if ($contract->status != Contracts::STATUS_DRAFT) {
-                        Notifications::notifyCustomer(
-                            $contract->customer_id,
-                            "📄 Nuevo Documento en Contrato: " . $contract->code,
-                            "Se ha adjuntado el documento '" . $doc->title . "' en tu contrato " . $contract->code . ".",
-                            "/contracts/view?id=" . $contract->id,
-                            Notifications::TYPE_INFO
-                        );
+            foreach ($files as $i => $file) {
+                $fileName = 'doc_' . time() . '_' . $i . '_' . rand(1000, 9999) . '.' . $file->extension;
+                $filePath = $uploadDir . $fileName;
+
+                if ($file->saveAs($filePath)) {
+                    $doc = new ContractDocuments();
+                    $doc->contract_id = $contract->id;
+                    $docTitle = isset($titles[$i]) && !empty(trim($titles[$i])) ? trim($titles[$i]) : $file->name;
+                    $doc->title = $docTitle;
+                    $doc->file_url = '/uploads/contracts/docs/' . $fileName;
+                    if ($doc->save()) {
+                        $uploadedCount++;
                     }
-                    Yii::$app->session->setFlash('success', 'Documento adjuntado correctamente.');
                 }
+            }
+
+            if ($uploadedCount > 0) {
+                if ($contract->status != Contracts::STATUS_DRAFT) {
+                    Notifications::notifyCustomer(
+                        $contract->customer_id,
+                        "📄 Nuevo(s) Documento(s) en Contrato: " . $contract->code,
+                        "Se han adjuntado " . $uploadedCount . " documento(s) anexo(s) en tu contrato " . $contract->code . ".",
+                        "/contracts/view?id=" . $contract->id,
+                        Notifications::TYPE_INFO
+                    );
+                }
+                Yii::$app->session->setFlash('success', "Se cargaron $uploadedCount documento(s) anexo(s) correctamente.");
             } else {
-                Yii::$app->session->setFlash('error', 'No se pudo guardar el archivo subido.');
+                Yii::$app->session->setFlash('error', 'No se pudieron guardar los archivos subidos.');
             }
         } else {
             Yii::$app->session->setFlash('error', 'No se seleccionó ningún archivo.');
@@ -331,12 +356,62 @@ class ContractsController extends Controller
         return $this->redirect(['view', 'id' => $id]);
     }
 
+    public function actionDeleteDocument($id)
+    {
+        $user = Yii::$app->user->identity;
+        if (!$user->isAdmin) {
+            Yii::$app->session->setFlash('error', 'Acción no permitida.');
+            return $this->redirect(['index']);
+        }
+
+        $doc = ContractDocuments::findOne($id);
+        if ($doc) {
+            $contractId = $doc->contract_id;
+            $filePath = Yii::getAlias('@webroot' . $doc->file_url);
+            if (file_exists($filePath)) {
+                @unlink($filePath);
+            }
+            $doc->delete();
+            Yii::$app->session->setFlash('success', 'Documento anexo eliminado.');
+            return $this->redirect(['view', 'id' => $contractId]);
+        }
+
+        return $this->redirect(['index']);
+    }
+
     public function actionRecalculateProgress($id)
     {
         $contract = $this->findModel($id);
         $contract->recalculateProgress();
         Yii::$app->session->setFlash('info', 'Porcentaje de avance recalculado.');
         return $this->redirect(['view', 'id' => $id]);
+    }
+
+    protected function sendContractEmail($model)
+    {
+        if (!$model->customer || empty($model->customer->email)) {
+            return false;
+        }
+
+        try {
+            $mailer = Yii::$app->mailer->compose(['html' => 'contract_notification-html'], ['model' => $model])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setTo($model->customer->email)
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->setSubject("📜 Nuevo Contrato Activo: " . $model->code . " - " . $model->title);
+
+            if ($model->contract_file) {
+                $filePath = Yii::getAlias('@webroot' . $model->contract_file);
+                if (file_exists($filePath)) {
+                    $mailer->attach($filePath);
+                }
+            }
+
+            return $mailer->send();
+        } catch (\Exception $e) {
+            Yii::error("Error enviando email de contrato " . $model->code . ": " . $e->getMessage());
+            return false;
+        }
     }
 
     protected function findModel($id)

@@ -279,6 +279,60 @@ $this->registerJs($js, \yii\web\View::POS_END);
 
             <div class="card-body border-t border-base-200 bg-base-100 pt-6">
 
+                <?php
+                $existingFeedback = \app\models\ServiceFeedback::find()
+                    ->where(['ticket_id' => $model->ticket_code])
+                    ->orWhere(['ticket_id' => (string)$model->id])
+                    ->one();
+                ?>
+
+                <?php if ($model->status === 'closed'): ?>
+                    <?php if ($existingFeedback): ?>
+                        <div class="alert alert-success shadow-sm bg-success/10 border border-success/20 text-success-content p-4 rounded-2xl mb-4">
+                            <div class="flex items-center gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-success shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <h4 class="font-bold text-sm">¡Gracias por evaluar este servicio!</h4>
+                                    <p class="text-xs opacity-80 mt-0.5">
+                                        Calificaste la atención con <?= $existingFeedback->getRatingStarsHtml() ?> 
+                                        (<?= Yii::$app->formatter->asDatetime($existingFeedback->created_at, 'php:d M Y, h:i a') ?>).
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-5 rounded-2xl mb-6 shadow-sm">
+                            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-base text-base-content">Este ticket ha sido cerrado</h4>
+                                        <p class="text-xs text-base-content/70 mt-0.5">¿Cómo calificas la atención y la solución brindada por nuestro equipo?</p>
+                                    </div>
+                                </div>
+                                <a href="<?= \yii\helpers\Url::to(['/feedback/rate', 'ticket_id' => $model->ticket_code]) ?>" class="btn btn-primary gap-2 rounded-xl shadow-md shrink-0 w-full md:w-auto">
+                                    ⭐ Calificar Atención
+                                </a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
+
+                <?php if ($model->isLocked() && !$isAdmin): ?>
+                    <div class="alert alert-neutral shadow-sm bg-base-200 border-base-300 text-base-content/70">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span>Este ticket se encuentra cerrado.</span>
+                    </div>
+                <?php else: ?>
+
                 <?php $form = ActiveForm::begin([
                     'action' => ['reply', 'id' => $model->id],
                     'options' => ['enctype' => 'multipart/form-data']
@@ -350,6 +404,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 </div>
 
                 <?php ActiveForm::end(); ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -383,6 +438,47 @@ $this->registerJs($js, \yii\web\View::POS_END);
                             'data-confirm' => '¿Confirmas que el problema ha sido resuelto? El ticket cambiará a estado Cerrado.'
                         ]
                     ) ?>
+
+                    <?php if ($isAdmin): ?>
+                        <?= Html::a(
+                            '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg> Cerrar y Bloquear Respuestas',
+                            ['close', 'id' => $model->id, 'lock' => 1],
+                            [
+                                'class' => 'btn btn-outline btn-error btn-block gap-2 mt-3',
+                                'data-method' => 'post',
+                                'data-confirm' => '¿Confirmas que deseas cerrar el ticket y bloquear las respuestas del cliente?'
+                            ]
+                        ) ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php elseif ($isAdmin): ?>
+            <div class="card bg-base-100 shadow-xl border border-base-200">
+                <div class="card-body p-5">
+                    <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Acciones de Bloqueo</h3>
+                    <?php if ($model->isLocked()): ?>
+                        <div class="badge badge-warning gap-1 mb-3 p-3 font-semibold text-xs w-full justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                            Respuestas bloqueadas para cliente
+                        </div>
+                        <?= Html::a(
+                            '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg> Desbloquear Respuestas',
+                            ['toggle-lock', 'id' => $model->id],
+                            [
+                                'class' => 'btn btn-outline btn-info btn-block gap-2',
+                                'data-method' => 'post',
+                            ]
+                        ) ?>
+                    <?php else: ?>
+                        <?= Html::a(
+                            '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg> Bloquear Respuestas',
+                            ['toggle-lock', 'id' => $model->id],
+                            [
+                                'class' => 'btn btn-outline btn-warning btn-block gap-2',
+                                'data-method' => 'post',
+                            ]
+                        ) ?>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>

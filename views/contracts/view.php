@@ -414,22 +414,39 @@ $colorClass = $model->getProgressColorClass();
 
             <?php if ($isAdmin): ?>
                 <div class="bg-base-200/50 p-5 rounded-xl border border-base-200">
-                    <h4 class="font-bold mb-3 text-sm text-primary">Adjuntar nuevo documento o anexo</h4>
+                    <h4 class="font-bold mb-3 text-sm text-primary">Adjuntar documento(s) o anexo(s) al contrato</h4>
                     <?php $formDoc = ActiveForm::begin([
                         'action' => ['upload-document', 'id' => $model->id],
-                        'options' => ['enctype' => 'multipart/form-data', 'class' => 'grid grid-cols-1 md:grid-cols-3 gap-4 items-end'],
+                        'options' => ['enctype' => 'multipart/form-data', 'id' => 'form-upload-docs'],
                     ]); ?>
-                    <div class="form-control w-full">
-                        <label class="label"><span class="label-text font-bold">Título del Documento</span></label>
-                        <input type="text" name="doc_title" required class="input input-bordered w-full" placeholder="ej: Anexo Técnico 1 / Póliza de Cumplimiento" />
+
+                    <div id="doc-rows-container" class="space-y-3">
+                        <div class="doc-row flex flex-col md:flex-row gap-3 items-end bg-base-100 p-3 rounded-lg border border-base-200">
+                            <div class="form-control flex-1">
+                                <label class="label"><span class="label-text font-bold text-xs">Título del Documento</span></label>
+                                <input type="text" name="doc_titles[]" required class="input input-bordered input-sm w-full" placeholder="ej: Anexo Técnico 1 / Póliza de Cumplimiento" />
+                            </div>
+                            <div class="form-control flex-1">
+                                <label class="label"><span class="label-text font-bold text-xs">Archivo</span></label>
+                                <input type="file" name="docFiles[]" required class="file-input file-input-bordered file-input-sm w-full" />
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button type="button" onclick="removeDocRow(this)" class="btn btn-square btn-ghost btn-sm text-error hidden remove-doc-btn" title="Eliminar fila">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-control w-full">
-                        <label class="label"><span class="label-text font-bold">Archivo</span></label>
-                        <input type="file" name="docFile" required class="file-input file-input-bordered w-full" />
+
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mt-4 pt-3 border-t border-base-300">
+                        <button type="button" onclick="addDocRow()" class="btn btn-outline btn-sm btn-primary">
+                            + Agregar otro documento / anexo
+                        </button>
+                        <button type="submit" class="btn btn-primary text-white btn-sm px-6 font-bold shadow">
+                            Subir Documento(s)
+                        </button>
                     </div>
-                    <div>
-                        <button type="submit" class="btn btn-primary text-white w-full">Subir Archivo Anexo</button>
-                    </div>
+
                     <?php ActiveForm::end(); ?>
                 </div>
             <?php endif; ?>
@@ -451,7 +468,19 @@ $colorClass = $model->getProgressColorClass();
                                     <div class="text-xs text-base-content/60">Cargado: <?= date('d/m/Y H:i', strtotime($doc->uploaded_at)) ?></div>
                                 </div>
                             </div>
-                            <a href="<?= Html::encode($doc->file_url) ?>" target="_blank" class="btn btn-sm btn-outline btn-info">Descargar</a>
+                            <div class="flex items-center gap-2">
+                                <a href="<?= Html::encode($doc->file_url) ?>" target="_blank" class="btn btn-sm btn-outline btn-info">Descargar</a>
+                                <?php if ($isAdmin): ?>
+                                    <?= Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>', ['delete-document', 'id' => $doc->id], [
+                                        'class' => 'btn btn-square btn-ghost btn-xs text-error',
+                                        'title' => 'Eliminar anexo',
+                                        'data' => [
+                                            'confirm' => '¿Está seguro de eliminar este documento anexo?',
+                                            'method' => 'post',
+                                        ],
+                                    ]) ?>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -503,7 +532,7 @@ $colorClass = $model->getProgressColorClass();
 </dialog>
 <?php endif; ?>
 
-<!-- Script para control limpio de Pestañas (Tabs) y Modal sin errores de layout -->
+<!-- Script para control limpio de Pestañas (Tabs), Modal y Réplica de Filas de Documentos -->
 <script>
 function switchContractTab(panelId, btnElement) {
     // Ocultar todos los paneles
@@ -550,5 +579,53 @@ function closeAddTaskModal() {
             dialog.classList.remove('modal-open');
         }
     }
+}
+
+function addDocRow() {
+    var container = document.getElementById('doc-rows-container');
+    if (!container) return;
+
+    var rows = container.querySelectorAll('.doc-row');
+    if (rows.length === 0) return;
+
+    var firstRow = rows[0];
+    var newRow = firstRow.cloneNode(true);
+
+    // Limpiar campos
+    var textInput = newRow.querySelector('input[type="text"]');
+    var fileInput = newRow.querySelector('input[type="file"]');
+    if (textInput) textInput.value = '';
+    if (fileInput) fileInput.value = '';
+
+    container.appendChild(newRow);
+    updateRemoveDocButtons();
+}
+
+function removeDocRow(btn) {
+    var container = document.getElementById('doc-rows-container');
+    var rows = container.querySelectorAll('.doc-row');
+    if (rows.length > 1) {
+        var row = btn.closest('.doc-row');
+        if (row) {
+            row.remove();
+        }
+    }
+    updateRemoveDocButtons();
+}
+
+function updateRemoveDocButtons() {
+    var container = document.getElementById('doc-rows-container');
+    if (!container) return;
+    var rows = container.querySelectorAll('.doc-row');
+    rows.forEach(function(row) {
+        var btn = row.querySelector('.remove-doc-btn');
+        if (btn) {
+            if (rows.length > 1) {
+                btn.classList.remove('hidden');
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+    });
 }
 </script>

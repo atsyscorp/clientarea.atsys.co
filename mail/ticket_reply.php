@@ -51,4 +51,16 @@ $formatMessage = function($text, $dark = false) {
     <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #ccc; font-size: 14px; line-height: 1.6; color: #333;">
         <?= $reply ? $formatMessage($reply->message) : '' ?>
     </div>
+
+    <?php if ($ticket): ?>
+        <?php 
+            $rateUrl = Yii::$app->urlManager->createAbsoluteUrl(['feedback/rate', 'ticket_id' => $ticket->ticket_code]);
+        ?>
+        <div style="margin-top: 25px; padding: 15px; background-color: #f8fafc; border: 1px border-style: solid; border-color: #e2e8f0; border-radius: 8px; text-align: center;">
+            <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569; font-weight: bold;">¿Qué tal fue la atención recibida en este mensaje?</p>
+            <a href="<?= $rateUrl ?>" style="display: inline-block; background-color: #134C42; color: #ffffff; padding: 8px 18px; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: bold;">
+                ⭐ Calificar Atención del Servicio
+            </a>
+        </div>
+    <?php endif; ?>
 </div>

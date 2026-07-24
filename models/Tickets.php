@@ -13,6 +13,7 @@ use Yii;
  * @property string $email Email del que reporta
  * @property string $subject
  * @property string|null $status
+ * @property int|null $is_locked
  * @property string|null $priority
  * @property string|null $source
  * @property string|null $created_at
@@ -111,6 +112,8 @@ class Tickets extends \yii\db\ActiveRecord
             [['ticket_code'], 'string', 'max' => 50],
             [['customer_id'], 'default', 'value' => null],
             [['status'], 'default', 'value' => 'open'],
+            [['is_locked'], 'default', 'value' => 0],
+            [['is_locked'], 'boolean'],
             [['priority'], 'default', 'value' => 'medium'],
             [['source'], 'default', 'value' => 'web'],
             [['customer_id'], 'integer'],
@@ -193,6 +196,7 @@ class Tickets extends \yii\db\ActiveRecord
             'email' => 'Email',
             'subject' => 'Asunto',
             'status' => 'Estado',
+            'is_locked' => 'Respuestas Bloqueadas',
             'priority' => 'Prioridad',
             'source' => 'Fuente',
             'department' => 'Departamento',
@@ -331,6 +335,16 @@ class Tickets extends \yii\db\ActiveRecord
     public function setStatusToClosed()
     {
         $this->status = self::STATUS_CLOSED;
+    }
+
+    /**
+     * Retorna verdadero si el ticket tiene bloqueadas las respuestas del cliente.
+     * Incluye verificación de seguridad por si la migración aún no se ha ejecutado en BD.
+     * @return bool
+     */
+    public function isLocked()
+    {
+        return $this->hasAttribute('is_locked') ? (bool)$this->is_locked : false;
     }
 
     /**

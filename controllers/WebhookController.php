@@ -105,6 +105,15 @@ class WebhookController extends Controller
 
             if ($existingTicket) {
 
+                // Si el ticket está bloqueado para respuestas del cliente, responder de forma transparente sin procesar
+                if ($existingTicket->isLocked()) {
+                    $transaction->commit();
+                    return [
+                        'status' => 'success',
+                        'message' => 'El ticket se encuentra cerrado y no acepta nuevas respuestas.'
+                    ];
+                }
+
                 // ----------------------------------------------------------------
                 // CASO: ES RESPUESTA (Agregamos al hilo existente)
                 // ----------------------------------------------------------------

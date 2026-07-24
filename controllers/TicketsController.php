@@ -37,7 +37,7 @@ class TicketsController extends \yii\web\Controller
                         ],
                         // REGLA 2: Solo el ADMIN puede ELIMINAR y actualizar (editar)
                         [
-                            'actions' => ['update', 'in-progress', 'delete'],
+                            'actions' => ['update', 'in-progress', 'delete', 'toggle-lock'],
                             'allow' => true,
                             'roles' => ['@'],
                             'matchCallback' => function ($rule, $action) {
@@ -51,6 +51,7 @@ class TicketsController extends \yii\web\Controller
                     'actions' => [
                         'delete' => ['POST'],
                         'close' => ['POST'], // Cerrar también debería ser POST por seguridad
+                        'toggle-lock' => ['POST'],
                     ],
                 ],
             ]
@@ -178,6 +179,14 @@ class TicketsController extends \yii\web\Controller
     public function actionReply($id)
     {
         $ticket = $this->findModel($id);
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+
+        // Si el ticket está bloqueado para respuestas y no es admin, no permitir responder
+        if ($ticket->isLocked() && !$isAdmin) {
+            Yii::$app->session->setFlash('info', 'El ticket se encuentra cerrado.');
+            return $this->redirect(['view', 'id' => $id]);
+        }
+
         $reply = new TicketReplies(); // Asegúrate de tener el use app\models\TicketReplies;
 
         if ($this->request->isPost) {
@@ -187,7 +196,6 @@ class TicketsController extends \yii\web\Controller
                 $reply->ticket_id = $ticket->id;
 
                 // Determinamos quién responde
-                $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                 $reply->sender_type = $isAdmin ? 'admin' : 'customer';
                 $reply->user_id = Yii::$app->user->id;
 
@@ -569,8 +577,9 @@ class TicketsController extends \yii\web\Controller
     public function actionClose($id)
     {
         $model = $this->findModel($id);
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
-        if (!Yii::$app->user->identity->isAdmin) {
+        if (!$isAdmin) {
             $myCustomerId = Yii::$app->user->identity->realCustomerId;
 
             if (!$myCustomerId || $model->customer_id !== $myCustomerId) {
@@ -578,15 +587,69 @@ class TicketsController extends \yii\web\Controller
             }
         }
 
-        $model->status = Tickets::STATUS_CLOSED; // O el string 'closed' si es como lo guardas
+        $model->status = Tickets::STATUS_CLOSED;
 
-        if ($model->save()) {
-            Yii::$app->session->setFlash('info', 'El ticket ha sido cerrado.');
+        // Solo el administrador puede bloquear respuestas al cerrar
+        if ($isAdmin && $model->hasAttribute('is_locked')) {
+            $lock = Yii::$app->request->post('lock', Yii::$app->request->get('lock', 0));
+            if ($lock) {
+                $model->is_locked = 1;
+            }
+        }
+
+        if ($model->save(false)) {
+            // Enviar correo de cierre con enlace a la encuesta de satisfacción al cliente
+            if (!empty($model->email)) {
+                try {
+                    Yii::$app->mailer->compose('ticket_closed-html', ['ticket' => $model])
+                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                        ->setTo($model->email)
+                        ->setSubject('Ticket Cerrado [' . $model->ticket_code . '] - ¿Cómo fue tu experiencia?')
+                        ->send();
+                } catch (\Exception $e) {
+                    // Silenciar fallos de mailer si SMTP no está disponible
+                }
+            }
+
+            $msg = ($isAdmin && $model->isLocked())
+                ? 'El ticket ha sido cerrado y las respuestas han sido bloqueadas.'
+                : 'El ticket ha sido cerrado.';
+            Yii::$app->session->setFlash('info', $msg);
         } else {
             Yii::$app->session->setFlash('error', 'No se pudo cerrar el ticket.');
         }
 
         return $this->redirect(Yii::$app->request->referrer ?: ['index']);
+    }
+
+    /**
+     * Alterna el estado de bloqueo de respuestas (solo admin)
+     */
+    public function actionToggleLock($id)
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
+        }
+
+        $model = $this->findModel($id);
+
+        if (!$model->hasAttribute('is_locked')) {
+            Yii::$app->session->setFlash('error', 'La base de datos aún no contiene el campo para bloquear respuestas. Por favor ejecuta las migraciones.');
+            return $this->redirect(Yii::$app->request->referrer ?: ['view', 'id' => $id]);
+        }
+
+        $model->is_locked = $model->isLocked() ? 0 : 1;
+
+        if ($model->save(false)) {
+            $msg = $model->isLocked()
+                ? 'Se han bloqueado las respuestas para este ticket.'
+                : 'Se han desbloqueado las respuestas para este ticket.';
+            Yii::$app->session->setFlash('info', $msg);
+        } else {
+            Yii::$app->session->setFlash('error', 'No se pudo actualizar el estado de bloqueo.');
+        }
+
+        return $this->redirect(Yii::$app->request->referrer ?: ['view', 'id' => $id]);
     }
 
     /**

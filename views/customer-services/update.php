@@ -5,7 +5,7 @@ use yii\helpers\Html;
 /** @var yii\web\View $this */
 /** @var app\models\CustomerServices $model */
 
-$this->title = 'Editar Servicio: ' . ($model->domain ?? $model->product->name);
+$this->title = 'Editar Servicio: ' . ($model->domain ?? ($model->product ? $model->product->name : 'Servicio'));
 ?>
 <div class="customer-services-update">
 

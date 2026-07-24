@@ -189,7 +189,7 @@ class CustomerServicesController extends \yii\web\Controller
             if ($model->load($this->request->post())) {
 
                 // 1. Lógica de Asignación de Servidor y Credenciales (SOLO PARA HOSTING)
-                if ($model->product->type == 'hosting') {
+                if ($model->product && $model->product->type == 'hosting') {
 
                     // A. ¿Eligió servidor manualmente o es automático?
                     if (empty($model->server_id)) {
@@ -223,7 +223,7 @@ class CustomerServicesController extends \yii\web\Controller
                 if ($model->save()) {
 
                     // 3. Ejecutar Aprovisionamiento Remoto
-                    if ($model->product->type == 'hosting' && isset($server)) {
+                    if ($model->product && $model->product->type == 'hosting' && isset($server)) {
 
                         $provisionResult = ['success' => false, 'message' => 'Método no implementado'];
 
@@ -319,10 +319,10 @@ class CustomerServicesController extends \yii\web\Controller
 
         if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
 
-            if ($model->product->type == 'hosting' && $model->status != $oldStatus) {
+            if ($model->product && $model->product->type == 'hosting' && $model->status != $oldStatus) {
 
                 // Si el server_id no está en el servicio, usamos el del producto como fallback
-                $serverId = $model->server_id ?? $model->product->server_id;
+                $serverId = $model->server_id ?? ($model->product ? $model->product->server_id : null);
 
                 if ($serverId) {
                     if ($model->status == 2) {
@@ -384,7 +384,7 @@ class CustomerServicesController extends \yii\web\Controller
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
             ->setTo($clientEmail)
             ->setBcc(Yii::$app->params['adminEmail'])
-            ->setSubject('¡Nuevo Servicio Activado! - ' . $service->product->name)
+            ->setSubject('¡Nuevo Servicio Activado! - ' . ($service->product ? $service->product->name : 'Servicio'))
             ->send();
     }
 
@@ -425,7 +425,7 @@ class CustomerServicesController extends \yii\web\Controller
             // Usamos el precio del producto base para la renovación
             // Asegúrate que en CustomerServices tengas la relación 'product' definida:
             // public function getProduct() { return $this->hasOne(Products::class, ['id' => 'product_id']); }
-            $renewalPrice = $service->product->price;
+            $renewalPrice = $service->product ? $service->product->price : 0;
 
             $order->subtotal = $renewalPrice;
             $order->total = $renewalPrice;
@@ -439,7 +439,7 @@ class CustomerServicesController extends \yii\web\Controller
             $item = new OrderItems();
             $item->order_id = $order->id;
             $item->service_id = $service->product_id;
-            $item->service_name = $service->product->name . ' (Renovación)';
+            $item->service_name = ($service->product ? $service->product->name : 'Servicio') . ' (Renovación)';
 
             // Asumiendo que en CustomerServices guardas el dominio en un campo 'domain'
             $item->domain_name = $service->domain;
@@ -576,7 +576,7 @@ class CustomerServicesController extends \yii\web\Controller
         $model = $this->findModel($id);
 
         // 1. Validar tipo de producto
-        if ($model->product->type !== 'hosting') {
+        if (!$model->product || $model->product->type !== 'hosting') {
             Yii::$app->session->setFlash('error', 'Error: El producto seleccionado no es un servicio de hosting.');
             return $this->redirect(Yii::$app->request->referrer);
         }
@@ -586,7 +586,7 @@ class CustomerServicesController extends \yii\web\Controller
         $server = $model->server;
 
         if (!$server) {
-            $serverId = $model->server_id ?? $model->product->server_id;
+            $serverId = $model->server_id ?? ($model->product ? $model->product->server_id : null);
             $server = \app\models\Servers::findOne($serverId);
         }
 

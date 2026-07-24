@@ -343,7 +343,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                             $confirmReactivate = '¿Deseas REACTIVAR este servicio inmediatamente?';
 
                             // Botón Suspender/Reactivar
-                            $btnToggle = ($model->product->type == 'hosting') ? Html::a($model->status == 1 ? $iconSuspend : $iconReactivate, [
+                            $btnToggle = ($model->product && $model->product->type == 'hosting') ? Html::a($model->status == 1 ? $iconSuspend : $iconReactivate, [
                                 '/customer-services/toggle', 
                                 'id' => $model->id
                             ], [
@@ -372,7 +372,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
 
                             // Botón Gráfico (si es hosting)
                             $btnChart = '';
-                            if ($model->product->type == 'hosting') {
+                            if ($model->product && $model->product->type == 'hosting') {
                                 $iconChart = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v5.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 013 18.375v-5.25zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125v-9.75zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v14.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                                 </svg>';

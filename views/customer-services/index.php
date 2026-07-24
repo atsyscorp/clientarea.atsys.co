@@ -90,7 +90,7 @@ $this->title = $isAdmin ? 'Gestión Global de Servicios' : 'Mis Servicios Contra
                         'buttonOptions' => ['class' => 'btn btn-ghost btn-xs'],
                         'visibleButtons' => [
                             'view' => function ($model, $key, $index) {
-                                return $model->product->type == 'hosting';
+                                return $model->product ? ($model->product->type == 'hosting') : false;
                             }
                         ]
                     ],
@@ -286,11 +286,11 @@ $this->title = $isAdmin ? 'Gestión Global de Servicios' : 'Mis Servicios Contra
                         </div>
 
                         <p class="text-sm opacity-70 mt-2">
-                            <?= $model->product->name ?> <br>
+                            <?= $model->product ? Html::encode($model->product->name) : 'Sin Producto' ?> <br>
                             Vence: <span class="font-mono font-bold"><?= Yii::$app->formatter->asDate($model->next_due_date) ?></span>
                             <?php 
                                 $isRestoration = false;
-                                if ($model->product->type == 'domain') {
+                                if ($model->product && $model->product->type == 'domain') {
                                     $threshold = strtotime('+7 days', strtotime($model->next_due_date));
                                     if (time() > $threshold) $isRestoration = true;
                                 }
@@ -319,7 +319,7 @@ $this->title = $isAdmin ? 'Gestión Global de Servicios' : 'Mis Servicios Contra
                         </div>
                         */ ?>
 
-                        <?php if ($model->product->type == 'hosting'): ?>
+                        <?php if ($model->product && $model->product->type == 'hosting'): ?>
                             <div class="card-actions justify-end mt-4">
                                 <?= Html::a('Ver Detalle / Consumo ↗', ['view', 'id' => $model->id], ['class' => 'btn btn-primary btn-sm btn-outline shadow-sm']) ?>
                             </div>
