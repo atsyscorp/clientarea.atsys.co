@@ -138,13 +138,14 @@ class CronController extends Controller
                 'due_date' => $service->next_due_date
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                 ->setTo($customer->email)
                 ->setSubject($subject)
-                ->setBcc(Yii::$app->params['adminEmail'])
                 ->send();
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             echo "Error enviando email: " . $e->getMessage() . "\n";
+            Yii::error("Error enviando email suspensión: " . $e->getMessage());
         }
     }
 
@@ -319,12 +320,12 @@ class CronController extends Controller
                 'color' => $color
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                 ->setTo($customer->email)
                 ->setSubject($subject)
-                ->setBcc(Yii::$app->params['adminEmail'])
                 ->send();
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Yii::error("Error enviando recordatorio: " . $e->getMessage());
         }
     }

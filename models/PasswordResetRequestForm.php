@@ -54,11 +54,16 @@ class PasswordResetRequestForm extends Model
         // Esto crea: tudominio.com/site/reset-password?token=XYZ
         $resetLink = Yii::$app->urlManager->createAbsoluteUrl(['site/reset-password', 'token' => $user->password_reset_token]);
 
-        return Yii::$app->mailer->compose(['html' => 'passwordResetToken-html'], ['user' => $user, 'link' => $resetLink])
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-            ->setTo($this->email)
-            ->setBcc(Yii::$app->params['adminEmail'])
-            ->setSubject('Restablecer contraseña - ' . Yii::$app->name)
-            ->send();
+        try {
+            return Yii::$app->mailer->compose(['html' => 'passwordResetToken-html'], ['user' => $user, 'link' => $resetLink])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                ->setTo($this->email)
+                ->setSubject('Restablecer contraseña - ' . Yii::$app->name)
+                ->send();
+        } catch (\Throwable $e) {
+            Yii::error("Error enviando correo de restablecimiento a {$this->email}: " . $e->getMessage());
+            return false;
+        }
     }
 }

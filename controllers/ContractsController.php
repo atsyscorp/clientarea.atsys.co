@@ -396,8 +396,8 @@ class ContractsController extends Controller
         try {
             $mailer = Yii::$app->mailer->compose(['html' => 'contract_notification-html'], ['model' => $model])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setReplyTo(Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co')
                 ->setTo($model->customer->email)
-                ->setBcc(Yii::$app->params['adminEmail'])
                 ->setSubject("📜 Nuevo Contrato Activo: " . $model->code . " - " . $model->title);
 
             if ($model->contract_file) {
@@ -408,7 +408,7 @@ class ContractsController extends Controller
             }
 
             return $mailer->send();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Yii::error("Error enviando email de contrato " . $model->code . ": " . $e->getMessage());
             return false;
         }

@@ -380,12 +380,16 @@ class CustomerServicesController extends \yii\web\Controller
         if (!$clientEmail)
             return;
 
-        Yii::$app->mailer->compose(['html' => 'new_service-html'], ['service' => $service])
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-            ->setTo($clientEmail)
-            ->setBcc(Yii::$app->params['adminEmail'])
-            ->setSubject('¡Nuevo Servicio Activado! - ' . ($service->product ? $service->product->name : 'Servicio'))
-            ->send();
+        try {
+            Yii::$app->mailer->compose(['html' => 'new_service-html'], ['service' => $service])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                ->setTo($clientEmail)
+                ->setSubject('¡Nuevo Servicio Activado! - ' . ($service->product ? $service->product->name : 'Servicio'))
+                ->send();
+        } catch (\Throwable $e) {
+            Yii::error("Error enviando email activación servicio ID {$service->id}: " . $e->getMessage());
+        }
     }
 
     /**

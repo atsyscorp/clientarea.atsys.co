@@ -196,12 +196,16 @@ class SiteController extends Controller
         $user->verification_token = null;
 
         if ($user->save(false)) {
-            Yii::$app->mailer->compose(['html' => 'welcome-html'], ['user' => $user])
-                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                ->setTo($user->email)
-                ->setBcc(Yii::$app->params['adminEmail'])
-                ->setSubject('¡Bienvenid@ a la familia ATSYS!')
-                ->send();
+            try {
+                Yii::$app->mailer->compose(['html' => 'welcome-html'], ['user' => $user])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                    ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                    ->setTo($user->email)
+                    ->setSubject('¡Bienvenid@ a la familia ATSYS!')
+                    ->send();
+            } catch (\Throwable $e) {
+                Yii::error("Fallo enviando correo de bienvenida a {$user->email}: " . $e->getMessage());
+            }
             return true;
         }
         return false;

@@ -278,16 +278,14 @@ class AnnouncementsController extends Controller
 
         foreach ($clientsQuery->each(10) as $client) {
             try {
-                // Asegúrate de que Yii::$app->params['adminEmail'] esté configurado 
-                // con el correo administrativo oficial (ej. gerencia@atsys.co)
                 $sent = Yii::$app->mailer->compose([
                     'html' => 'clean',
                 ], [
                     'model' => $model
                 ])
-                    ->setFrom([Yii::$app->params['adminEmail'] => Yii::$app->name])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                    ->setReplyTo(Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co')
                     ->setTo($client->email)
-                    ->setBcc([Yii::$app->params['adminEmail']])
                     ->setSubject("Comunicado - " . $model->title)
                     ->send();
 
@@ -296,7 +294,7 @@ class AnnouncementsController extends Controller
                 } else {
                     $errores++;
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Registrar el error silenciosamente en los logs de Yii
                 Yii::error("Fallo al enviar comunicado a {$client->email}: " . $e->getMessage(), 'email');
                 $errores++;

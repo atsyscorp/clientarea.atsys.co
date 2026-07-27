@@ -278,8 +278,10 @@ class TicketsController extends \yii\web\Controller
 
                         // CC mentioned delegates
                         if (!empty($ticket->cc_emails)) {
-                            $ccList = array_map('trim', explode(',', $ticket->cc_emails));
-                            $mailer->setCc($ccList);
+                            $ccList = array_filter(array_map('trim', explode(',', $ticket->cc_emails)));
+                            if (!empty($ccList)) {
+                                $mailer->setCc($ccList);
+                            }
                         }
 
                         if ($reply->attachment) {
@@ -542,33 +544,39 @@ class TicketsController extends \yii\web\Controller
      */
     protected function sendNewTicketEmails($ticket, $messageContent, $user)
     {
-        $adminEmail = Yii::$app->params['adminEmail'];
+        try {
+            $adminEmail = Yii::$app->params['adminEmail'];
 
-        $email = Yii::$app->mailer->compose(
-            ['html' => 'newTicket-html'],
-            ['ticket' => $ticket, 'message' => $messageContent]
-        )
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-            ->setTo($ticket->email)
-            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department] ?? (Yii::$app->params['senderEmail'] ?? 'soporte@atsys.co'))
-            ->setSubject('[#' . $ticket->ticket_code . '] ' . $ticket->subject);
+            $email = Yii::$app->mailer->compose(
+                ['html' => 'newTicket-html'],
+                ['ticket' => $ticket, 'message' => $messageContent]
+            )
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setTo($ticket->email)
+                ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department] ?? (Yii::$app->params['senderEmail'] ?? 'soporte@atsys.co'))
+                ->setSubject('[#' . $ticket->ticket_code . '] ' . $ticket->subject);
 
-        // CC mentioned delegates
-        if (!empty($ticket->cc_emails)) {
-            $ccList = array_map('trim', explode(',', $ticket->cc_emails));
-            $email->setCc($ccList);
+            // CC mentioned delegates
+            if (!empty($ticket->cc_emails)) {
+                $ccList = array_filter(array_map('trim', explode(',', $ticket->cc_emails)));
+                if (!empty($ccList)) {
+                    $email->setCc($ccList);
+                }
+            }
+
+            $email->send();
+
+            Yii::$app->mailer->compose(
+                ['html' => 'adminNewTicket-html'],
+                ['ticket' => $ticket, 'message' => $messageContent, 'user' => $user]
+            )
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setTo($adminEmail)
+                ->setSubject('Nuevo Ticket [' . $ticket->ticket_code . '] - ' . $ticket->subject)
+                ->send();
+        } catch (\Throwable $e) {
+            Yii::error("Fallo al enviar correo de nuevo ticket #{$ticket->ticket_code}: " . $e->getMessage());
         }
-
-        $email->send();
-
-        Yii::$app->mailer->compose(
-            ['html' => 'adminNewTicket-html'],
-            ['ticket' => $ticket, 'message' => $messageContent, 'user' => $user]
-        )
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-            ->setTo($adminEmail)
-            ->setSubject('Nuevo Ticket [' . $ticket->ticket_code . '] - ' . $ticket->subject)
-            ->send();
     }
 
     /**
@@ -603,11 +611,12 @@ class TicketsController extends \yii\web\Controller
                 try {
                     Yii::$app->mailer->compose('ticket_closed-html', ['ticket' => $model])
                         ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                        ->setReplyTo(Yii::$app->params['departmentEmails'][$model->department] ?? (Yii::$app->params['senderEmail'] ?? 'soporte@atsys.co'))
                         ->setTo($model->email)
                         ->setSubject('Ticket Cerrado [' . $model->ticket_code . '] - ¿Cómo fue tu experiencia?')
                         ->send();
-                } catch (\Exception $e) {
-                    // Silenciar fallos de mailer si SMTP no está disponible
+                } catch (\Throwable $e) {
+                    Yii::error("Fallo al enviar correo de cierre de ticket #{$model->ticket_code}: " . $e->getMessage());
                 }
             }
 

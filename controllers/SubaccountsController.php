@@ -89,10 +89,12 @@ class SubaccountsController extends Controller
                             'titular' => Yii::$app->user->identity
                         ])
                         ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                        ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                         ->setTo($model->email)
                         ->setSubject('Tus credenciales de acceso')
                         ->send();
-                    } catch (\Exception $e) {
+                    } catch (\Throwable $e) {
+                        Yii::error("Fallo al enviar correo de bienvenida a delegado {$model->email}: " . $e->getMessage());
                         Yii::$app->session->setFlash('warning', 'Delegado creado, pero falló el envío del correo de bienvenida.');
                     }
 
@@ -194,10 +196,11 @@ class SubaccountsController extends Controller
                     'titularName' => $titularName
                 ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                 ->setTo($userEmail)
                 ->setSubject('Notificación: Tu acceso a ATSYS ha sido revocado')
                 ->send();
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Registramos el error de envío pero permitimos que el flujo continúe
                 Yii::error("Fallo al enviar correo de revocación a $userEmail: " . $e->getMessage());
             }

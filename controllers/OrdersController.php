@@ -311,11 +311,11 @@ class OrdersController extends Controller
                 'domain' => $service->domain,
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                 ->setTo($customer->email)
                 ->setSubject("✅ Servicio reactivado: {$service->domain}")
-                ->setBcc(Yii::$app->params['adminEmail'])
                 ->send();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Yii::error("Error reactivación email: " . $e->getMessage());
         }
     }
@@ -342,11 +342,11 @@ class OrdersController extends Controller
                 'total' => Yii::$app->formatter->asCurrency(($isForeign ? $order->total_usd : $order->total)) . " {$order->currency}"
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['billing'] ?? 'facturacion@atsys.co')
                 ->setTo($customer->email)
                 ->setSubject("✅ Pago Recibido - Orden {$order->code}")
-                ->setBcc(Yii::$app->params['adminEmail'])
                 ->send();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Yii::error("Error recibo pago email: " . $e->getMessage());
         }
     }

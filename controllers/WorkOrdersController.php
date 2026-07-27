@@ -291,8 +291,8 @@ class WorkOrdersController extends Controller
         try {
             Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], ['model' => $model])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                 ->setTo($clientEmail)
-                ->setBcc(Yii::$app->params['adminEmail'])
                 ->setSubject("Nueva Orden de Trabajo: " . $model->title)
                 ->attachContent($pdfContent, [
                     'fileName' => $model->code . '.pdf',
@@ -329,8 +329,8 @@ class WorkOrdersController extends Controller
             // 2. Enviar Correo
             Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], ['model' => $model])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                 ->setTo($model->customer->email)
-                ->setBcc(Yii::$app->params['adminEmail'])
                 ->setSubject("Nueva Orden de Trabajo: " . $model->title)
                 ->attachContent($pdfContent, [
                     'fileName' => $model->code . '.pdf',
@@ -339,7 +339,7 @@ class WorkOrdersController extends Controller
                 ->send();
 
             return true;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Yii::error('Error enviando correo de orden: ' . $e->getMessage());
             return $e->getMessage(); // Retornamos el error para mostrarlo en el flash
         }
@@ -673,11 +673,12 @@ class WorkOrdersController extends Controller
                             'color' => '#134C42'
                         ])
                             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                            ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                             ->setTo($workOrder->customer->email)
-                            ->setBcc(Yii::$app->params['adminEmail'])
                             ->setSubject("Avance: " . $workOrder->title)
                             ->send();
-                    } catch (\Exception $e) {
+                    } catch (\Throwable $e) {
+                        Yii::error("Error enviando notificación de avance OT: " . $e->getMessage());
                     } // Silencioso
                 }
 
@@ -880,14 +881,19 @@ class WorkOrdersController extends Controller
 
                 // Lógica de Notificación
                 if ($this->request->post('notify_client')) {
-                    Yii::$app->mailer->compose(['html' => 'workOrderClosed-html'], ['model' => $model])
-                        ->setFrom([Yii::$app->params['adminEmail'] => Yii::$app->name])
-                        ->setTo($model->customer->email)
-                        ->setBcc(Yii::$app->params['adminEmail'])
-                        ->setSubject('¡Trabajo Finalizado! Orden #' . $model->code)
-                        ->send();
+                    try {
+                        Yii::$app->mailer->compose(['html' => 'workOrderClosed-html'], ['model' => $model])
+                            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                            ->setReplyTo(Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co')
+                            ->setTo($model->customer->email)
+                            ->setSubject('¡Trabajo Finalizado! Orden #' . $model->code)
+                            ->send();
 
-                    Yii::$app->session->setFlash('success', 'Orden cerrada y notificación enviada.');
+                        Yii::$app->session->setFlash('success', 'Orden cerrada y notificación enviada.');
+                    } catch (\Throwable $e) {
+                        Yii::error('Error enviando notificación de cierre OT: ' . $e->getMessage());
+                        Yii::$app->session->setFlash('warning', 'Orden cerrada, pero falló el envío de la notificación por correo.');
+                    }
                 } else {
                     Yii::$app->session->setFlash('success', 'Orden cerrada correctamente (sin notificación).');
                 }
@@ -1041,12 +1047,12 @@ class WorkOrdersController extends Controller
                             'model'  => $model,
                             'label'  => $label,
                         ])
-                        ->setFrom([Yii::$app->params['adminEmail'] => Yii::$app->name])
+                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                        ->setReplyTo(Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co')
                         ->setTo($customer->email)
-                        ->setBcc(Yii::$app->params['adminEmail'])
                         ->setSubject("Actualización sobre tu Orden #{$model->code}")
                         ->send();
-                    } catch (\Exception $e) {
+                    } catch (\Throwable $e) {
                         Yii::error('Error enviando email de pausa OT: ' . $e->getMessage());
                     }
                 }

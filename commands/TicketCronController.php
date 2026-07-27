@@ -139,6 +139,7 @@ class TicketCronController extends Controller
             ])
             ->setTo($ticket->email)
             ->setFrom($sender)
+            ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
             ->setSubject($subject);
 
             if(!$mail->send()) {
@@ -164,7 +165,7 @@ class TicketCronController extends Controller
             if(!$mailAdmin->send()) {
                 Yii::error("No se pudo enviar la copia del email al administrador: " . implode(', ', $adminEmails), __METHOD__);
             }
-        } catch(\Exception $e) {
+        } catch(\Throwable $e) {
             Yii::error("No se pudo enviar el email.", __METHOD__ . " \n Error: " . $e->getMessage());
         }
         
