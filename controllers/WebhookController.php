@@ -114,6 +114,15 @@ class WebhookController extends Controller
                     ];
                 }
 
+                // Si ha alcanzado el límite de 3 respuestas consecutivas sin atención o respuesta
+                if (!$existingTicket->canCustomerReply(false)) {
+                    $transaction->commit();
+                    return [
+                        'status' => 'success',
+                        'message' => 'Límite de 3 respuestas consecutivas alcanzado para este ticket.'
+                    ];
+                }
+
                 // ----------------------------------------------------------------
                 // CASO: ES RESPUESTA (Agregamos al hilo existente)
                 // ----------------------------------------------------------------

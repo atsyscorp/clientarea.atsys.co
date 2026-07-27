@@ -187,6 +187,12 @@ class TicketsController extends \yii\web\Controller
             return $this->redirect(['view', 'id' => $id]);
         }
 
+        // Restringir a máximo 3 respuestas consecutivas del cliente si no está ni respondido ni en progreso
+        if (!$ticket->canCustomerReply($isAdmin)) {
+            Yii::$app->session->setFlash('warning', 'Has alcanzado el límite máximo de 3 respuestas consecutivas sin atención. Por favor espera a que nuestro equipo responda o ponga en proceso tu ticket.');
+            return $this->redirect(['view', 'id' => $id]);
+        }
+
         $reply = new TicketReplies(); // Asegúrate de tener el use app\models\TicketReplies;
 
         if ($this->request->isPost) {

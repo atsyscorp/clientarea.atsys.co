@@ -348,6 +348,53 @@ class Tickets extends \yii\db\ActiveRecord
     }
 
     /**
+     * Cuenta el número de respuestas consecutivas enviadas por el cliente
+     * desde la última respuesta de un administrador.
+     * @return int
+     */
+    public function getConsecutiveCustomerRepliesCount()
+    {
+        $replies = $this->getTicketReplies()
+            ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC])
+            ->all();
+
+        $count = 0;
+        foreach ($replies as $reply) {
+            if ($reply->sender_type === TicketReplies::SENDER_TYPE_ADMIN) {
+                break;
+            }
+            $count++;
+        }
+        return $count;
+    }
+
+    /**
+     * Revisa si el cliente puede responder al ticket.
+     * Restringe a máximo 3 respuestas consecutivas del cliente solo cuando el ticket
+     * NO está respondido (answered) ni en progreso (in_progress).
+     * Admins siempre pueden responder.
+     *
+     * @param bool $isAdmin
+     * @return bool
+     */
+    public function canCustomerReply($isAdmin = false)
+    {
+        if ($isAdmin) {
+            return true;
+        }
+
+        if ($this->isLocked()) {
+            return false;
+        }
+
+        if ($this->status === self::STATUS_ANSWERED || $this->status === self::STATUS_IN_PROGRESS) {
+            return true;
+        }
+
+        return $this->getConsecutiveCustomerRepliesCount() < 3;
+    }
+
+    /**
      * @return string
      */
     public function displayPriority()
