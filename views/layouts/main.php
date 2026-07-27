@@ -258,7 +258,7 @@ if (!Yii::$app->user->isGuest) {
 
         <div class="drawer-content flex flex-col bg-base-200 min-h-screen">
 
-            <div class="navbar bg-base-100 shadow-md px-4 w-full">
+            <div class="navbar bg-base-100/80 backdrop-blur-md border-b border-base-200/50 shadow-sm px-4 w-full sticky top-0 z-40">
                 <!-- Mobile navbar content -->
                 <div class="flex-none lg:hidden">
                     <label for="my-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
@@ -390,7 +390,7 @@ if (!Yii::$app->user->isGuest) {
                                     <span class="text-sm font-bold"><?= strtoupper(substr(Yii::$app->user->identity->username ?? 'U', 0, 2)) ?></span>
                                 </div>
                             </label>
-                            <ul tabindex="0" class="menu dropdown-content z-[30] p-2 shadow-2xl bg-base-100 rounded-2xl w-60 mt-4 border border-base-200">
+                            <ul tabindex="0" class="menu dropdown-content z-[100] p-2 shadow-2xl bg-base-100 rounded-2xl w-60 mt-4 border border-base-200">
                                 <div class="px-4 py-3">
                                     <p class="font-bold text-base text-base-content leading-tight"><?= Html::encode(Yii::$app->user->identity->username) ?></p>
                                     <p class="text-xs text-base-content/60 mt-0.5"><?= Yii::$app->user->identity->isAdmin ? 'Administrador' : 'Cliente ATSYS' ?></p>
@@ -555,7 +555,7 @@ if (!Yii::$app->user->isGuest) {
 
         </div>
 
-        <div class="drawer-side z-20">
+        <div class="drawer-side z-50">
             <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
             <div class="menu p-4 w-80 min-h-full bg-base-100 text-base-content flex flex-col justify-between">
                 <div>

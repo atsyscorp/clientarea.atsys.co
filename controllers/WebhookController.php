@@ -284,7 +284,7 @@ class WebhookController extends Controller
             )
             ->setFrom([$senderEmail => Yii::$app->name])
             ->setTo($ticket->email)
-            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
+            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department] ?? ($senderEmail ?? 'soporte@atsys.co'))
             ->setSubject("[Ticket #{$ticket->ticket_code}] Recibido: {$ticket->subject}")
             ->send();
         } catch (\Throwable $e) {

@@ -272,7 +272,7 @@ class TicketsController extends \yii\web\Controller
                         $department = $ticket->getDepartmentEmail();
                         $mailer = Yii::$app->mailer->compose('ticket_reply', ['reply' => $reply])
                             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
+                            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department] ?? (Yii::$app->params['senderEmail'] ?? 'soporte@atsys.co'))
                             ->setTo($isAdmin ? $ticket->email : $adminEmail)
                             ->setSubject("[#{$ticket->ticket_code}]: " . $ticket->subject);
 
@@ -550,7 +550,7 @@ class TicketsController extends \yii\web\Controller
         )
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
             ->setTo($ticket->email)
-            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department])
+            ->setReplyTo(Yii::$app->params['departmentEmails'][$ticket->department] ?? (Yii::$app->params['senderEmail'] ?? 'soporte@atsys.co'))
             ->setSubject('[#' . $ticket->ticket_code . '] ' . $ticket->subject);
 
         // CC mentioned delegates

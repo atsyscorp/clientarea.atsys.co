@@ -20,7 +20,8 @@ return [
     ],
     'departmentEmails' => [
         'support' => 'soporte@atsys.co',
-        'commercial' => 'hola@atsys.co'
+        'commercial' => 'hola@atsys.co',
+        'billing' => 'facturacion@atsys.co'
     ],
     'n8n' => [
         'webhookUrl' => 'https://n8n-new.atsys.co/webhook/atsys-clientarea-alert',
