@@ -319,4 +319,93 @@ class WebhookController extends Controller
              Yii::error("Error enviando email al admin: " . $e->getMessage());
         }
     }
+
+    /**
+     * Webhook en segundo plano para actualizar órdenes con transacciones de Wompi
+     */
+    public function actionWompi()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $rawBody = Yii::$app->request->getRawBody();
+        $payload = json_decode($rawBody, true);
+
+        if (empty($payload)) {
+            $payload = Yii::$app->request->post();
+        }
+
+        if (empty($payload)) {
+            return ['status' => 'error', 'message' => 'Payload de webhook vacío'];
+        }
+
+        // Estructura de evento de Wompi: { "event": "transaction.updated", "data": { "transaction": { "id": "...", "reference": "...", "status": "APPROVED", ... } } }
+        $transactionData = $payload['data']['transaction'] ?? null;
+
+        // Si viene directamente la estructura de transacción
+        if (!$transactionData && isset($payload['id']) && isset($payload['reference'])) {
+            $transactionData = $payload;
+        }
+
+        if (!$transactionData || empty($transactionData['id'])) {
+            return ['status' => 'error', 'message' => 'Datos de transacción no encontrados en el payload'];
+        }
+
+        $transactionId = $transactionData['id'];
+
+        // Verificación de seguridad: Consultar estado oficial directamente a la API de Wompi
+        $wompiUrl = "https://production.wompi.co/v1/transactions/" . $transactionId;
+
+        try {
+            $response = @file_get_contents($wompiUrl);
+            if ($response === false) {
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $wompiUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                $response = curl_exec($ch);
+                curl_close($ch);
+            }
+
+            $json = json_decode($response, true);
+            if (!isset($json['data'])) {
+                return ['status' => 'error', 'message' => 'Respuesta inválida al verificar con la API de Wompi'];
+            }
+
+            $verifiedData = $json['data'];
+            $reference = $verifiedData['reference'] ?? null;
+            $status = $verifiedData['status'] ?? null;
+            $paymentMethod = $verifiedData['payment_method_type'] ?? 'WOMPI';
+
+            if ($status === 'APPROVED' && $reference) {
+                $order = \app\models\Orders::findOne(['code' => $reference]);
+                if (!$order) {
+                    return ['status' => 'error', 'message' => 'Orden no encontrada con código: ' . $reference];
+                }
+
+                if ($order->status == 0) {
+                    \app\controllers\OrdersController::processSuccessfulPayment($order, $transactionId, $paymentMethod);
+                    return [
+                        'status' => 'success',
+                        'message' => "La orden {$order->code} fue procesada y activada correctamente mediante Webhook de Wompi.",
+                        'order_code' => $order->code
+                    ];
+                } else {
+                    return [
+                        'status' => 'ignored',
+                        'message' => "La orden {$order->code} ya se encontraba en estado procesado ({$order->status}).",
+                        'order_code' => $order->code
+                    ];
+                }
+            }
+
+            return [
+                'status' => 'info',
+                'message' => "Estado de la transacción Wompi: {$status}"
+            ];
+
+        } catch (\Throwable $e) {
+            Yii::error("Error procesando Webhook Wompi: " . $e->getMessage());
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
+    }
 }

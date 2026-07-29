@@ -25,9 +25,69 @@ $displayTotal = $isForeign ? ($model->total_usd ?? $model->total) : $model->tota
 
 // Obtener el Client ID de PayPal para evaluar si está configurado
 $paypalClientId = Yii::$app->params['paypalClientId'] ?? '';
+$isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 ?>
 
 <div class="container mx-auto max-w-3xl">
+
+    <?php if ($isAdmin): ?>
+        <div class="card bg-base-100 shadow-xl mb-6 border-2 border-warning/50">
+            <div class="card-body bg-warning/5">
+                <div class="flex items-center justify-between border-b border-warning/20 pb-3">
+                    <h3 class="card-title text-lg text-warning-content flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Panel de Administración de la Orden
+                    </h3>
+                    <span class="badge badge-warning text-xs font-mono font-bold">SOLO ADMIN</span>
+                </div>
+
+                <form action="<?= Url::to(['orders/change-status', 'id' => $model->id]) ?>" method="POST" class="mt-3">
+                    <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->csrfToken ?>" />
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="label p-1 font-bold text-xs">Estado del Pedido</label>
+                            <select name="status" class="select select-bordered select-sm w-full font-semibold">
+                                <option value="0" <?= $model->status == 0 ? 'selected' : '' ?>>⚠️ Pendiente (0)</option>
+                                <option value="1" <?= $model->status == 1 ? 'selected' : '' ?>>✅ Pagado (1)</option>
+                                <option value="2" <?= $model->status == 2 ? 'selected' : '' ?>>🔷 Activo (2)</option>
+                                <option value="3" <?= $model->status == 3 ? 'selected' : '' ?>>❌ Cancelado (3)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="label p-1 font-bold text-xs">Método de Pago</label>
+                            <input type="text" name="payment_method" value="<?= Html::encode($model->payment_method ?: 'Manual (Admin)') ?>" class="input input-bordered input-sm w-full" placeholder="Ej: Wompi / Transferencia / Nequi" />
+                        </div>
+
+                        <div>
+                            <label class="label p-1 font-bold text-xs">Referencia de Transacción</label>
+                            <input type="text" name="transaction_ref" value="<?= Html::encode($model->transaction_ref ?: '') ?>" class="input input-bordered input-sm w-full" placeholder="Ej: REF-987654" />
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex flex-col md:flex-row justify-between items-center gap-4 pt-2 border-t border-base-200">
+                        <label class="label cursor-pointer justify-start gap-2 bg-base-100 p-2 rounded-lg border border-base-200 w-full md:w-auto">
+                            <input type="checkbox" name="execute_provisioning" value="1" class="checkbox checkbox-primary checkbox-sm" <?= $model->status == 0 ? 'checked' : '' ?> />
+                            <span class="label-text font-semibold text-xs">
+                                🚀 Ejecutar aprovisionamiento automático y notificar al cliente (si pasa a Pagado).
+                            </span>
+                        </label>
+
+                        <button type="submit" class="btn btn-warning btn-sm w-full md:w-auto font-bold gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Actualizar Estado
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <div class="card bg-base-100 shadow-xl mb-6 border border-base-200">
         <div class="card-body">
@@ -170,6 +230,15 @@ $paypalClientId = Yii::$app->params['paypalClientId'] ?? '';
                                     Pagar <?= Yii::$app->formatter->asCurrency($model->total) ?> COP con Wompi
                                 </button>
                             </form>
+
+                            <div class="alert alert-success/10 bg-success/5 border border-success/20 shadow-sm mt-4 p-3 rounded-lg text-xs flex items-center gap-3 text-success">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5 text-success" fill="none" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <strong>Sincronización en segundo plano:</strong> Si completas tu pago y cierras la ventana, Wompi notificará a la plataforma para procesar tu orden automáticamente.
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Sección de Transferencia / QR -->

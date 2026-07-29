@@ -8,6 +8,7 @@ use app\models\Orders;
 use app\models\OrdersSearch;
 use app\models\CustomerServices;
 use yii\web\NotFoundHttpException;
+use yii\web\ForbiddenHttpException;
 use yii\web\Response;
 
 class OrdersController extends Controller
@@ -143,7 +144,7 @@ class OrdersController extends Controller
                 throw new NotFoundHttpException("La orden asociada no existe.");
 
             if ($data['status'] == 'APPROVED') {
-                $this->processSuccessfulPayment($order, $id, $data['payment_method_type']);
+                self::processSuccessfulPayment($order, $id, $data['payment_method_type']);
             }
 
             return $this->render('transaction-result', ['order' => $order, 'wompiData' => $data]);
@@ -181,7 +182,7 @@ class OrdersController extends Controller
                             $item->save(false);
                         }
                     }
-                    $this->processSuccessfulPayment($order, $paypalTransactionId, 'PAYPAL');
+                    self::processSuccessfulPayment($order, $paypalTransactionId, 'PAYPAL');
                     return ['success' => true];
                 }
             }
@@ -190,9 +191,44 @@ class OrdersController extends Controller
     }
 
     /**
+     * Acción para que el administrador cambie manualmente el estado del pedido
+     */
+    public function actionChangeStatus($id)
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new ForbiddenHttpException('No tienes permiso para realizar esta acción.');
+        }
+
+        $order = $this->findModel($id);
+        $request = Yii::$app->request;
+
+        $newStatus = (int) $request->post('status', $request->get('status', $order->status));
+        $paymentMethod = $request->post('payment_method', $request->get('payment_method', $order->payment_method));
+        $transactionRef = $request->post('transaction_ref', $request->get('transaction_ref', $order->transaction_ref));
+        $executeProvisioning = (bool) $request->post('execute_provisioning', $request->get('execute_provisioning', 0));
+
+        if ($newStatus === 1 && $executeProvisioning && $order->status != 1) {
+            self::processSuccessfulPayment($order, $transactionRef ?: 'MANUAL_ADMIN', $paymentMethod ?: 'Manual (Administrador)');
+            Yii::$app->session->setFlash('success', "La orden #{$order->code} se marcó como PAGADA y se procesó el aprovisionamiento de servicios correctamente.");
+        } else {
+            $order->status = $newStatus;
+            if (!empty($paymentMethod)) {
+                $order->payment_method = $paymentMethod;
+            }
+            if (!empty($transactionRef)) {
+                $order->transaction_ref = $transactionRef;
+            }
+            $order->save(false);
+            Yii::$app->session->setFlash('success', "Estado de la orden #{$order->code} actualizado correctamente.");
+        }
+
+        return $this->redirect(['view', 'id' => $order->id]);
+    }
+
+    /**
      * NÚCLEO CENTRALIZADO DE APROVISIONAMIENTO
      */
-    private function processSuccessfulPayment($order, $transactionRef, $paymentMethod)
+    public static function processSuccessfulPayment($order, $transactionRef, $paymentMethod)
     {
         if ($order->status == 0) {
             $order->status = 1;
@@ -221,7 +257,7 @@ class OrdersController extends Controller
                                     \app\components\CyberPanel::unsuspendAccount($serverRen->id, $service->domain);
                                 }
                             }
-                            $this->sendUnsuspensionEmail($service);
+                            self::sendUnsuspensionEmail($service);
                         }
                         $service->save(false);
                     }
@@ -298,11 +334,11 @@ class OrdersController extends Controller
             }
 
             // ENVIAR CONFIRMACIÓN
-            $this->sendPaymentConfirmationEmail($order);
+            self::sendPaymentConfirmationEmail($order);
         }
     }
 
-    private function sendUnsuspensionEmail($service)
+    public static function sendUnsuspensionEmail($service)
     {
         try {
             $customer = $service->customer;
@@ -320,7 +356,7 @@ class OrdersController extends Controller
         }
     }
 
-    private function sendPaymentConfirmationEmail($order)
+    public static function sendPaymentConfirmationEmail($order)
     {
         try {
             $customer = $order->customer;
@@ -349,6 +385,66 @@ class OrdersController extends Controller
         } catch (\Throwable $e) {
             Yii::error("Error recibo pago email: " . $e->getMessage());
         }
+    }
+
+    public function actionDelete($id)
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new ForbiddenHttpException('No tienes permisos para realizar esta acción.');
+        }
+
+        $model = $this->findModel($id);
+        if ($model->delete()) {
+            Yii::$app->session->setFlash('success', 'Orden eliminada correctamente.');
+        } else {
+            Yii::$app->session->setFlash('error', 'No se pudo eliminar la orden.');
+        }
+
+        return $this->redirect(['index']);
+    }
+
+    public function actionBulk()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            return ['success' => false, 'message' => 'No tienes permisos para realizar esta acción.'];
+        }
+
+        if ($this->request->isPost) {
+            $ids = $this->request->post('ids');
+            $action = $this->request->post('action');
+
+            if (empty($ids) || !is_array($ids)) {
+                return ['success' => false, 'message' => 'No has seleccionado ninguna orden.'];
+            }
+
+            $count = 0;
+
+            if ($action === 'delete') {
+                foreach ($ids as $id) {
+                    $model = Orders::findOne($id);
+                    if ($model) {
+                        if ($model->delete()) {
+                            $count++;
+                        }
+                    }
+                }
+
+                $message = "Se eliminaron $count órdenes correctamente.";
+                Yii::$app->session->setFlash('success', $message);
+
+                return [
+                    'success' => true,
+                    'message' => $message,
+                    'count' => $count
+                ];
+            }
+
+            return ['success' => false, 'message' => 'Acción no válida.'];
+        }
+
+        return ['success' => false, 'message' => 'Petición inválida.'];
     }
 
 }

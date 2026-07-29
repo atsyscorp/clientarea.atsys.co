@@ -103,4 +103,14 @@ class Orders extends \yii\db\ActiveRecord
         return $this->hasMany(OrderItems::class, ['order_id' => 'id']);
     }
 
+    public function beforeDelete()
+    {
+        if (!parent::beforeDelete()) {
+            return false;
+        }
+        OrderItems::deleteAll(['order_id' => $this->id]);
+        return true;
+    }
+
 }
+
