@@ -37,6 +37,55 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
+    // --- LÓGICA DE PROYECTOS POR CLIENTE ---
+    const customerSelect = document.getElementById('workorders-customer_id');
+    const projectSelect = document.getElementById('workorders-project_id');
+    const initialProjectId = "<?= $model->project_id ?>";
+
+    function loadProjects(customerId, selectedProjectId) {
+        if (!projectSelect) return;
+        if (!customerId) {
+            projectSelect.innerHTML = '<option value="">-- Seleccione un cliente primero --</option>';
+            return;
+        }
+        fetch('/projects/list-by-customer?customer_id=' + customerId)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.projects.length > 0) {
+                    projectSelect.innerHTML = '';
+                    data.projects.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.textContent = p.code + ' - ' + p.name;
+                        if (selectedProjectId && p.id == selectedProjectId) {
+                            opt.selected = true;
+                        } else if (!selectedProjectId && p.is_default) {
+                            opt.selected = true;
+                        }
+                        projectSelect.appendChild(opt);
+                    });
+                } else {
+                    projectSelect.innerHTML = '<option value="">-- No hay proyectos registrados --</option>';
+                }
+            })
+            .catch(err => console.error('Error cargando proyectos:', err));
+    }
+
+    if (customerSelect) {
+        customerSelect.addEventListener('change', function() {
+            loadProjects(this.value, null);
+        });
+        if (customerSelect.value) {
+            loadProjects(customerSelect.value, initialProjectId);
+        }
+    } else if (projectSelect) {
+        // Si el cliente no es desplegable (ej. vista de cliente), cargar con el customer_id del modelo
+        const currentCustId = "<?= $model->customer_id ?>";
+        if (currentCustId) {
+            loadProjects(currentCustId, initialProjectId);
+        }
+    }
+
     // --- LÓGICA DE MONEDA Y TRM ---
     const currencySelect = document.getElementById('workorders-currency');
     const trmContainer = document.getElementById('trm-container');
@@ -67,15 +116,22 @@ $this->registerJs($js, \yii\web\View::POS_END);
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            <?php if (isset($customers)): ?>
             <div class="form-control w-full">
                 <label class="label"><span class="label-text font-bold">Cliente</span></label>
                 <?= $form->field($model, 'customer_id', ['template' => '{input}{error}'])->dropDownList(
-                    ArrayHelper::map($customers, 'id', 'business_name'),
-                    ['prompt' => 'Seleccione un cliente...', 'class' => 'select select-bordered w-full']
+                    ArrayHelper::map($customers ?? [], 'id', 'business_name'),
+                    ['prompt' => 'Seleccione un cliente...', 'class' => 'select select-bordered w-full', 'id' => 'workorders-customer_id']
                 ) ?>
             </div>
-            <?php endif; ?>
+
+            <!-- Proyecto / Filial -->
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text font-bold">Proyecto / Empresa Filial</span></label>
+                <?= $form->field($model, 'project_id', ['template' => '{input}{error}'])->dropDownList(
+                    [],
+                    ['prompt' => '-- Seleccione un Proyecto --', 'class' => 'select select-bordered w-full', 'id' => 'workorders-project_id']
+                ) ?>
+            </div>
 
             <!-- Contrato Relacionado -->
             <?php
@@ -87,13 +143,14 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 return $c->code . ' - ' . $c->title;
             });
             ?>
-            <div class="form-control w-full <?= isset($customers) ? '' : 'md:col-span-2' ?>">
+            <div class="form-control w-full md:col-span-2">
                 <label class="label"><span class="label-text font-bold">Contrato Relacionado (Opcional)</span></label>
                 <?= $form->field($model, 'contract_id', ['template' => '{input}{error}'])->dropDownList(
                     $contractsList,
                     ['prompt' => '-- Sin Contrato Vinculado --', 'class' => 'select select-bordered w-full']
                 ) ?>
             </div>
+
 
             <!-- Porcentaje de Avance -->
             <div class="form-control w-full md:col-span-2">

@@ -15,7 +15,8 @@ $this->title = 'Actualizar Orden de Trabajo ' . $model->code;
     </div>
 
     <?= $this->render('_form', [
-        'model' => $model
+        'model' => $model,
+        'customers' => $customers,
     ]) ?>
 
 </div>

@@ -84,18 +84,30 @@ class WorkOrdersController extends Controller
             $model->status = WorkOrders::STATUS_APPROVED;
             if ($model->save(false)) {
 
-                // 3. NOTIFICACIÓN AL ADMIN (hola@atsys.co)
+                // 1. Notificación interna en la plataforma al cliente
+                Notifications::notifyCustomer(
+                    $model->customer_id,
+                    "✅ Orden Aprobada: " . $model->code,
+                    "Has aprobado la orden de trabajo: " . $model->title . ". El equipo de ATSYS dará inicio al desarrollo.",
+                    "/work-orders/view?id=" . $model->id,
+                    Notifications::TYPE_SUCCESS
+                );
+
+                // 2. Si existe el campo de una solicitud previa, se elimina
+                if (Yii::$app->request->post('previousOrder')) {
+                    WorkOrders::deleteAll([
+                        'id' => Yii::$app->request->post('previousOrder')
+                    ]);
+                }
+
+                $customerName = !empty($model->customer->business_name)
+                    ? $model->customer->business_name
+                    : ($model->customer->name ?? 'Cliente');
+
+                // 3. Notificación por email al Admin
                 try {
-
-                    // Si existe el campo de una solicitud, debe eliminarse
-                    if (Yii::$app->request->post('previousOrder')) {
-                        WorkOrders::deleteAll([
-                            'id' => Yii::$app->request->post('previousOrder')
-                        ]);
-                    }
-
-                    $htmlContent = "
-                        <p>El cliente <strong>{$model->customer->business_name}</strong> ha aprobado la siguiente orden:</p>
+                    $adminHtmlContent = "
+                        <p>El cliente <strong>{$customerName}</strong> ha aprobado la siguiente orden de trabajo:</p>
                         <ul>
                             <li><strong>Código:</strong> {$model->code}</li>
                             <li><strong>Proyecto:</strong> {$model->title}</li>
@@ -106,16 +118,56 @@ class WorkOrdersController extends Controller
 
                     Yii::$app->mailer->compose(['html' => 'admin-notification'], [
                         'title' => '✅ Orden Aprobada',
-                        'content' => $htmlContent,
+                        'content' => $adminHtmlContent,
                         'color' => '#10b981' // Verde Éxito
                     ])
                         ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                         ->setTo(Yii::$app->params['adminEmail'])
-                        ->setSubject("✅ APROBADA: Orden " . $model->code . " - " . $model->customer->business_name)
+                        ->setSubject("✅ APROBADA: Orden " . $model->code . " - " . $customerName)
                         ->send();
-                } catch (\Exception $e) {
-                    // Si falla el correo, solo lo registramos en logs para no asustar al cliente
-                    Yii::error("Error enviando notificación de aprobación: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    Yii::error("Error enviando correo de aprobación al Admin: " . $e->getMessage());
+                }
+
+                // 4. Notificación por email de confirmación al Cliente (con PDF)
+                if ($model->customer && !empty($model->customer->email)) {
+                    try {
+                        $pdfContent = null;
+                        try {
+                            $pdf = $this->createPdfObject($model, Pdf::DEST_STRING);
+                            $pdfContent = $pdf->render();
+                        } catch (\Throwable $pe) {
+                            Yii::error("Error generando PDF para confirmación al cliente: " . $pe->getMessage());
+                        }
+
+                        $clientHtmlContent = "
+                            <p>Hola <strong>{$customerName}</strong>,</p>
+                            <p>Gracias por aprobar la orden de trabajo <strong>{$model->code}</strong> - <strong>{$model->title}</strong>.</p>
+                            <p>Hemos registrado tu aprobación exitosamente. El equipo de ATSYS dará inicio a las actividades programadas.</p>
+                            <p>Adjunto encontrarás el comprobante en PDF con el detalle de la orden aprobada.</p>
+                        ";
+
+                        $mail = Yii::$app->mailer->compose(['html' => 'admin-notification'], [
+                            'title' => '✅ Confirmación de Aprobación - Orden ' . $model->code,
+                            'content' => $clientHtmlContent,
+                            'color' => '#10b981'
+                        ])
+                            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                            ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                            ->setTo($model->customer->email)
+                            ->setSubject("✅ Confirmación de Aprobación: Orden " . $model->code . " - " . $model->title);
+
+                        if ($pdfContent) {
+                            $mail->attachContent($pdfContent, [
+                                'fileName' => $model->code . '-aprobada.pdf',
+                                'contentType' => 'application/pdf'
+                            ]);
+                        }
+
+                        $mail->send();
+                    } catch (\Throwable $e) {
+                        Yii::error("Error enviando correo de aprobación al Cliente: " . $e->getMessage());
+                    }
                 }
 
                 Yii::$app->session->setFlash('success', 'Has aprobado la orden de trabajo. ¡Comenzaremos pronto!');
@@ -367,6 +419,21 @@ class WorkOrdersController extends Controller
         if ($customerId = Yii::$app->request->get('customer_id')) {
             $model->customer_id = $customerId;
         }
+        if ($projectId = Yii::$app->request->get('project_id')) {
+            $model->project_id = $projectId;
+            $proj = \app\models\Projects::findOne($projectId);
+            if ($proj) {
+                $model->customer_id = $proj->customer_id;
+            }
+        }
+        if ($model->customer_id && !$model->project_id) {
+            $defProj = \app\models\Projects::findOne(['customer_id' => $model->customer_id, 'is_default' => 1])
+                    ?: \app\models\Projects::findOne(['customer_id' => $model->customer_id]);
+            if ($defProj) {
+                $model->project_id = $defProj->id;
+            }
+        }
+
 
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
@@ -556,6 +623,7 @@ class WorkOrdersController extends Controller
 
         return $this->render('update', [
             'model' => $model,
+            'customers' => \app\models\Customers::find()->orderBy('business_name')->all(),
         ]);
     }
 
@@ -654,7 +722,7 @@ class WorkOrdersController extends Controller
                 Notifications::notifyCustomer(
                     $workOrder->customer_id,
                     "🚀 Nuevo avance en Orden: " . $workOrder->code,
-                    "Se ha registrado un nuevo avance en tu orden de trabajo: " . substr(strip_tags($update->description), 0, 80) . "...",
+                    "Se ha registrado un nuevo avance en tu orden de trabajo: " . mb_substr(strip_tags($update->description), 0, 80, 'UTF-8') . "...",
                     "/work-orders/view?id=" . $workOrder->id,
                     Notifications::TYPE_INFO
                 );
@@ -662,7 +730,12 @@ class WorkOrdersController extends Controller
                 // Lógica opcional de notificación
                 if ($update->notify_email) {
                     try {
-                        Yii::$app->mailer->compose(['html' => 'admin-notification'], [
+                        $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+                        $adminEmails = !empty($adminEmail)
+                            ? array_map('trim', explode(',', $adminEmail))
+                            : ['gerencia@atsys.co'];
+
+                        $mail = Yii::$app->mailer->compose(['html' => 'admin-notification'], [
                             'title' => '🚀 Nuevo Avance en tu Proyecto',
                             'content' => "<p>Se ha registrado un nuevo avance en la orden <strong>{$workOrder->code}</strong>:</p>
                                           <blockquote style='background:#f9f9f9; padding:10px; border-left:3px solid #134C42;'>
@@ -675,8 +748,10 @@ class WorkOrdersController extends Controller
                             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                             ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                             ->setTo($workOrder->customer->email)
-                            ->setSubject("Avance: " . $workOrder->title)
-                            ->send();
+                            ->setBcc($adminEmails)
+                            ->setSubject("Avance: " . $workOrder->title);
+
+                        $mail->send();
                     } catch (\Throwable $e) {
                         Yii::error("Error enviando notificación de avance OT: " . $e->getMessage());
                     } // Silencioso
@@ -882,11 +957,16 @@ class WorkOrdersController extends Controller
                 // Lógica de Notificación
                 if ($this->request->post('notify_client')) {
                     try {
-                        Yii::$app->mailer->compose(['html' => 'workOrderClosed-html'], ['model' => $model])
+                        $mailer = Yii::$app->mailer->compose(['html' => 'workOrderClosed-html'], ['model' => $model])
                             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                             ->setReplyTo(Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co')
-                            ->setTo($model->customer->email)
-                            ->setSubject('¡Trabajo Finalizado! Orden #' . $model->code)
+                            ->setTo($model->customer->email);
+
+                        if (!empty(Yii::$app->params['adminEmail'])) {
+                            $mailer->setBcc(Yii::$app->params['adminEmail']);
+                        }
+
+                        $mailer->setSubject('¡Trabajo Finalizado! Orden #' . $model->code)
                             ->send();
 
                         Yii::$app->session->setFlash('success', 'Orden cerrada y notificación enviada.');
@@ -975,7 +1055,7 @@ class WorkOrdersController extends Controller
                 // Notificación en plataforma para Admins
                 Notifications::notifyAdmins(
                     "💬 Respuesta en Avance de Orden: " . $workOrder->code,
-                    "El cliente ha respondido al avance en la orden: " . substr(strip_tags($update->client_reply), 0, 80) . "...",
+                    "El cliente ha respondido al avance en la orden: " . mb_substr(strip_tags($update->client_reply), 0, 80, 'UTF-8') . "...",
                     "/work-orders/view?id=" . $workOrder->id,
                     Notifications::TYPE_INFO
                 );

@@ -57,15 +57,15 @@ class WorkOrders extends \yii\db\ActiveRecord
     {
         return [
             // Valores por defecto
-            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url', 'pause_reason', 'ticket_id', 'contract_id'], 'default', 'value' => null],
+            [['original_request', 'notes', 'exchange_rate', 'total_cost_usd', 'down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'attachment_url', 'pause_reason', 'ticket_id', 'contract_id', 'project_id'], 'default', 'value' => null],
             [['total_cost', 'total_cost_usd', 'progress_percentage'], 'default', 'value' => 0.00],
             [['status', 'is_request', 'has_service_contract', 'is_preapproved'], 'default', 'value' => 0],
             [['currency'], 'default', 'value' => 'COP'],
             
-            [['customer_id', 'title', 'requirements'], 'required'],
+            [['customer_id', 'project_id', 'title', 'requirements'], 'required'],
             
             // Tipos de datos
-            [['customer_id', 'status', 'is_request', 'has_service_contract', 'is_preapproved', 'ticket_id', 'contract_id'], 'integer'],
+            [['customer_id', 'project_id', 'status', 'is_request', 'has_service_contract', 'is_preapproved', 'ticket_id', 'contract_id'], 'integer'],
             [['requirements', 'notes', 'original_request', 'attachment_url', 'pause_reason'], 'string'],
             [['total_cost', 'total_cost_usd', 'exchange_rate', 'progress_percentage'], 'number'],
             [['down_payment_sent_at', 'created_at', 'updated_at', 'completed_at', 'ticket_action'], 'safe'],
@@ -86,8 +86,10 @@ class WorkOrders extends \yii\db\ActiveRecord
             
             // Integridad referencial
             [['customer_id'], 'exist', 'skipOnError' => true, 'targetClass' => Customers::class, 'targetAttribute' => ['customer_id' => 'id']],
+            [['project_id'], 'exist', 'skipOnError' => true, 'targetClass' => Projects::class, 'targetAttribute' => ['project_id' => 'id']],
             [['ticket_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tickets::class, 'targetAttribute' => ['ticket_id' => 'id']],
             [['contract_id'], 'exist', 'skipOnError' => true, 'targetClass' => Contracts::class, 'targetAttribute' => ['contract_id' => 'id']],
+
 
             // VALIDACIÓN CONDICIONAL: TRM obligatoria si es USD o EUR
             [['exchange_rate'], 'required', 'when' => function ($model) {
@@ -165,9 +167,10 @@ class WorkOrders extends \yii\db\ActiveRecord
         return [
             'id'                  => 'ID',
             'customer_id'         => 'Cliente',
+            'project_id'          => 'Proyecto / Filial',
             'contract_id'         => 'Contrato Asociado',
             'code'                => 'Código (OT)',
-            'title'               => 'Título del Proyecto',
+            'title'               => 'Título de la OT',
             'requirements'        => 'Detalle de Requerimientos',
             'notes'               => 'Notas Adicionales',
             'total_cost'          => 'Inversión Total (COP)',
@@ -190,10 +193,16 @@ class WorkOrders extends \yii\db\ActiveRecord
         return $this->hasOne(Customers::class, ['id' => 'customer_id']);
     }
 
+    public function getProject()
+    {
+        return $this->hasOne(Projects::class, ['id' => 'project_id']);
+    }
+
     public function getContract()
     {
         return $this->hasOne(Contracts::class, ['id' => 'contract_id']);
     }
+
 
     public function getTicket()
     {
