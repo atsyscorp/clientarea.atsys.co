@@ -161,6 +161,26 @@ class ProjectsController extends Controller
             ->orderBy(['is_default' => SORT_DESC, 'name' => SORT_ASC])
             ->all();
 
+        // Si el cliente no tiene proyectos aún, creamos el proyecto principal por defecto
+        if (empty($projects)) {
+            $customer = Customers::findOne($customer_id);
+            if ($customer) {
+                $name = !empty($customer->trade_name) ? $customer->trade_name : $customer->business_name;
+                $project = new Projects();
+                $project->customer_id = $customer->id;
+                $project->code = 'PRJ-' . str_pad($customer->id, 4, '0', STR_PAD_LEFT) . '-DEF';
+                $project->name = 'Proyecto Principal - ' . $name;
+                $project->business_name = $customer->business_name;
+                $project->document_number = $customer->document_number;
+                $project->address = $customer->address;
+                $project->is_default = 1;
+                $project->status = Projects::STATUS_ACTIVE;
+                if ($project->save(false)) {
+                    $projects = [$project];
+                }
+            }
+        }
+
         $result = [];
         foreach ($projects as $proj) {
             $result[] = [

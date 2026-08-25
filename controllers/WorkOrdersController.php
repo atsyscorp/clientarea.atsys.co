@@ -524,6 +524,14 @@ class WorkOrdersController extends Controller
         $model->status = WorkOrders::STATUS_DRAFT; // Nace como borrador
         $model->currency = 'COP'; // COP por defecto
         
+        if ($ticket->customer_id) {
+            $defProj = \app\models\Projects::findOne(['customer_id' => $ticket->customer_id, 'is_default' => 1])
+                    ?: \app\models\Projects::findOne(['customer_id' => $ticket->customer_id]);
+            if ($defProj) {
+                $model->project_id = $defProj->id;
+            }
+        }
+
         // Deshabilitar temporalmente la validación del total_cost, TRM, etc. al crear
         if ($model->save(false)) {
             Yii::$app->session->setFlash('success', 'Orden de trabajo borrador generada exitosamente. Por favor, completa la información comercial.');
@@ -591,6 +599,14 @@ class WorkOrdersController extends Controller
         }
 
         $model = $this->findModel($id);
+
+        if ($model->customer_id && !$model->project_id) {
+            $defProj = \app\models\Projects::findOne(['customer_id' => $model->customer_id, 'is_default' => 1])
+                    ?: \app\models\Projects::findOne(['customer_id' => $model->customer_id]);
+            if ($defProj) {
+                $model->project_id = $defProj->id;
+            }
+        }
 
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {

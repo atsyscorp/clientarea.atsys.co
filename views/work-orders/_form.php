@@ -3,17 +3,69 @@
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 use yii\helpers\ArrayHelper;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $model app\models\WorkOrders */
 /* @var $form yii\widgets\ActiveForm */
+
+// Asegurar que siempre tengamos la lista de clientes
+if (!isset($customers) || empty($customers)) {
+    $customers = \app\models\Customers::find()->orderBy('business_name')->all();
+}
+
+// Cargar proyectos del cliente asociado a la orden server-side
+$projectsList = [];
+if ($model->customer_id) {
+    $projects = \app\models\Projects::find()
+        ->where(['customer_id' => $model->customer_id, 'status' => \app\models\Projects::STATUS_ACTIVE])
+        ->orderBy(['is_default' => SORT_DESC, 'name' => SORT_ASC])
+        ->all();
+
+    // Si el cliente no tiene proyectos aún, creamos el proyecto principal por defecto
+    if (empty($projects)) {
+        $custObj = \app\models\Customers::findOne($model->customer_id);
+        if ($custObj) {
+            $name = !empty($custObj->trade_name) ? $custObj->trade_name : $custObj->business_name;
+            $defaultProject = new \app\models\Projects();
+            $defaultProject->customer_id = $custObj->id;
+            $defaultProject->code = 'PRJ-' . str_pad($custObj->id, 4, '0', STR_PAD_LEFT) . '-DEF';
+            $defaultProject->name = 'Proyecto Principal - ' . $name;
+            $defaultProject->business_name = $custObj->business_name;
+            $defaultProject->document_number = $custObj->document_number;
+            $defaultProject->address = $custObj->address;
+            $defaultProject->is_default = 1;
+            $defaultProject->status = \app\models\Projects::STATUS_ACTIVE;
+            if ($defaultProject->save(false)) {
+                $projects = [$defaultProject];
+            }
+        }
+    }
+
+    foreach ($projects as $p) {
+        $projectsList[$p->id] = $p->code . ' - ' . $p->getDisplayName();
+    }
+
+    // Si el modelo aún no tiene project_id asignado, pre-seleccionar el proyecto predeterminado
+    if (!$model->project_id && !empty($projects)) {
+        $defaultProj = null;
+        foreach ($projects as $p) {
+            if ($p->is_default) {
+                $defaultProj = $p;
+                break;
+            }
+        }
+        $model->project_id = $defaultProj ? $defaultProj->id : $projects[0]->id;
+    }
+}
 
 // A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
     'position' => \yii\web\View::POS_HEAD
 ]);
 
-// B. Inicializamos el editor y la lógica de la TRM
+// B. Inicializamos el editor y la lógica de proyectos y TRM
+$projectsListUrl = Url::to(['/projects/list-by-customer']);
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
     // --- LÓGICA DE TINYMCE ---
@@ -40,7 +92,8 @@ document.addEventListener("DOMContentLoaded", function() {
     // --- LÓGICA DE PROYECTOS POR CLIENTE ---
     const customerSelect = document.getElementById('workorders-customer_id');
     const projectSelect = document.getElementById('workorders-project_id');
-    const initialProjectId = "<?= $model->project_id ?>";
+    const initialProjectId = "<?= (string)$model->project_id ?>";
+    const projectsApiUrl = "{$projectsListUrl}";
 
     function loadProjects(customerId, selectedProjectId) {
         if (!projectSelect) return;
@@ -48,40 +101,52 @@ document.addEventListener("DOMContentLoaded", function() {
             projectSelect.innerHTML = '<option value="">-- Seleccione un cliente primero --</option>';
             return;
         }
-        fetch('/projects/list-by-customer?customer_id=' + customerId)
+        
+        projectSelect.innerHTML = '<option value="">Cargando proyectos...</option>';
+        const sep = projectsApiUrl.indexOf('?') !== -1 ? '&' : '?';
+        fetch(projectsApiUrl + sep + 'customer_id=' + encodeURIComponent(customerId))
             .then(res => res.json())
             .then(data => {
                 if (data.success && data.projects.length > 0) {
                     projectSelect.innerHTML = '';
+                    let matched = false;
                     data.projects.forEach(p => {
                         const opt = document.createElement('option');
                         opt.value = p.id;
                         opt.textContent = p.code + ' - ' + p.name;
-                        if (selectedProjectId && p.id == selectedProjectId) {
+                        if (selectedProjectId && String(p.id) === String(selectedProjectId)) {
                             opt.selected = true;
-                        } else if (!selectedProjectId && p.is_default) {
+                            matched = true;
+                        } else if (!selectedProjectId && !matched && p.is_default) {
                             opt.selected = true;
+                            matched = true;
                         }
                         projectSelect.appendChild(opt);
                     });
+                    if (!matched && projectSelect.options.length > 0) {
+                        projectSelect.options[0].selected = true;
+                    }
                 } else {
                     projectSelect.innerHTML = '<option value="">-- No hay proyectos registrados --</option>';
                 }
             })
-            .catch(err => console.error('Error cargando proyectos:', err));
+            .catch(err => {
+                console.error('Error cargando proyectos:', err);
+                projectSelect.innerHTML = '<option value="">-- Error al cargar proyectos --</option>';
+            });
     }
 
     if (customerSelect) {
         customerSelect.addEventListener('change', function() {
             loadProjects(this.value, null);
         });
-        if (customerSelect.value) {
+        // Si el selector no tiene opciones previas cargadas por PHP, cargar vía AJAX
+        if (customerSelect.value && projectSelect && projectSelect.options.length <= 1) {
             loadProjects(customerSelect.value, initialProjectId);
         }
     } else if (projectSelect) {
-        // Si el cliente no es desplegable (ej. vista de cliente), cargar con el customer_id del modelo
-        const currentCustId = "<?= $model->customer_id ?>";
-        if (currentCustId) {
+        const currentCustId = "<?= (string)$model->customer_id ?>";
+        if (currentCustId && projectSelect.options.length <= 1) {
             loadProjects(currentCustId, initialProjectId);
         }
     }
@@ -92,12 +157,13 @@ document.addEventListener("DOMContentLoaded", function() {
     const trmInput = document.getElementById('workorders-exchange_rate');
 
     function toggleTrm() {
+        if (!currencySelect || !trmContainer || !trmInput) return;
         if (currencySelect.value === 'USD' || currencySelect.value === 'EUR') {
             trmContainer.style.display = 'block';
-            trmContainer.classList.add('animate-fade-in'); // Clase opcional si usas animaciones en Tailwind
+            trmContainer.classList.add('animate-fade-in');
         } else {
             trmContainer.style.display = 'none';
-            trmInput.value = ''; // Limpiar el valor para evitar guardar basura
+            trmInput.value = '';
         }
     }
 
@@ -119,7 +185,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
             <div class="form-control w-full">
                 <label class="label"><span class="label-text font-bold">Cliente</span></label>
                 <?= $form->field($model, 'customer_id', ['template' => '{input}{error}'])->dropDownList(
-                    ArrayHelper::map($customers ?? [], 'id', 'business_name'),
+                    ArrayHelper::map($customers, 'id', 'business_name'),
                     ['prompt' => 'Seleccione un cliente...', 'class' => 'select select-bordered w-full', 'id' => 'workorders-customer_id']
                 ) ?>
             </div>
@@ -128,8 +194,12 @@ $this->registerJs($js, \yii\web\View::POS_END);
             <div class="form-control w-full">
                 <label class="label"><span class="label-text font-bold">Proyecto / Empresa Filial</span></label>
                 <?= $form->field($model, 'project_id', ['template' => '{input}{error}'])->dropDownList(
-                    [],
-                    ['prompt' => '-- Seleccione un Proyecto --', 'class' => 'select select-bordered w-full', 'id' => 'workorders-project_id']
+                    $projectsList,
+                    [
+                        'prompt' => empty($projectsList) ? '-- No hay proyectos registrados --' : '-- Seleccione un Proyecto --',
+                        'class' => 'select select-bordered w-full',
+                        'id' => 'workorders-project_id'
+                    ]
                 ) ?>
             </div>
 
