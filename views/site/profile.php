@@ -51,7 +51,6 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
                     </h2>
 
                     <?php $form = ActiveForm::begin(['id' => 'profile-form']); ?>
-                        <?php if(!Yii::$app->session->has('whatsapp_otp')) { ?>
                         <div class="space-y-4">
                             <div>
                                 <label class="label font-bold">Nombre de Usuario</label>
@@ -65,15 +64,7 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
                             <?= $form->field($model, 'password')->passwordInput(['placeholder' => 'Nueva contraseña', 'class' => 'input input-bordered w-full']) ?>
                             <?= $form->field($model, 'confirm_password')->passwordInput(['placeholder' => 'Confirmar', 'class' => 'input input-bordered w-full']) ?>
                         </div>
-                        <?php } ?>
 
-                        <?php if(Yii::$app->session->has('whatsapp_otp')) { ?>
-                            <div class="divider text-xs font-bold opacity-50 mt-6">VERIFICAR TELÉFONO</div>
-                            <div class="grid grid-cols-1 gap-4">
-                                <?= $form->field($model, 'otp')->textInput(['placeholder' => 'Código de verificación', 'class' => 'input input-bordered w-full', 'type' => 'number', 'autocomplete' => 'off'])->label('Código de verificación') ?>
-                                <small>Se ha enviado un código de verificación a tu número de celular. <a href="javascript:void(0);" class="text-primary" onclick="window.location.href = window.location.href + '?change=1';">Corregir número</a></small>
-                            </div>
-                        <?php } else { ?>
                         <div class="divider text-xs font-bold opacity-50 mt-6">CAMBIAR TELÉFONO</div>
                         <div class="grid grid-cols-1 gap-4">
                             <?= $form->field($model, 'mobile',[
@@ -87,15 +78,12 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
                                     'autocomplete' => 'off',
                                 ]
                             ]) ?>
-                            <?php /*<small>Se enviará un código de verificación al nuevo número de teléfono para confirmar el cambio.</small>*/ ?>
                         </div>
-                        <?php } ?>
 
                         <div class="card-actions justify-end mt-4">
-                            <?= Html::submitButton(
-                                (Yii::$app->session->has('whatsapp_otp')) ? 'Verificar' : 'Actualizar datos', 
-                                ['class' => 'btn btn-primary text-white btn-submit']
-                            ) ?>
+                            <?= Html::submitButton('Actualizar datos', [
+                                'class' => 'btn btn-primary text-white btn-submit'
+                            ]) ?>
                         </div>
                     <?php ActiveForm::end(); ?>
                 </div>
