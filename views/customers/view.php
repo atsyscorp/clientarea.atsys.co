@@ -4,6 +4,7 @@ use yii\helpers\Html;
 use yii\widgets\DetailView;
 use app\models\WorkOrders;
 use app\models\Tickets;
+use app\widgets\StatusBadge;
 
 /** @var yii\web\View $this */
 /** @var app\models\Customers $model */
@@ -675,9 +676,10 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                         </td>
                         <td class="max-w-xs truncate"><?= Html::encode($ticket->subject) ?></td>
                         <td>
-                            <span class="badge <?= $ticketStatusColors[$ticket->status] ?? 'badge-ghost' ?> font-bold">
-                                <?= Html::encode($ticket->getStatusText()) ?>
-                            </span>
+                            <?= StatusBadge::widget([
+                                'model'   => $ticket,
+                                'options' => ['class' => 'font-bold'],
+                            ]) ?>
                         </td>
                         <td>
                             <?php 

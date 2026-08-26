@@ -199,17 +199,10 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                                     </div>
                                 </td>
                                 <td>
-                                    <?php
-                                    $badges = [
-                                        'open' => 'badge-error',
-                                        'answered' => 'badge-success',
-                                        'closed' => 'badge-neutral'
-                                    ];
-                                    $class = $badges[$ticket->status] ?? 'badge-ghost';
-                                    $textClass = $ticket->status === 'open' || $ticket->status === 'closed' ? 'text-white' : 'text-black';
-                                    ?>
-                                    <span
-                                        class="badge <?= $class ?> <?= $textClass ?> badge-sm"><?= $ticket->getStatusText() ?></span>
+                                    <?= \app\widgets\StatusBadge::widget([
+                                        'model' => $ticket,
+                                        'size'  => 'sm',
+                                    ]) ?>
                                 </td>
                                 <td class="text-sm opacity-70">
                                     <?= Yii::$app->formatter->asRelativeTime($ticket->created_at) ?>

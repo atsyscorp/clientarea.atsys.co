@@ -501,15 +501,37 @@ class Tickets extends \yii\db\ActiveRecord
         $this->source = self::SOURCE_WHATSAPP;
     }
 
-    public function getStatusText() {
-        $statusLabels = [
-            self::STATUS_OPEN => 'Abierto',
-            self::STATUS_ANSWERED => 'Respondido',
-            self::STATUS_CUSTOMER_REPLY => 'Cliente',
-            self::STATUS_CLOSED => 'Cerrado',
-            self::STATUS_IN_PROGRESS => 'En Proceso',
+    /**
+     * Mapa canónico de estado a color y etiqueta.
+     *
+     * Única fuente de verdad para pintar el estado de un ticket. Antes cada
+     * vista definía el suyo y el mismo estado salía de distinto color según
+     * la pantalla. Para renderizar, usar app\widgets\StatusBadge.
+     *
+     * @return array<string, array{class: string, label: string}>
+     */
+    public static function statusBadgeMap()
+    {
+        return [
+            self::STATUS_OPEN           => ['class' => 'badge-error',   'label' => 'Abierto'],
+            self::STATUS_ANSWERED       => ['class' => 'badge-success', 'label' => 'Respondido'],
+            self::STATUS_CUSTOMER_REPLY => ['class' => 'badge-warning', 'label' => 'Cliente'],
+            self::STATUS_IN_PROGRESS    => ['class' => 'badge-info',    'label' => 'En Proceso'],
+            self::STATUS_CLOSED         => ['class' => 'badge-neutral', 'label' => 'Cerrado'],
         ];
-        return $statusLabels[$this->status] ?? 'Desconocido';
+    }
+
+    /**
+     * @return array{class: string, label: string}
+     */
+    public function getStatusBadge()
+    {
+        return static::statusBadgeMap()[$this->status]
+            ?? ['class' => 'badge-ghost', 'label' => 'Desconocido'];
+    }
+
+    public function getStatusText() {
+        return $this->getStatusBadge()['label'];
     }
 
     public function getLastResponderName()

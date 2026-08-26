@@ -5,6 +5,10 @@ module.exports = {
     "./views/**/*.php",
     "./widgets/**/*.php",
     "./views/layouts/**/*.php",
+    // Los mapas canonicos de estado a color viven en los modelos
+    // (p. ej. Tickets::statusBadgeMap). Sin esta ruta, Tailwind purgaria
+    // esas clases en cuanto dejen de aparecer en alguna vista.
+    "./models/**/*.php",
     "./web/js/**/*.js"
   ],
   safelist: [

@@ -7,6 +7,7 @@ use yii\helpers\Url;
 use yii\helpers\ArrayHelper;
 use app\models\Customers;
 use app\models\Tickets;
+use app\widgets\StatusBadge;
 
 /* @var $this yii\web\View */
 /* @var $dataProvider yii\data\ActiveDataProvider */
@@ -121,20 +122,11 @@ $estadosList = [
                     'attribute' => 'status',
                     'format' => 'raw',
                     'value' => function ($model) {
-                        // Mapeo de colores según estado
-                        $colors = [
-                            'open' => 'badge-error',      // Rojo
-                            'answered' => 'badge-success', // Verde
-                            'customer_reply' => 'badge-warning', // Amarillo
-                            'closed' => 'badge-neutral',   // Gris
-                        ];
-
-                        $colorClass = $colors[$model->status] ?? 'badge-ghost';
-                        $textClass = $model->status === 'open' || $model->status === 'closed' ? 'text-white' : 'text-black';
-
-                        return "<span class='badge {$colorClass} {$textClass} badge-sm gap-2'>
-                                    {$model->getStatusText()}
-                                </span>";
+                        return StatusBadge::widget([
+                            'model'   => $model,
+                            'size'    => 'sm',
+                            'options' => ['class' => 'gap-2'],
+                        ]);
                     },
                     'contentOptions' => ['class' => 'text-center'],
                 ],
@@ -231,9 +223,11 @@ $estadosList = [
                                             <a href="/tickets/view?id=<?= $tkt['id'] ?>" class="text-xs font-extrabold text-primary hover:underline leading-none">
                                                 <?= Html::encode($tkt['ticket_code']) ?>
                                             </a>
-                                            <span class="badge text-[9px] px-1 font-bold h-4 leading-none <?= $badgeColor ?>">
-                                                <?= Html::encode($tkt['status_text']) ?>
-                                            </span>
+                                            <?= StatusBadge::widget([
+                                                'status'  => $tkt['status'],
+                                                'map'     => Tickets::statusBadgeMap(),
+                                                'options' => ['class' => 'text-[9px] px-1 font-bold h-4 leading-none'],
+                                            ]) ?>
                                         </div>
                                         <span class="text-xs font-semibold text-base-content/70 truncate mt-1 group-hover:text-primary transition-colors" title="<?= Html::encode($tkt['subject']) ?>">
                                             <?= Html::encode($tkt['subject']) ?>
