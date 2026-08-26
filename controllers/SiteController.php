@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use yii\helpers\Html;
+
 use Yii;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -239,7 +241,7 @@ class SiteController extends Controller
                 $maskedName = substr($namePart, 0, 1) . str_repeat('*', max(1, strlen($namePart) - 2)) . substr($namePart, -1);
                 $maskedEmail = $maskedName . '@' . $domainPart;
 
-                Yii::$app->session->setFlash('success', 'Hemos enviado las instrucciones al correo ' . $maskedEmail);
+                Yii::$app->session->setFlash('success', 'Hemos enviado las instrucciones al correo ' . Html::encode($maskedEmail));
 
                 return $this->redirect(['site/login']);
             } else {

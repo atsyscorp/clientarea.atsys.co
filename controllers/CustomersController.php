@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use yii\helpers\Html;
+
 use Yii;
 use app\models\Customers;
 use app\models\CustomersSearch;
@@ -202,7 +204,7 @@ class CustomersController extends Controller
         // Iniciamos sesión como el cliente
         if (Yii::$app->user->login($user, 3600 * 24)) {
             Yii::$app->session->set('original_admin_id', $adminId);
-            Yii::$app->session->setFlash('success', 'Has iniciado sesión como ' . ($customer->business_name ?: $customer->contact_name));
+            Yii::$app->session->setFlash('success', 'Has iniciado sesión como ' . Html::encode($customer->business_name ?: $customer->contact_name));
             return $this->redirect(['/site/index']);
         }
         

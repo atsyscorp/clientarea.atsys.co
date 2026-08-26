@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use yii\helpers\Html;
+
 use Yii;
 use app\models\Servers;
 use yii\web\Controller;
@@ -47,7 +49,7 @@ class ServersController extends Controller
         $model = new Servers();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            Yii::$app->session->setFlash('success', "Servidor {$model->name} agregado.");
+            Yii::$app->session->setFlash('success', "Servidor " . Html::encode($model->name) . " agregado.");
             return $this->redirect(['index']);
         }
 
@@ -60,7 +62,7 @@ class ServersController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            Yii::$app->session->setFlash('success', "Configuración de servidor {$model->name} actualizada.");
+            Yii::$app->session->setFlash('success', "Configuración de servidor " . Html::encode($model->name) . " actualizada.");
             return $this->redirect(['index']);
         }
 

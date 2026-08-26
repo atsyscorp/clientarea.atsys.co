@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use yii\helpers\Html;
+
 use Yii;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
@@ -636,7 +638,7 @@ class CustomerServicesController extends \yii\web\Controller
             $msg = $isSuspending ? "SUSPENDIDA" : "REACTIVADA";
             $type = $isSuspending ? 'warning' : 'success';
 
-            Yii::$app->session->setFlash($type, "La cuenta <b>{$model->domain}</b> ha sido {$msg} en el servidor <b>{$server->name}</b> ({$server->type}).");
+            Yii::$app->session->setFlash($type, "La cuenta <b>" . Html::encode($model->domain) . "</b> ha sido {$msg} en el servidor <b>" . Html::encode($server->name) . "</b> ({$server->type}).");
         } else {
             $errorMsg = $provisionResult['message'] ?: "Error en la comunicación con el API de {$server->type}.";
             Yii::$app->session->setFlash('error', "Falló la operación en el servidor físico. Detalle: {$errorMsg}");

@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use yii\helpers\Html;
+
 use Yii;
 use app\models\User;
 use yii\data\ActiveDataProvider;
@@ -129,7 +131,7 @@ class UsersController extends Controller
 
         if (Yii::$app->user->login($user, 3600 * 24)) {
             Yii::$app->session->set('original_admin_id', $adminId);
-            Yii::$app->session->setFlash('success', 'Has iniciado sesión como ' . $user->username);
+            Yii::$app->session->setFlash('success', 'Has iniciado sesión como ' . Html::encode($user->username));
             return $this->redirect(['/site/index']);
         }
 

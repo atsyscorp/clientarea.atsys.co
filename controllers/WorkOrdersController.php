@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use yii\helpers\Html;
+
 use Yii;
 use app\models\WorkOrders;
 use app\models\WorkOrdersSearch; // Crea este search model igual que hiciste con customers
@@ -1153,7 +1155,7 @@ class WorkOrdersController extends Controller
                     }
                 }
 
-                Yii::$app->session->setFlash('success', "Orden marcada como \"{$label}\" correctamente.");
+                Yii::$app->session->setFlash('success', "Orden marcada como \"" . Html::encode($label) . "\" correctamente.");
             } else {
                 Yii::$app->session->setFlash('error', 'No se pudo actualizar el estado de la orden.');
             }

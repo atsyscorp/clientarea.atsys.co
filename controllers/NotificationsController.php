@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use yii\helpers\Html;
+
 use Yii;
 use app\models\Notifications;
 use app\models\Customers;
@@ -139,7 +141,7 @@ class NotificationsController extends Controller
                     $customer = Customers::findOne($customerId);
                     if ($customer) {
                         Notifications::notifyCustomer($customerId, $title, $body, $link, Notifications::TYPE_PROMO);
-                        Yii::$app->session->setFlash('success', "Notificación enviada con éxito al cliente: {$customer->business_name}.");
+                        Yii::$app->session->setFlash('success', "Notificación enviada con éxito al cliente: " . Html::encode($customer->business_name) . ".");
                         return $this->redirect(['index']);
                     } else {
                         Yii::$app->session->setFlash('error', 'El cliente seleccionado no existe.');

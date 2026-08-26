@@ -71,12 +71,14 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
         }
         ?>
         <script>
+            // titleText y text son sumideros de texto plano en SweetAlert2; title
+            // renderiza HTML. Los flashes de login llevan solo texto.
             // sweetalert2 lo carga AppAsset al final del body, así que la llamada
             // debe esperar. json_encode escapa el mensaje: los flashes llevan
             // texto variable y aquí se interpola dentro de un literal JS.
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
-                    title: <?= json_encode($title, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                    titleText: <?= json_encode($title, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
                     text: <?= json_encode($text, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
                     icon: <?= json_encode($type, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
                     confirmButtonText: 'OK'

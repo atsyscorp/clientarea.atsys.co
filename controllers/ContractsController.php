@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use yii\helpers\Html;
+
 use Yii;
 use app\models\Contracts;
 use app\models\ContractsSearch;
@@ -114,7 +116,7 @@ class ContractsController extends Controller
                     );
                     $this->sendContractEmail($model);
                 }
-                Yii::$app->session->setFlash('success', 'Contrato registrado con éxito. Código: ' . $model->code);
+                Yii::$app->session->setFlash('success', 'Contrato registrado con éxito. Código: ' . Html::encode($model->code));
                 return $this->redirect(['view', 'id' => $model->id]);
             }
         }

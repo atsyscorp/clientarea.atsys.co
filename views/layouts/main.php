@@ -5,6 +5,7 @@
 
 use app\assets\AppAsset;
 use yii\helpers\Html;
+use yii\helpers\HtmlPurifier;
 
 AppAsset::register($this);
 
@@ -476,9 +477,9 @@ if (!Yii::$app->user->isGuest) {
                     <div class="alert <?= $alertStyle['class'] ?> shadow-lg">
                         <span class="text-2xl shrink-0"><?= $alertStyle['icon'] ?></span>
                         <div class="w-full">
-                            <h3 class="font-bold text-lg"><?= \yii\helpers\Html::encode($urgentAlert->title) ?></h3>
-                            <div class="text-sm opacity-90">
-                                <?= \yii\helpers\Html::decode($urgentAlert->content) // Usamos decode si guardas HTML básico ?>
+                            <h3 class="font-bold text-lg"><?= \yii\helpers\Html::encode($topAlert->title) ?></h3>
+                            <div class="text-sm opacity-90 prose prose-sm max-w-none text-current">
+                                <?= $topAlert->getFormattedContent() ?>
                             </div>
                         </div>
                     </div>
@@ -540,7 +541,14 @@ if (!Yii::$app->user->isGuest) {
 
                     <div role="alert" class="alert <?= $alertClass ?> mb-5 shadow-lg flex items-center">
                         <?= $icon ?>
-                        <span class="font-medium"><?= $message ?></span>
+                        <span class="font-medium"><?= HtmlPurifier::process($message, [
+                            // Los mensajes flash se pintan como HTML porque unos pocos usan <b>
+                            // para resaltar. Varios interpolan datos del usuario (nombre de
+                            // dominio, correo, errores de validacion), asi que se saneen aqui:
+                            // HtmlPurifier deja el formato y elimina etiquetas y atributos
+                            // ejecutables, incluidos los manejadores de eventos.
+                            'HTML.Allowed' => 'b,strong,i,em,br',
+                        ]) ?></span>
 
                         <button onclick="this.parentElement.style.display='none'"
                             class="btn btn-sm btn-ghost btn-circle ml-auto">✕</button>
