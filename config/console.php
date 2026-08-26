@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/env.php';
+
 $params = require __DIR__ . '/params.php';
 $db = require __DIR__ . '/db.php';
 
@@ -48,13 +50,14 @@ $config = [
             'viewPath' => '@app/mail',
             'useFileTransport' => false,
             'transport' => [
-                'scheme' => 'smtp',
-                'host' => 'nexus01.atsys.co',
-                'username' => 'soporte@atsys.co',
-                'password' => 'rcdu88120kcfrmash',
-                'port' => 587,
+                'scheme' => env('MAIL_SCHEME', 'smtps'),
+                'host' => env('MAIL_HOST', 'nexus01.atsys.co'),
+                // La consola envía como soporte@, la web como noreply@
+                'username' => env_required('MAIL_CONSOLE_USERNAME'),
+                'password' => env_required('MAIL_PASSWORD'),
+                'port' => (int) env('MAIL_PORT', 465),
                 'options' => [
-                    'verify_peer' => 0,
+                    'verify_peer' => env('MAIL_VERIFY_PEER', false) ? 1 : 0,
                 ],
             ],
         ],
@@ -70,6 +73,9 @@ $config = [
             'tableName' => '{{%queue}}',
             'channel' => 'default',
             'mutex' => \yii\mutex\MysqlMutex::class,
+        ],
+        'virtualmin' => [
+            'class' => 'app\components\Virtualmin',
         ],
     ],
     'params' => $params,

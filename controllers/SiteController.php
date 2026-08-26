@@ -162,7 +162,14 @@ class SiteController extends Controller
         $this->layout = 'blank';
 
         if ($model->load(Yii::$app->request->post()) && $model->signup()) {
-            Yii::$app->session->setFlash('success', 'Gracias por registrarte|Se ha enviado un mensaje de verificación a tu correo electrónico, esto puede tomar unos minutos. Revisa también la carpeta de spam en caso tal de no recibirlo en la bandeja de entrada.');
+            if ($model->emailSent) {
+                Yii::$app->session->setFlash('success', 'Gracias por registrarte|Se ha enviado un mensaje de verificación a tu correo electrónico, esto puede tomar unos minutos. Revisa también la carpeta de spam en caso tal de no recibirlo en la bandeja de entrada.');
+            } else {
+                // La cuenta quedó creada pero el correo de verificación falló:
+                // avisamos en vez de dejar al usuario esperando un mensaje que no llega.
+                $supportEmail = Yii::$app->params['departmentEmails']['support'] ?? Yii::$app->params['adminEmail'];
+                Yii::$app->session->setFlash('warning', 'Tu cuenta fue creada|No pudimos enviar el correo de verificación en este momento. Escríbenos a ' . $supportEmail . ' para activarla.');
+            }
             return $this->redirect(['site/login']);
         }
 

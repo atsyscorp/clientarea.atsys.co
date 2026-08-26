@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/env.php';
+
 $params = require __DIR__ . '/params.php';
 $db = require __DIR__ . '/db.php';
 
@@ -14,7 +16,19 @@ $config = [
         'log',
         function ($app) {
             \app\models\SystemSettings::loadToParams();
-        }
+        },
+        // Limita el tiempo de conexión/lectura SMTP. Sin esto Symfony usa
+        // default_socket_timeout (60s) por operación y un servidor de correo
+        // lento cuelga el request completo hasta que el proxy devuelve 504.
+        function ($app) {
+            $transport = $app->mailer->getTransport();
+            if ($transport instanceof \Symfony\Component\Mailer\Transport\Smtp\SmtpTransport) {
+                $stream = $transport->getStream();
+                if ($stream instanceof \Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream) {
+                    $stream->setTimeout(15);
+                }
+            }
+        },
     ],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
@@ -23,7 +37,7 @@ $config = [
     'components' => [
         'request' => [
             // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
-            'cookieValidationKey' => 'vPb_geIlTPAEC4eeCFvViGPCqeIpbkh-',
+            'cookieValidationKey' => env_required('COOKIE_VALIDATION_KEY'),
             'parsers' => [
                 'application/json' => 'yii\web\JsonParser',
             ]
@@ -43,13 +57,13 @@ $config = [
             'viewPath' => '@app/mail',
             'useFileTransport' => false,
             'transport' => [
-                'scheme' => 'smtp',
-                'host' => 'nexus01.atsys.co',
-                'username' => 'noreply@atsys.co',
-                'password' => 'rcdu88120kcfrmash',
-                'port' => 587,
+                'scheme' => env('MAIL_SCHEME', 'smtps'),
+                'host' => env('MAIL_HOST', 'nexus01.atsys.co'),
+                'username' => env_required('MAIL_USERNAME'),
+                'password' => env_required('MAIL_PASSWORD'),
+                'port' => (int) env('MAIL_PORT', 465),
                 'options' => [
-                    'verify_peer' => 0,
+                    'verify_peer' => env('MAIL_VERIFY_PEER', false) ? 1 : 0,
                 ],
             ],
         ],
@@ -109,12 +123,27 @@ $config = [
         ],
         'httpClient' => [
             'class' => 'yii\httpclient\Client',
-            'baseUrl' => 'https://n8n.atsys.co', // URL base de tu n8n
+            'baseUrl' => env('N8N_BASE_URL', 'https://n8n.atsys.co'), // URL base de tu n8n
+            // CurlTransport + timeouts: el transporte por defecto (StreamTransport)
+            // no tiene límite y hereda default_socket_timeout (60s). Un n8n caído
+            // bloquearía el request hasta que el proxy devuelva 504.
+            'transport' => 'yii\httpclient\CurlTransport',
+            'requestConfig' => [
+                'options' => [
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                    CURLOPT_TIMEOUT => 10,
+                ],
+            ],
         ],
         'turnstile' => [
             'class' => 'easedevs\yii2\turnstile\TurnstileConfig',
-            'siteKey' => '0x4AAAAAACUI5outpThWhZZH',
-            'secret' => '0x4AAAAAACUI5h_9WeEbKlMvjgaSJpvwXa8',
+            'siteKey' => env_required('TURNSTILE_SITE_KEY'),
+            'secret' => env_required('TURNSTILE_SECRET'),
+            // OJO: no sirve poner 'httpClient' aquí. El contenedor DI autoinyecta
+            // un Client por defecto en el constructor del validador (parámetro
+            // tipado `Client $httpClient = null`), así que configureComponent()
+            // nunca llega a leer esta propiedad. Los timeouts se fijan en
+            // app\components\TurnstileValidator::init().
         ],
         'queue' => [
             'class' => \yii\queue\db\Queue::class,

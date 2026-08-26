@@ -26,7 +26,8 @@
         "2amigos/yii2-tinymce-widget": "^1.1",
         "easedevs/yii2-turnstile-validator": "*",
         "yiisoft/yii2-queue": "^2.3",
-        "borales/yii2-phone-input": "*"
+        "borales/yii2-phone-input": "*",
+        "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",

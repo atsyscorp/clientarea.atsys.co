@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/env.php';
+
 return [
     'adminEmail' => 'gerencia@atsys.co',
     'senderEmail' => 'noreply@atsys.co',
@@ -24,9 +26,10 @@ return [
         'billing' => 'facturacion@atsys.co'
     ],
     'n8n' => [
-        'webhookUrl' => 'https://n8n-new.atsys.co/webhook/atsys-clientarea-alert',
+        'webhookUrl' => env('N8N_WEBHOOK_URL', 'https://n8n-new.atsys.co/webhook/atsys-clientarea-alert'),
     ],
     'fallback_trm' => 4000.00,
     'fallback_trm_eur' => 4300.00,
+    'webhookSecretKey' => getenv('WEBHOOK_SECRET_KEY') ?: 'at_isW52qtEVPZG9Px6Vp1R3kShHyN1Zray',
 ];
 

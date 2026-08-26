@@ -1,2 +1,5 @@
 node_modules
 vendor
+.env
+.env.local
+config/*-local.php

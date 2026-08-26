@@ -5,9 +5,8 @@ namespace app\models;
 use Yii;
 use yii\base\Model;
 use app\models\User;
-use borales\extensions\phoneInput\PhoneInputValidator;
 
-use easedevs\yii2\turnstile\TurnstileInputValidator;
+use app\components\TurnstileValidator;
 
 /**
  * SignupForm es el modelo detrás del formulario de registro.
@@ -17,8 +16,13 @@ class SignupForm extends Model
     public $email;
     public $password;
     public $password_repeat; // Campo para confirmar contraseña
-    public $mobile;
     public $captcha;
+
+    /**
+     * @var bool Indica si el correo de verificación salió bien. La cuenta se crea
+     * igual aunque el envío falle; el controlador usa esto para el mensaje.
+     */
+    public $emailSent = false;
 
     /**
      * {@inheritdoc}
@@ -31,7 +35,7 @@ class SignupForm extends Model
             ['email', 'required', 'message' => 'El correo electrónico es obligatorio.'],
             ['email', 'email', 'message' => 'El formato del correo no es válido.'],
             ['email', 'string', 'max' => 255],
-            ['email', 'unique', 'targetClass' => '\app\models\User', 'message' => 'Este correo electrónico ya está registrado.'],
+            ['email', 'validateEmail'],
 
             ['password', 'required', 'message' => 'La contraseña es obligatoria.'],
             ['password', 'string', 'min' => 6, 'message' => 'La contraseña debe tener al menos 6 caracteres.'],
@@ -39,13 +43,22 @@ class SignupForm extends Model
             ['password_repeat', 'required', 'message' => 'Por favor, confirma la contraseña.'],
             ['password_repeat', 'compare', 'compareAttribute' => 'password', 'message' => 'Las contraseñas no coinciden.'],
 
-            ['mobile', 'trim'],
-            ['mobile', 'required', 'message' => 'El número de celular es obligatorio.'],
-            //[['mobile'], PhoneInputValidator::className(), 'message' => 'El número de celular no es válido.'],
-
             [['captcha'], 'string'],
-            [['captcha'], TurnstileInputValidator::class, 'message' => 'Por favor, confirma que no eres un robot.'],
+            [['captcha'], TurnstileValidator::class, 'message' => 'Por favor, confirma que no eres un robot.'],
         ];
+    }
+
+    /**
+     * Valida que el correo electrónico no pertenezca a una cuenta activa existente.
+     */
+    public function validateEmail($attribute, $params)
+    {
+        if (!$this->hasErrors()) {
+            $existingUser = User::findOne(['email' => $this->email]);
+            if ($existingUser && $existingUser->status === User::STATUS_ACTIVE) {
+                $this->addError($attribute, 'Este correo electrónico ya está registrado.');
+            }
+        }
     }
 
     /**
@@ -57,7 +70,6 @@ class SignupForm extends Model
             'email' => 'Correo Electrónico',
             'password' => 'Contraseña',
             'password_repeat' => 'Confirmar Contraseña',
-            'mobile' => 'Número de Celular',
         ];
     }
 
@@ -67,14 +79,16 @@ class SignupForm extends Model
             return false;
         }
 
-        $user = new User();
+        // Buscar si ya existía un registro inactivo previo con este email
+        $user = User::findOne(['email' => $this->email, 'status' => User::STATUS_INACTIVE]);
+        if (!$user) {
+            $user = new User();
+            $emailPrefix = explode('@', $this->email)[0];
+            $cleanPrefix = preg_replace('/[^a-zA-Z0-9]/', '', $emailPrefix);
+            $user->username = $cleanPrefix . '_' . rand(1000, 9999);
+            $user->email = $this->email;
+        }
 
-        $emailPrefix = explode('@', $this->email)[0];
-        $cleanPrefix = preg_replace('/[^a-zA-Z0-9]/', '', $emailPrefix);
-
-        $user->username = $cleanPrefix . '_' . rand(1000, 9999);
-        $user->email = $this->email;
-        $user->mobile = $this->mobile;
         $user->setPassword($this->password);
         $user->generateAuthKey();
 
@@ -83,8 +97,8 @@ class SignupForm extends Model
         $user->generateEmailVerificationToken();
 
         // Si se guarda, enviamos el email
-        if ($user->save()) {
-            $this->sendEmail($user);
+        if ($user->save(false)) {
+            $this->emailSent = (bool) $this->sendEmail($user);
             return true;
         }
         return false;
@@ -92,25 +106,19 @@ class SignupForm extends Model
 
     protected function sendEmail($user)
     {
-        Yii::$app->mailer->compose(
-            ['html' => 'emailVerify-html', 'text' => 'emailVerify-text'],
-            ['user' => $user]
-        )
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-            ->setTo($this->email)
-            ->setBcc(Yii::$app->params['adminEmail'])
-            ->setSubject('Confirma tu registro en ' . Yii::$app->name)
-            ->send();
-
-        /*
-        $job = new \app\jobs\WhatsappJob([
-            'phone' => $this->mobile,
-            'message' => $user->verification_token,
-            'webhookUrl' => 'https://n8n.atsys.co/webhook/atsys-clientarea-alert' // Usamos TEST para debug
-        ]);
-        Yii::$app->queue->push($job);
-        */
-
-        return true;
+        try {
+            return Yii::$app->mailer->compose(
+                ['html' => 'emailVerify-html', 'text' => 'emailVerify-text'],
+                ['user' => $user]
+            )
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                ->setTo($this->email)
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->setSubject('Confirma tu registro en ' . Yii::$app->name)
+                ->send();
+        } catch (\Throwable $e) {
+            Yii::error("Fallo al enviar correo de verificación a {$this->email}: " . $e->getMessage(), __METHOD__);
+            return false;
+        }
     }
 }

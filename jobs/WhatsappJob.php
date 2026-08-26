@@ -23,8 +23,18 @@ class WhatsappJob extends BaseObject implements JobInterface
      */
     public function execute($queue)
     {
-        $client = new Client();
-        
+        // Timeouts explícitos: sin ellos el transporte por defecto se queda
+        // colgado hasta default_socket_timeout (60s) y bloquea el worker.
+        $client = new Client([
+            'transport' => 'yii\httpclient\CurlTransport',
+            'requestConfig' => [
+                'options' => [
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                    CURLOPT_TIMEOUT => 10,
+                ],
+            ],
+        ]);
+
         try {
             $response = $client->createRequest()
                 ->setMethod('POST')

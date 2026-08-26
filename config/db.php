@@ -1,10 +1,12 @@
 <?php
 
+require_once __DIR__ . '/env.php';
+
 return [
     'class' => 'yii\db\Connection',
-    'dsn' => 'mysql:host=localhost;dbname=atclient_app',
-    'username' => 'atclient_app',
-    'password' => 'ySkUvcI3czC8Cheg',
+    'dsn' => env('DB_DSN', 'mysql:host=localhost;dbname=atclient_app'),
+    'username' => env_required('DB_USERNAME'),
+    'password' => env_required('DB_PASSWORD'),
     'charset' => 'utf8mb4',
 
     // Schema cache options (for production environment)

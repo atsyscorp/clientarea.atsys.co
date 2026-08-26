@@ -14,7 +14,20 @@ class Virtualmin extends Component
 
     public function sendCommandDynamic($user, $pass, $host, $program, $params = [])
     {
-        $client = new \yii\httpclient\Client();
+        // Timeouts explícitos: el transporte por defecto (StreamTransport) no
+        // tiene límite y hereda default_socket_timeout (60s). Un servidor
+        // Virtualmin lento o caído colgaría el request web hasta el 504.
+        // El margen es más amplio que en otras llamadas porque algunas
+        // operaciones de aprovisionamiento tardan.
+        $client = new \yii\httpclient\Client([
+            'transport' => 'yii\httpclient\CurlTransport',
+            'requestConfig' => [
+                'options' => [
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                    CURLOPT_TIMEOUT => 30,
+                ],
+            ],
+        ]);
         // Construcción de la URL remota de Virtualmin
         $url = "https://{$host}:10000/virtual-server/remote.cgi?program={$program}&json=1";
 
@@ -29,15 +42,25 @@ class Virtualmin extends Component
             ->send();
 
         if ($response->isOk) {
+            // Si la respuesta no es un array, puede que no se haya parseado el JSON
+            if (!is_array($response->data)) {
+                return [
+                    'success' => false,
+                    'message' => 'Respuesta no es JSON: ' . $response->content,
+                    'data' => null
+                ];
+            }
+
             // Virtualmin devuelve success: 1 si todo salió bien
             return [
-                'success' => ($response->data['status'] === 'success'), 
-                'message' => $response->data['output'] ?? '',
-                'data' => $response->data['data'] ?? null
+                'success' => (isset($response->data['status']) && $response->data['status'] === 'success'), 
+                'message' => $response->data['output'] ?? $response->data['error'] ?? '',
+                'data' => $response->data['data'] ?? null,
+                'raw' => $response->data
             ];
         }
 
-        return ['success' => false, 'message' => 'Error de conexión HTTP'];
+        return ['success' => false, 'message' => 'Error de conexión HTTP: ' . $response->statusCode . ' - ' . $response->content];
     }
 
     private function sendCommand($program, $params = [])

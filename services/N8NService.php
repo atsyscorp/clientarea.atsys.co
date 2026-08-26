@@ -17,7 +17,18 @@ class N8NService
      */
     public function sendWhatsappAlert($phone, $message)
     {
-        $client = new Client();
+        // Timeouts explícitos: el transporte por defecto (StreamTransport) no
+        // tiene límite y hereda default_socket_timeout (60s). Un n8n lento
+        // colgaría el request hasta que el proxy devuelva 504.
+        $client = new Client([
+            'transport' => 'yii\httpclient\CurlTransport',
+            'requestConfig' => [
+                'options' => [
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                    CURLOPT_TIMEOUT => 10,
+                ],
+            ],
+        ]);
         $webhookUrl = $this->webhookUrl . '/webhook/atsys-clientarea-alert';
 
         try {
