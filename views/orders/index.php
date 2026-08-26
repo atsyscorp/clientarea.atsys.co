@@ -14,6 +14,9 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-base-content"><?= Html::encode($this->title) ?></h1>
+        <?php if ($isAdmin): ?>
+            <?= Html::a('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg> Registrar Nueva Órden de Pago', ['create'], ['class' => 'btn btn-primary gap-2 text-white shadow-md']) ?>
+        <?php endif; ?>
     </div>
 
     <?= $this->render('_search', ['model' => $searchModel, 'isAdmin' => $isAdmin]) ?>

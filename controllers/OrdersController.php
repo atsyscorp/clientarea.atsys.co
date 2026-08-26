@@ -5,6 +5,8 @@ namespace app\controllers;
 use Yii;
 use yii\web\Controller;
 use app\models\Orders;
+use app\models\OrderItems;
+use app\models\Products;
 use app\models\OrdersSearch;
 use app\models\CustomerServices;
 use yii\web\NotFoundHttpException;
@@ -53,6 +55,121 @@ class OrdersController extends Controller
         ]);
     }
 
+        public function actionCreate()
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permisos para realizar esta acción.');
+        }
+
+        $model = new Orders();
+        $model->currency = 'COP'; // Default
+        
+        if ($this->request->isPost) {
+            $post = $this->request->post();
+            $itemsPost = $post['items'] ?? [];
+            
+            if (empty($itemsPost)) {
+                Yii::$app->session->setFlash('error', 'Debes agregar al menos un ítem a la orden.');
+                return $this->render('create', ['model' => $model]);
+            }
+            
+            $model->code = 'ORD-' . date('Ymd') . '-' . rand(100,999);
+            $model->customer_id = $post['Orders']['customer_id'] ?? null;
+            $model->currency = $post['Orders']['currency'] ?? 'COP';
+            
+            $totalAmount = 0;
+            foreach ($itemsPost as $itemData) {
+                $totalAmount += floatval($itemData['amount']);
+            }
+            
+            $model->subtotal = $totalAmount;
+            $model->total = $totalAmount;
+            $model->status = 0;
+            $model->created_at = date('Y-m-d H:i:s');
+            
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                if (!$model->save()) {
+                    throw new \Exception('Error al crear la orden: ' . current($model->getFirstErrors()));
+                }
+                
+                $emailItemsHtml = "";
+                
+                foreach ($itemsPost as $itemData) {
+                    $item = new OrderItems();
+                    $item->order_id = $model->id;
+                    $itemAmount = floatval($itemData['amount']);
+                    
+                    if ($itemData['type'] === 'product' && !empty($itemData['product_id'])) {
+                        $product = \app\models\Products::findOne($itemData['product_id']);
+                        $item->service_id = $product ? $product->id : 0;
+                        $item->service_name = $product ? $product->name : 'Producto no encontrado';
+                    } else {
+                        $defaultProduct = \app\models\Products::find()->one();
+                        $item->service_id = $defaultProduct ? $defaultProduct->id : 0;
+                        $item->service_name = !empty($itemData['description']) ? $itemData['description'] : 'Concepto manual';
+                    }
+                    
+                    $item->unit_price = $itemAmount;
+                    $item->total = $itemAmount;
+                    $item->action_type = OrderItems::ACTION_TYPE_PAYMENT;
+                    
+                    if (!$item->save(false)) {
+                        throw new \Exception("Error guardando los ítems de la orden.");
+                    }
+                    
+                    $emailItemsHtml .= "<li style='margin-bottom:5px;'><strong>{$item->service_name}</strong>: " . Yii::$app->formatter->asCurrency($itemAmount) . " {$model->currency}</li>";
+                }
+                
+                // --- INICIO NOTIFICACIONES ---
+                $customer = \app\models\Customers::findOne($model->customer_id);
+                if ($customer && $customer->user_id) {
+                    $order_total_formatted = Yii::$app->formatter->asCurrency($totalAmount) . ' ' . $model->currency;
+                    $paymentLink = \yii\helpers\Url::to(['orders/view', 'id' => $model->id], true);
+                    
+                    // Email
+                    try {
+                        Yii::$app->mailer->compose(['html' => 'manual_payment_request-html'], [
+                            'business_name' => $customer->business_name,
+                            'itemsHtml' => $emailItemsHtml,
+                            'order_total' => $order_total_formatted,
+                            'paymentLink' => $paymentLink
+                        ])
+                        ->setFrom([Yii::$app->params['senderEmail'] ?? 'no-reply@atsys.co' => Yii::$app->params['senderName'] ?? 'ATSYS'])
+                        ->setTo($customer->email)
+                        ->setSubject("Nueva orden de pago generada: " . $model->code)
+                        ->send();
+                    } catch (\Throwable $e) {
+                        Yii::error("Error enviando email de orden manual: " . $e->getMessage());
+                    }
+                    
+                    // In-app Notification
+                    try {
+                        \app\models\Notifications::notifyCustomer(
+                            $model->customer_id,
+                            "💳 Nueva orden de pago",
+                            "Se ha generado la orden {$model->code} por {$order_total_formatted}.",
+                            "/orders/view?id=" . $model->id
+                        );
+                    } catch (\Throwable $e) {
+                        Yii::error("Error creando notificación in-app: " . $e->getMessage());
+                    }
+                }
+                // --- FIN NOTIFICACIONES ---
+                
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Orden de pago generada correctamente y notificada al cliente.');
+                return $this->redirect(['view', 'id' => $model->id]);
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+            }
+        }
+        
+        return $this->render('create', [
+            'model' => $model,
+        ]);
+    }
     public function actionView($id)
     {
         $model = $this->findModel($id);
