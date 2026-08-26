@@ -274,4 +274,18 @@ class User extends ActiveRecord implements \yii\web\IdentityInterface
         return $customer ? $customer->id : null;
     }
 
+    /**
+     * Comprueba si el usuario tiene su correo registrado en la lista negra de tickets.
+     * @return bool
+     */
+    public function getIsTicketBlocked()
+    {
+        if (empty($this->email)) {
+            return false;
+        }
+        return \app\models\TicketSpamBlacklist::find()
+            ->where(['email' => strtolower(trim($this->email))])
+            ->exists();
+    }
+
 }

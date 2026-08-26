@@ -21,7 +21,6 @@ $bulkUrl = Url::to(['bulk']);
 
 // Preparamos el array de clientes para el selector
 $clientesList = ArrayHelper::map(Customers::find()->orderBy('business_name')->all(), 'id', 'business_name');
-
 // Preparamos el array de estados (Ajústalo a los textos exactos que manejes)
 $estadosList = [
     'open' => 'Abierto',
@@ -29,8 +28,24 @@ $estadosList = [
     'customer_reply' => 'Resp. cliente',
     'closed' => 'Cerrado',
 ];
+
+$isUserBlocked = !$isAdmin && !Yii::$app->user->isGuest && Yii::$app->user->identity->isTicketBlocked;
 ?>
 <div class="tickets-index relative min-h-screen">
+    <?php if ($isUserBlocked): ?>
+        <div class="alert alert-error shadow-md mb-6 bg-error/10 border border-error/30 text-error-content rounded-2xl p-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 text-error" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+            <div>
+                <h3 class="font-bold text-sm">Creación de tickets restringida</h3>
+                <div class="text-xs mt-0.5 opacity-90">
+                    Tu cuenta se encuentra bloqueada para la creación y respuesta de tickets de soporte. Para más información, comunícate con la administración.
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-primary"><?=$this->title?></h1>
 
@@ -101,9 +116,9 @@ $estadosList = [
                     'value' => function($model) {
                         $responder = Html::encode($model->getLastResponderName());
                         return "<div>" . Html::encode($model->subject) . "</div>" .
-                               "<div class='text-xs text-base-content/60 mt-1 flex items-center gap-1'>" .
-                               "<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' class='w-3 h-3'><path stroke-linecap='round' stroke-linejoin='round' d='M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3' /></svg>" .
-                               "Último msj: <span class='font-semibold'>{$responder}</span></div>";
+                                "<div class='text-xs text-base-content/60 mt-1 flex items-center gap-1'>" .
+                                "<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' class='w-3 h-3'><path stroke-linecap='round' stroke-linejoin='round' d='M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3' /></svg>" .
+                                "Último msj: <span class='font-semibold'>{$responder}</span></div>";
                     }
                 ],
                 [
@@ -117,16 +132,34 @@ $estadosList = [
                     'attribute' => 'email',
                     'visible' => Yii::$app->user->identity->isAdmin,
                     'label' => 'E-mail',
+                    'format' => 'raw',
+                    'value' => function($model) {
+                        $emailHtml = Html::encode($model->email);
+                        if ($model->isSenderBlacklisted()) {
+                            $emailHtml .= " <span class='badge badge-error badge-xs font-bold ml-1' title='Remitente bloqueado en lista negra'>Bloqueado</span>";
+                        }
+                        return $emailHtml;
+                    }
                 ],
                 [
                     'attribute' => 'status',
                     'format' => 'raw',
                     'value' => function ($model) {
+                        $mergedBadge = '';
+                        if (!empty($model->merged_into_id) && $model->mergedIntoTicket) {
+                            $targetCode = Html::encode($model->mergedIntoTicket->ticket_code);
+                            $targetUrl = Url::to(['view', 'id' => $model->merged_into_id]);
+                            $mergedBadge = "<div class='mt-1'><a href='{$targetUrl}' class='badge badge-outline badge-secondary badge-xs gap-1' title='Fusionado en #{$targetCode}'>
+                                                <svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='currentColor' class='w-3 h-3'><path stroke-linecap='round' stroke-linejoin='round' d='M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25' /></svg>
+                                                #{$targetCode}
+                                            </a></div>";
+                        }
+
                         return StatusBadge::widget([
                             'model'   => $model,
                             'size'    => 'sm',
                             'options' => ['class' => 'gap-2'],
-                        ]);
+                        ]) . $mergedBadge;
                     },
                     'contentOptions' => ['class' => 'text-center'],
                 ],
@@ -314,6 +347,13 @@ $estadosList = [
                 </button>
 
                 <?php if ($isAdmin): ?>
+                    <button type="button" onclick="openBulkMergeModal()" class="btn btn-sm btn-ghost text-secondary hover:bg-secondary/20 gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
+                        </svg>
+                        Fusionar
+                    </button>
+
                     <button type="button" onclick="applyBulkAction('delete')" class="btn btn-sm btn-ghost text-error hover:bg-error/20 gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -325,6 +365,42 @@ $estadosList = [
         </div>
     </div>
 </div>
+
+<?php if ($isAdmin): ?>
+<!-- MODAL PARA FUSIÓN MASIVA -->
+<dialog id="bulk_merge_modal" class="modal">
+  <div class="modal-box max-w-lg">
+    <h3 class="font-bold text-lg text-primary flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
+      </svg>
+      Fusionar Tickets Seleccionados
+    </h3>
+    <p class="py-2 text-sm text-base-content/70">
+      Selecciona cuál de los tickets marcados será el <strong>Ticket Destino (Target)</strong>. Los demás tickets seleccionados se unificarán dentro de él y sus respuestas se consolidarán.
+    </p>
+
+    <div class="form-control w-full mt-3">
+      <label class="label"><span class="label-text font-bold">Seleccionar Ticket Destino:</span></label>
+      <select id="bulk-merge-target-select" class="select select-bordered w-full">
+      </select>
+    </div>
+
+    <div class="modal-action mt-6">
+      <button type="button" class="btn btn-ghost" onclick="document.getElementById('bulk_merge_modal').close()">Cancelar</button>
+      <button type="button" class="btn btn-secondary gap-2" onclick="submitBulkMerge()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
+        </svg>
+        Confirmar Fusión
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+<?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -404,6 +480,88 @@ function applyBulkAction(actionType) {
     .catch(error => {
         console.error('Error:', error);
         alert('Error de conexión o respuesta inesperada del servidor.');
+    });
+}
+
+function openBulkMergeModal() {
+    const checkboxes = document.querySelectorAll('input[name="selection[]"]:checked');
+    const ids = Array.from(checkboxes).map(cb => cb.value);
+
+    if (ids.length < 2) {
+        alert('Debes seleccionar al menos 2 tickets para realizar la fusión.');
+        return;
+    }
+
+    const select = document.getElementById('bulk-merge-target-select');
+    select.innerHTML = '';
+
+    checkboxes.forEach(cb => {
+        const tr = cb.closest('tr');
+        let label = 'Ticket ID #' + cb.value;
+        if (tr) {
+            const codeEl = tr.querySelector('td:nth-child(2)');
+            const subjEl = tr.querySelector('td:nth-child(4)');
+            const codeText = codeEl ? codeEl.innerText.trim() : '';
+            const subjText = subjEl ? subjEl.innerText.split('\n')[0].trim() : '';
+            if (codeText) {
+                label = codeText + (subjText ? ' - ' + subjText : '');
+            }
+        }
+
+        const opt = document.createElement('option');
+        opt.value = cb.value;
+        opt.textContent = label;
+        select.appendChild(opt);
+    });
+
+    const modal = document.getElementById('bulk_merge_modal');
+    if (modal) {
+        modal.showModal();
+    }
+}
+
+function submitBulkMerge() {
+    const checkboxes = document.querySelectorAll('input[name="selection[]"]:checked');
+    const ids = Array.from(checkboxes).map(cb => cb.value);
+    const targetSelect = document.getElementById('bulk-merge-target-select');
+    const targetId = targetSelect ? targetSelect.value : null;
+
+    if (!targetId || ids.length < 2) {
+        alert('Selección no válida.');
+        return;
+    }
+
+    if (!confirm('⚠️ ¿Confirmas que deseas fusionar los tickets seleccionados en el ticket destino? Esta acción consolidará los mensajes y cerrará los otros tickets.')) {
+        return;
+    }
+
+    const formData = new FormData();
+    ids.forEach(id => formData.append('ids[]', id));
+    formData.append('action', 'merge');
+    formData.append('target_id', targetId);
+
+    const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfParamMeta = document.querySelector('meta[name="csrf-param"]');
+    if (csrfTokenMeta && csrfParamMeta) {
+        formData.append(csrfParamMeta.getAttribute('content'), csrfTokenMeta.getAttribute('content'));
+    }
+
+    fetch('<?= \yii\helpers\Url::to(['/tickets/bulk']) ?>', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'Ocurrió un error al fusionar los tickets.'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de conexión al fusionar.');
     });
 }
 </script>

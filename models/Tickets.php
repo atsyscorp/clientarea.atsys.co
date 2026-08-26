@@ -167,6 +167,9 @@ class Tickets extends \yii\db\ActiveRecord
             
             // Validación de Lista Negra de SPAM
             [['email'], 'validateSpamBlacklist'],
+
+            [['merged_into_id'], 'integer'],
+            [['merged_into_id'], 'exist', 'skipOnError' => true, 'targetClass' => self::class, 'targetAttribute' => ['merged_into_id' => 'id']],
         ];
     }
 
@@ -200,6 +203,7 @@ class Tickets extends \yii\db\ActiveRecord
             'priority' => 'Prioridad',
             'source' => 'Fuente',
             'department' => 'Departamento',
+            'merged_into_id' => 'Fusionado En',
             'created_at' => 'Creado',
             'updated_at' => 'Últ. Actualización',
         ];
@@ -233,6 +237,26 @@ class Tickets extends \yii\db\ActiveRecord
     public function getWorkOrders()
     {
         return $this->hasMany(WorkOrders::class, ['ticket_id' => 'id']);
+    }
+
+    /**
+     * Gets query for [[MergedIntoTicket]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getMergedIntoTicket()
+    {
+        return $this->hasOne(self::class, ['id' => 'merged_into_id']);
+    }
+
+    /**
+     * Gets query for [[MergedSourceTickets]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getMergedSourceTickets()
+    {
+        return $this->hasMany(self::class, ['merged_into_id' => 'id']);
     }
 
     /**
@@ -369,6 +393,20 @@ class Tickets extends \yii\db\ActiveRecord
     }
 
     /**
+     * Comprueba si el remitente del ticket está en la lista negra de SPAM / bloqueado.
+     * @return bool
+     */
+    public function isSenderBlacklisted()
+    {
+        if (empty($this->email)) {
+            return false;
+        }
+        return TicketSpamBlacklist::find()
+            ->where(['email' => strtolower(trim($this->email))])
+            ->exists();
+    }
+
+    /**
      * Revisa si el cliente puede responder al ticket.
      * Restringe a máximo 3 respuestas consecutivas del cliente solo cuando el ticket
      * NO está respondido (answered) ni en progreso (in_progress).
@@ -384,6 +422,10 @@ class Tickets extends \yii\db\ActiveRecord
         }
 
         if ($this->isLocked()) {
+            return false;
+        }
+
+        if ($this->isSenderBlacklisted()) {
             return false;
         }
 
@@ -761,4 +803,248 @@ class Tickets extends \yii\db\ActiveRecord
             ->column();
     }
 
+    /**
+     * Fusiona este ticket (origen) dentro de un ticket destino (target).
+     * @param Tickets $targetTicket
+     * @param User $adminUser
+     * @return bool
+     * @throws \Exception
+     */
+    public function mergeInto(self $targetTicket, User $adminUser)
+    {
+        if ($this->id == $targetTicket->id) {
+            throw new \InvalidArgumentException('Un ticket no puede fusionarse consigo mismo.');
+        }
+
+        if ($this->merged_into_id) {
+            throw new \InvalidArgumentException("El ticket {$this->ticket_code} ya se encuentra fusionado.");
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            $adminName = !empty($adminUser->contact_name) ? $adminUser->contact_name : $adminUser->username;
+
+            // 1. Mover archivos adjuntos físicos si existen
+            $sourceDir = Yii::getAlias('@webroot/uploads/tickets/') . $this->id;
+            $targetDir = Yii::getAlias('@webroot/uploads/tickets/') . $targetTicket->id;
+
+            if (is_dir($sourceDir)) {
+                if (!is_dir($targetDir)) {
+                    \yii\helpers\FileHelper::createDirectory($targetDir);
+                }
+                $files = scandir($sourceDir);
+                foreach ($files as $file) {
+                    if ($file !== '.' && $file !== '..') {
+                        $srcFile = $sourceDir . '/' . $file;
+                        $dstFile = $targetDir . '/' . $file;
+                        if (is_file($srcFile)) {
+                            if (file_exists($dstFile)) {
+                                $dstFile = $targetDir . '/' . $this->id . '_' . $file;
+                            }
+                            rename($srcFile, $dstFile);
+                        }
+                    }
+                }
+                @rmdir($sourceDir);
+            }
+
+            // 2. Transferir respuestas (TicketReplies)
+            TicketReplies::updateAll(
+                ['ticket_id' => $targetTicket->id],
+                ['ticket_id' => $this->id]
+            );
+
+            // 3. Reasignar órdenes de trabajo (WorkOrders) si existen
+            WorkOrders::updateAll(
+                ['ticket_id' => $targetTicket->id],
+                ['ticket_id' => $this->id]
+            );
+
+            // 4. Consolidar cc_emails
+            if (!empty($this->cc_emails)) {
+                $existingCc = !empty($targetTicket->cc_emails)
+                    ? array_map('trim', explode(',', $targetTicket->cc_emails))
+                    : [];
+                $sourceCc = array_map('trim', explode(',', $this->cc_emails));
+                $mergedCc = array_unique(array_merge($existingCc, $sourceCc));
+                $targetTicket->cc_emails = implode(', ', array_filter($mergedCc));
+                $targetTicket->save(false);
+            }
+
+            // 5. Agregar mensaje de sistema en el ticket DESTINO
+            $targetNotice = new TicketReplies();
+            $targetNotice->ticket_id = $targetTicket->id;
+            $targetNotice->user_id = $adminUser->id;
+            $targetNotice->sender_type = TicketReplies::SENDER_TYPE_SYSTEM;
+            $targetNotice->message = "📌 <strong>Ticket Fusionado:</strong> El ticket <strong>#" . \yii\helpers\Html::encode($this->ticket_code) . "</strong> (<em>" . \yii\helpers\Html::encode($this->subject) . "</em>) fue fusionado en este ticket por <strong>" . \yii\helpers\Html::encode($adminName) . "</strong>.";
+            $targetNotice->created_at = date('Y-m-d H:i:s');
+            $targetNotice->save(false);
+
+            // 6. Agregar mensaje de sistema en el ticket ORIGEN
+            $sourceNotice = new TicketReplies();
+            $sourceNotice->ticket_id = $this->id;
+            $sourceNotice->user_id = $adminUser->id;
+            $sourceNotice->sender_type = TicketReplies::SENDER_TYPE_SYSTEM;
+            $sourceNotice->message = "🔒 <strong>Ticket Fusionado:</strong> Este ticket fue fusionado en el ticket <strong>#" . \yii\helpers\Html::encode($targetTicket->ticket_code) . "</strong> (<em>" . \yii\helpers\Html::encode($targetTicket->subject) . "</em>) por <strong>" . \yii\helpers\Html::encode($adminName) . "</strong>.";
+            $sourceNotice->created_at = date('Y-m-d H:i:s');
+            $sourceNotice->save(false);
+
+            // 7. Actualizar estado y referencia del ticket ORIGEN
+            $this->merged_into_id = $targetTicket->id;
+            $this->status = self::STATUS_CLOSED;
+            $this->is_locked = 1;
+            $this->updated_at = date('Y-m-d H:i:s');
+            $this->save(false);
+
+            $transaction->commit();
+            return true;
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Envía todas las notificaciones requeridas al registrar un nuevo ticket (Email, Notificación In-App, y Push N8N).
+     *
+     * @param string $messageContent Contenido inicial del ticket.
+     * @param User|Customers|null $actorObj Usuario o Cliente creador del ticket.
+     * @param bool $isCreatedByAdmin Indica si el ticket fue creado por un administrador en la plataforma.
+     */
+    public function sendNewTicketNotifications($messageContent, $actorObj = null, $isCreatedByAdmin = false)
+    {
+        $customerName = 'Usuario Externo';
+        if ($this->customer) {
+            $customerName = $this->customer->business_name;
+        } elseif ($actorObj && isset($actorObj->username)) {
+            $customerName = $actorObj->username;
+        }
+
+        $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+        $senderEmail = Yii::$app->params['senderEmail'] ?? 'noreply@atsys.co';
+
+        // 1. CORREO ELECTRÓNICO AL CLIENTE (Confirmación)
+        if (!empty($this->email)) {
+            try {
+                $email = Yii::$app->mailer->compose(
+                    ['html' => 'newTicket-html'],
+                    [
+                        'ticket' => $this,
+                        'message' => $messageContent,
+                        'user' => $actorObj,
+                        'customer' => $this->customer,
+                        'customerName' => $customerName
+                    ]
+                )
+                ->setFrom([$senderEmail => Yii::$app->name])
+                ->setTo($this->email)
+                ->setReplyTo(Yii::$app->params['departmentEmails'][$this->department] ?? ($senderEmail ?? 'soporte@atsys.co'))
+                ->setSubject('[#' . $this->ticket_code . '] ' . $this->subject);
+
+                if (!empty($this->cc_emails)) {
+                    $ccList = array_filter(array_map('trim', explode(',', $this->cc_emails)));
+                    if (!empty($ccList)) {
+                        $email->setCc($ccList);
+                    }
+                }
+                $email->send();
+            } catch (\Throwable $e) {
+                Yii::error("Error enviando email de confirmación al cliente (#{$this->ticket_code}): " . $e->getMessage(), 'ticket_notification');
+            }
+        }
+
+        // 2. CORREO ELECTRÓNICO AL ADMIN (Aviso)
+        try {
+            Yii::$app->mailer->compose(
+                ['html' => 'adminNewTicket-html'],
+                [
+                    'ticket' => $this,
+                    'message' => $messageContent,
+                    'user' => $actorObj,
+                    'customer' => $this->customer
+                ]
+            )
+            ->setFrom([$senderEmail => Yii::$app->name])
+            ->setTo($adminEmail)
+            ->setSubject('Nuevo Ticket [' . $this->ticket_code . '] - ' . $this->subject)
+            ->send();
+        } catch (\Throwable $e) {
+            Yii::error("Error enviando email al admin (#{$this->ticket_code}): " . $e->getMessage(), 'ticket_notification');
+        }
+
+        // 3. NOTIFICACIONES IN-APP (TABLA NOTIFICATIONS DE LA BD)
+        if (!$isCreatedByAdmin) {
+            try {
+                Notifications::notifyAdmins(
+                    "🎫 Nuevo Ticket: " . $this->ticket_code,
+                    "El cliente " . $customerName . " ha creado el ticket: " . $this->subject,
+                    "/tickets/view?id=" . $this->id,
+                    Notifications::TYPE_INFO
+                );
+            } catch (\Throwable $e) {
+                Yii::error("Error registrando notificación in-app para admins (#{$this->ticket_code}): " . $e->getMessage(), 'ticket_notification');
+            }
+        } else {
+            if ($this->customer_id) {
+                try {
+                    Notifications::notifyCustomer(
+                        $this->customer_id,
+                        "🎫 Nuevo Ticket Creado: " . $this->ticket_code,
+                        "Se ha registrado una nueva solicitud a tu nombre: " . $this->subject,
+                        "/tickets/view?id=" . $this->id,
+                        Notifications::TYPE_INFO
+                    );
+                } catch (\Throwable $e) {
+                    Yii::error("Error registrando notificación in-app para cliente (#{$this->ticket_code}): " . $e->getMessage(), 'ticket_notification');
+                }
+            }
+        }
+
+        // 4. NOTIFICACIÓN PUSH VIA WEBHOOK N8N
+        if (!$isCreatedByAdmin) {
+            $this->triggerN8nPush(
+                "Nuevo ticket: " . $this->ticket_code . " enviado por: " . $customerName,
+                "Mensaje: " . mb_substr(strip_tags($messageContent), 0, 50, 'UTF-8') . "..."
+            );
+        }
+    }
+
+    /**
+     * Envía webhook PUSH a N8N para administradores.
+     */
+    public function triggerN8nPush($title, $body)
+    {
+        try {
+            $tokens = AdminTokens::find()->select('token')->column();
+            if (empty($tokens)) {
+                return false;
+            }
+
+            $webhookUrl = Yii::$app->params['n8n_admin_push_url'] ?? 'https://n8n-new.atsys.co/webhook/send-admin-push';
+            $payload = [
+                'tokens' => $tokens,
+                'title' => $title,
+                'body' => $body,
+                'message' => $body,
+                'link' => "https://clientarea.atsys.co/tickets/view?id=" . $this->id,
+                'image' => 'https://clientarea.atsys.co/images/atsys-clientarea-og.webp',
+                'type' => 'ticket'
+            ];
+
+            $ch = curl_init($webhookUrl);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT_MS, 3000);
+            curl_exec($ch);
+            curl_close($ch);
+            return true;
+        } catch (\Throwable $e) {
+            Yii::error("Error enviando PUSH N8N ticket #{$this->ticket_code}: " . $e->getMessage(), 'n8n_push');
+            return false;
+        }
+    }
+
 }
+
