@@ -55,10 +55,7 @@ class NotificationsController extends Controller
         $query = Notifications::find()->where(['user_id' => $userId]);
 
         if ($unread !== null) {
-            $query->andWhere(['is_read' => 1 ? 0 : 1]); // if unread=1, filter is_read = 0
-            if ($unread == 1) {
-                $query->where(['user_id' => $userId, 'is_read' => 0]);
-            }
+            $query->andWhere(['is_read' => ($unread == 1 ? 0 : 1)]);
         }
 
         $dataProvider = new ActiveDataProvider([

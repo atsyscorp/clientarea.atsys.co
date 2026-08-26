@@ -16,6 +16,7 @@ use yii\db\Expression;
  * @property string|null $link
  * @property string $type
  * @property int $is_read
+ * @property int $email_sent
  * @property string $created_at
  *
  * @property User $user
@@ -43,13 +44,13 @@ class Notifications extends \yii\db\ActiveRecord
     {
         return [
             [['user_id', 'title', 'body'], 'required'],
-            [['user_id', 'is_read'], 'integer'],
+            [['user_id', 'is_read', 'email_sent'], 'integer'],
             [['body'], 'string'],
             [['created_at', 'link'], 'safe'],
             [['title', 'link'], 'string', 'max' => 255],
             [['type'], 'string', 'max' => 50],
             [['type'], 'default', 'value' => self::TYPE_INFO],
-            [['is_read'], 'default', 'value' => 0],
+            [['is_read', 'email_sent'], 'default', 'value' => 0],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];
     }
@@ -67,6 +68,7 @@ class Notifications extends \yii\db\ActiveRecord
             'link' => 'Enlace',
             'type' => 'Tipo',
             'is_read' => 'Leído',
+            'email_sent' => 'Enviado por Email',
             'created_at' => 'Fecha de Creación',
         ];
     }

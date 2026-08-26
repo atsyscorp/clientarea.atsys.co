@@ -7,6 +7,7 @@ use yii\console\Controller;
 use yii\console\ExitCode;
 use app\models\CustomerServices;
 use app\models\Notifications;
+use app\models\User;
 use app\components\CyberPanel;
 use yii\httpclient\Client; // Asegúrate de tener yii2-httpclient o usa curl nativo
 
@@ -328,5 +329,207 @@ class CronController extends Controller
         } catch (\Throwable $e) {
             Yii::error("Error enviando recordatorio: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Envía un correo electrónico resumen (digest) con las notificaciones pendientes sin leer
+     * a cada usuario/cliente que tenga notificaciones no enviadas previamente por correo.
+     * Ejecutar periódicamente (ej. 1 o 2 veces al día).
+     */
+    public function actionSendNotificationDigest()
+    {
+        echo "Iniciando envío de correo resumen de notificaciones...\n";
+
+        // Buscar todas las notificaciones pendientes de leer (is_read = 0) y no enviadas por email (email_sent = 0)
+        $unreadNotifications = Notifications::find()
+            ->where(['is_read' => 0, 'email_sent' => 0])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->all();
+
+        if (empty($unreadNotifications)) {
+            echo "No hay notificaciones pendientes por procesar.\n";
+            return ExitCode::OK;
+        }
+
+        // Agrupar notificaciones por user_id
+        $groupedByUser = [];
+        foreach ($unreadNotifications as $notif) {
+            $groupedByUser[$notif->user_id][] = $notif;
+        }
+
+        $sentCount = 0;
+        $userCount = 0;
+
+        foreach ($groupedByUser as $userId => $userNotifications) {
+            $user = User::findOne($userId);
+            if (!$user || empty($user->email)) {
+                echo "SALTADO (Usuario ID {$userId} no encontrado o sin email válido).\n";
+                continue;
+            }
+
+            $countNotifs = count($userNotifications);
+            echo "Enviando resumen a {$user->email} ({$countNotifs} notificaciones)... ";
+
+            try {
+                $subject = "🔔 Resumen: tienes {$countNotifs} " . ($countNotifs === 1 ? 'novedad pendiente' : 'novedades pendientes') . " en tu área de cliente";
+
+                $mailer = Yii::$app->mailer->compose(['html' => 'notification_digest-html'], [
+                    'user' => $user,
+                    'notifications' => $userNotifications
+                ])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName'] ?? Yii::$app->name])
+                ->setReplyTo(Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co')
+                ->setTo($user->email)
+                ->setSubject($subject);
+
+                if ($mailer->send()) {
+                    // Marcar notificaciones como enviadas por email
+                    $ids = array_map(fn($n) => $n->id, $userNotifications);
+                    Notifications::updateAll(['email_sent' => 1], ['in', 'id', $ids]);
+
+                    $sentCount += $countNotifs;
+                    $userCount++;
+                    echo "OK.\n";
+                } else {
+                    echo "ERROR AL ENVIAR MAIL.\n";
+                }
+            } catch (\Throwable $e) {
+                Yii::error("Error enviando correo digest de notificaciones a user {$userId}: " . $e->getMessage());
+                echo "EXCEPCIÓN: " . $e->getMessage() . "\n";
+            }
+        }
+
+        echo "Proceso finalizado. Se enviaron {$sentCount} notificaciones en {$userCount} correos resumen.\n";
+        return ExitCode::OK;
+    }
+
+    /**
+     * Revisa el uso de disco de todas las cuentas y envía advertencias si exceden el límite.
+     * Ejecutar diariamente.
+     */
+    public function actionCheckDiskUsage()
+    {
+        echo "Iniciando revisión de cuotas de disco...\n";
+
+        // Obtener todos los servidores tipo virtualmin activos
+        $servers = \app\models\Servers::find()
+            ->where(['is_active' => 1, 'type' => 'virtualmin'])
+            ->all();
+
+        $count = 0;
+        $notified = 0;
+
+        foreach ($servers as $server) {
+            echo "Consultando servidor: {$server->name}...\n";
+
+            try {
+                // Ejecutar list-domains remoto
+                $result = Yii::$app->virtualmin->sendCommandDynamic(
+                    $server->username,
+                    $server->auth_token,
+                    $server->hostname,
+                    'list-domains',
+                    ['multiline' => '']
+                );
+
+                if ($result['success'] && !empty($result['data'])) {
+                    foreach ($result['data'] as $domainData) {
+                        $domainName = $domainData['name'] ?? null;
+                        if (!$domainName) continue;
+
+                        $values = $domainData['values'] ?? [];
+                        $quota = isset($values['server_byte_quota'][0]) ? (int)$values['server_byte_quota'][0] : 0;
+                        $used = isset($values['server_byte_quota_used'][0]) ? (int)$values['server_byte_quota_used'][0] : 0;
+
+                        if ($quota > 0) {
+                            $percentage = ($used / $quota) * 100;
+
+                            if ($percentage >= 70) {
+                                $this->processDiskWarning($domainName, $percentage);
+                                $notified++;
+                            }
+                        }
+                        $count++;
+                    }
+                } else {
+                    echo "No se pudo obtener datos del servidor {$server->name}. Respuesta de API: \n";
+                    print_r($result);
+                }
+            } catch (\Exception $e) {
+                Yii::error("Cron Disk Usage Error [{$server->name}]: " . $e->getMessage());
+                echo "ERROR CONEXIÓN con {$server->name}. Mensaje: " . $e->getMessage() . "\n";
+            }
+        }
+
+        echo "Terminado. Dominios procesados: $count. Notificaciones enviadas: $notified.\n";
+        return \yii\console\ExitCode::OK;
+    }
+
+    /**
+     * Procesa la alerta de uso de disco para un dominio.
+     */
+    private function processDiskWarning($domainName, $percentage)
+    {
+        // Buscar el servicio activo correspondiente
+        $service = \app\models\CustomerServices::find()
+            ->where(['domain' => $domainName, 'status' => 1])
+            ->one();
+
+        if (!$service) return;
+
+        $isCritical = $percentage >= 100;
+        
+        // Evitar notificaciones duplicadas usando Notifications
+        $title = $isCritical ? "⚠️ Alerta Urgente: Espacio Lleno en $domainName" : "⚠️ Aviso de Espacio en $domainName";
+        $type = $isCritical ? \app\models\Notifications::TYPE_DANGER : \app\models\Notifications::TYPE_WARNING;
+        
+        $customer = $service->customer;
+        $userId = $customer->user_id;
+
+        if ($userId) {
+            $daysToWait = $isCritical ? 3 : 7;
+            
+            $recentNotification = \app\models\Notifications::find()
+                ->where(['user_id' => $userId, 'title' => $title])
+                ->andWhere(['>=', 'created_at', date('Y-m-d H:i:s', strtotime("-$daysToWait days"))])
+                ->exists();
+
+            if ($recentNotification) {
+                return; // Ya notificado recientemente
+            }
+        }
+
+        // Enviar Correo
+        try {
+            Yii::$app->mailer->compose(['html' => 'quota_warning-html'], [
+                'business_name' => $customer->business_name,
+                'domain' => $domainName,
+                'usagePercentage' => $percentage,
+                'isCritical' => $isCritical
+            ])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                ->setTo($customer->email)
+                ->setBcc(Yii::$app->params['adminEmail'])
+                ->setSubject($title)
+                ->send();
+        } catch (\Exception $e) {
+            Yii::error("Error enviando email de alerta de espacio: " . $e->getMessage());
+        }
+
+        // Crear notificación en sistema
+        $body = $isCritical 
+            ? "El espacio en disco para el dominio $domainName ha alcanzado el 100%. Recomendamos limpiar espacio o actualizar el plan." 
+            : "El espacio en disco para el dominio $domainName ha superado el " . round($percentage) . "%.";
+
+        \app\models\Notifications::notifyCustomer(
+            $customer->id,
+            $title,
+            $body,
+            "/customer-services",
+            $type
+        );
+        
+        echo " -> Notificación enviada a {$domainName} (" . round($percentage) . "%)\n";
     }
 }
