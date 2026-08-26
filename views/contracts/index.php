@@ -93,7 +93,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     'format' => 'raw',
                     'value' => function ($model) {
                         $start = $model->start_date ? date('d/m/Y', strtotime($model->start_date)) : '-';
-                        $end = $model->end_date ? date('d/m/Y', strtotime($model->end_date)) : '-';
+                        $end = $model->end_date ? date('d/m/Y', strtotime($model->end_date)) : '<span class="badge badge-ghost badge-sm text-xs font-semibold">♾️ Indefinido</span>';
                         return '<span class="text-xs">' . $start . ' → ' . $end . '</span>';
                     }
                 ],

@@ -47,18 +47,26 @@ if (strpos($requirements, '<p') === false && strpos($requirements, '<br') === fa
                 <div class="box-content">
                     <div class="box-row">
                         <span class="box-label">NOMBRE / RAZÓN SOCIAL:</span><br>
-                        <?= strtoupper($model->customer->business_name) ?>
+                        <?= strtoupper($model->project && $model->project->business_name ? $model->project->business_name : $model->customer->business_name) ?>
                     </div>
 
+                    <?php if ($model->project): ?>
+                        <div class="box-row">
+                            <span class="box-label">PROYECTO:</span>
+                            <?= strtoupper($model->project->name) ?>
+                        </div>
+                    <?php endif; ?>
+
                     <div class="box-row">
-                        <span class="box-label">DOCUMENTO:</span>
-                        <?= $model->customer->document_number ?? 'No registrado' ?>
+                        <span class="box-label">DOCUMENTO / NIT:</span>
+                        <?= $model->project && $model->project->document_number ? $model->project->document_number : ($model->customer->document_number ?? 'No registrado') ?>
                     </div>
 
                     <div class="box-row">
                         <span class="box-label">EMAIL:</span>
                         <?= $model->customer->email ?>
                     </div>
+
                 </div>
             </div>
         </td>

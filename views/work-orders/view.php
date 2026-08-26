@@ -127,10 +127,66 @@ if ($model->is_request == 1) {
                         <span class="badge badge-info font-bold ml-1">Contrato de Servicios</span>
                     <?php endif; ?>
                 </div>
-                <div class="text-sm opacity-60 mt-1">Fecha: <?= Yii::$app->formatter->asDate($model->created_at) ?>
-                </div>
+                <div class="text-sm opacity-60 mt-1">Fecha: <?= Yii::$app->formatter->asDate($model->created_at) ?></div>
             </div>
         </div>
+
+        <?php if ($model->status == \app\models\WorkOrders::STATUS_COMPLETED): ?>
+            <?php
+            $feedback = null;
+            try {
+                $tableSchema = Yii::$app->db->getTableSchema(\app\models\ServiceFeedback::tableName());
+                if ($tableSchema && $tableSchema->getColumn('work_order_id') !== null) {
+                    $feedback = \app\models\ServiceFeedback::find()
+                        ->where(['work_order_id' => (string)$model->id])
+                        ->orWhere(['work_order_id' => (string)$model->code])
+                        ->one();
+                }
+            } catch (\Throwable $e) {
+                Yii::error("Error al obtener retroalimentación de servicio: " . $e->getMessage(), 'app');
+                $feedback = null;
+            }
+            ?>
+            <div class="alert bg-success/10 border border-success/30 p-6 rounded-xl mb-8 no-print shadow-sm">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
+                    <div class="flex items-start gap-4">
+                        <div class="p-3 bg-success rounded-xl shrink-0 mt-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385c.116.488-.415.871-.838.618l-4.664-2.802a.566.566 0 00-.582 0l-4.664 2.802c-.423.253-.954-.13-.838-.618l1.285-5.385a.562.562 0 00-.182-.557l-4.204-3.602c-.38-.325-.178-.948.32-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-success-content">Orden Finalizada &mdash; Calificación de Servicio</h3>
+                            <?php if ($feedback): ?>
+                                <div class="mt-2 space-y-1 text-sm">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold">Calificación:</span>
+                                        <?= $feedback->getRatingStarsHtml() ?>
+                                        <?= $feedback->getNpsCategoryBadge() ?>
+                                    </div>
+                                    <?php if (!empty($feedback->comments)): ?>
+                                        <p class="text-xs italic opacity-80 mt-1">"<?= Html::encode($feedback->comments) ?>"</p>
+                                    <?php endif; ?>
+                                </div>
+                            <?php else: ?>
+                                <p class="text-sm opacity-80 mt-1">
+                                    Nos interesa conocer tu opinión sobre el trabajo realizado para seguir mejorando.
+                                </p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if (!$feedback): ?>
+                        <?= Html::a(
+                            '⭐ Calificar Servicio',
+                            ['/feedback/rate', 'work_order_id' => $model->id],
+                            ['class' => 'btn btn-success font-bold px-6 shrink-0 shadow-md']
+                        ) ?>
+                    <?php else: ?>
+                        <span class="badge badge-success p-3 font-semibold shrink-0">¡Gracias por tu opinión!</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <?php if ($model->contract): ?>
             <div class="alert bg-primary/10 border-primary/20 p-4 rounded-xl flex justify-between items-center mb-6 no-print shadow-sm">
@@ -160,11 +216,23 @@ if ($model->is_request == 1) {
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
             <div>
-                <h3 class="text-xs font-bold uppercase opacity-50 mb-2">Cliente</h3>
-                <div class="font-bold text-lg"><?= Html::encode($model->customer->name ?? 'Cliente') ?></div>
-                <div class="text-sm opacity-70"><?= Html::encode($model->customer->email ?? '') ?></div>
+                <h3 class="text-xs font-bold uppercase opacity-50 mb-2">Cliente & Empresa / Proyecto</h3>
+                <div class="font-bold text-lg"><?= Html::encode($model->customer->business_name ?: $model->customer->contact_name) ?></div>
+                <?php if ($model->project): ?>
+                    <div class="text-sm font-semibold text-primary mt-1">
+                        📌 Proyecto: <?= Html::encode($model->project->name) ?>
+                        <?php if ($model->project->business_name && $model->project->business_name !== $model->customer->business_name): ?>
+                            <span class="text-xs text-base-content/50 block">Razón Social Filial: <?= Html::encode($model->project->business_name) ?></span>
+                        <?php endif; ?>
+                        <?php if ($model->project->document_number && $model->project->document_number !== $model->customer->document_number): ?>
+                            <span class="text-xs text-base-content/50 block">NIT Filial: <?= Html::encode($model->project->document_number) ?></span>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+                <div class="text-sm opacity-70 mt-1"><?= Html::encode($model->customer->email ?? '') ?></div>
                 <div class="text-sm opacity-70"><?= Html::encode($model->customer->document_number ?? '') ?></div>
             </div>
+
             <?php if ($model->is_request == 0) { ?>
                 <div class="md:text-right">
                     <h3 class="text-xs font-bold uppercase opacity-50 mb-2">Proveedor</h3>
@@ -537,6 +605,7 @@ JS;
 
     <?php if (in_array($model->status, [
         \app\models\WorkOrders::STATUS_APPROVED,
+        \app\models\WorkOrders::STATUS_COMPLETED,
         \app\models\WorkOrders::STATUS_NOT_COMPLETED,
         \app\models\WorkOrders::STATUS_PARTIAL
     ])): ?>
@@ -665,16 +734,16 @@ JS;
                                         <div class="text-sm italic text-justify leading-relaxed whitespace-pre-line text-base-content/85">
                                             <?= \yii\helpers\Html::encode($update->client_reply) ?>
                                         </div>
-                                        <?php if (!empty($update->attachment_url)): ?>
+                                        <?php if (!empty($update->reply_attachment_url)): ?>
                                             <div class="mt-3 text-xs flex items-center gap-1.5 border-t border-base-300 pt-2">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-primary">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636l-3.536 3.536m0 0A5 5 0 118.05 4.95m5.778 4.222L12 12m0 0L7.05 16.95m4.95-4.95a5 5 0 11-7.07 7.07m7.07-7.07L12 12" />
                                                 </svg>
-                                                <a href="<?= \yii\helpers\Html::encode($update->attachment_url) ?>" target="_blank" class="link link-primary font-semibold">Ver Archivo Adjunto</a>
+                                                <a href="<?= \yii\helpers\Html::encode($update->reply_attachment_url) ?>" target="_blank" class="link link-primary font-semibold">Ver Archivo Adjunto</a>
                                             </div>
                                         <?php endif; ?>
                                     </div>
-                                <?php else: ?>
+                                <?php elseif (!in_array($model->status, [\app\models\WorkOrders::STATUS_COMPLETED, \app\models\WorkOrders::STATUS_NOT_COMPLETED])): ?>
                                     <div class="bg-base-200 p-4 rounded-lg border-l-4 border-primary mt-4">
                                         <div class="text-xs font-bold text-primary mb-2">Este avance requiere tu respuesta:</div>
                                         <div class="text-sm text-justify">

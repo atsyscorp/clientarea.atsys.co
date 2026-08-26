@@ -128,11 +128,16 @@ if (!Yii::$app->user->isGuest) {
             .drawer-side {
                 width: 20rem !important;
                 overflow: hidden;
-                transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                border-right: 1px solid hsl(var(--bc) / 0.12);
+                box-shadow: 6px 0 25px -4px rgba(0, 0, 0, 0.12), 2px 0 10px -2px rgba(0, 0, 0, 0.06);
+                z-index: 45;
             }
             .drawer.sidebar-collapsed .drawer-side {
                 width: 0rem !important;
                 opacity: 0;
+                box-shadow: none !important;
+                border-right-color: transparent !important;
             }
             
             /* Botón de control del sidebar */
@@ -142,29 +147,34 @@ if (!Yii::$app->user->isGuest) {
                 left: 320px; /* Ancho del sidebar w-80 = 20rem = 320px */
                 transform: translateY(-50%) translateX(-50%);
                 z-index: 50;
-                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s, color 0.2s, width 0.2s;
+                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s, color 0.2s, box-shadow 0.2s, border-color 0.2s;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 24px;
-                height: 48px;
+                width: 36px;
+                height: 36px;
                 background-color: hsl(var(--b1));
-                border: 1px solid hsl(var(--bc) / 0.15);
-                border-radius: 9999px;
+                border: 1px solid hsl(var(--bc) / 0.18);
+                border-radius: 50%;
                 cursor: pointer;
-                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-                color: hsl(var(--bc) / 0.7);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+                color: hsl(var(--bc) / 0.75);
             }
             #sidebar-toggle-btn:hover {
                 background-color: hsl(var(--p));
                 color: hsl(var(--pc));
                 border-color: hsl(var(--p));
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+                transform: translateY(-50%) translateX(-50%) scale(1.08);
             }
             
             .sidebar-collapsed #sidebar-toggle-btn {
                 left: 0px;
-                transform: translateY(-50%) translateX(0);
+                transform: translateY(-50%) translateX(16px);
+            }
+
+            .sidebar-collapsed #sidebar-toggle-btn:hover {
+                transform: translateY(-50%) translateX(16px) scale(1.08);
             }
             
             /* Rotación del icono de la flecha */
@@ -252,7 +262,7 @@ if (!Yii::$app->user->isGuest) {
         
         <!-- Toggle button for desktop sidebar -->
         <button id="sidebar-toggle-btn" class="hidden lg:flex" aria-label="Toggle Sidebar" onclick="toggleSidebar()">
-            <svg id="toggle-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4 transition-transform duration-300">
+            <svg id="toggle-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5 transition-transform duration-300">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
         </button>
@@ -466,13 +476,21 @@ if (!Yii::$app->user->isGuest) {
             <?php endif; ?>
 
             <?php
-            $urgentAlert = \app\models\Announcements::findActive()
-                ->andWhere(['type' => 'danger']) // Solo las rojas/urgentes
-                ->orderBy(['created_at' => SORT_DESC]) // La más reciente
+            $topAlert = \app\models\Announcements::findActive()
+                ->andWhere(['OR', ['is_pinned' => 1], ['type' => 'danger']])
+                ->orderBy(['created_at' => SORT_DESC]) // El más reciente
                 ->one();
             ?>
 
-            <?php if ($urgentAlert): ?>
+            <?php if ($topAlert): ?>
+                <?php
+                $alertStyle = match ($topAlert->type) {
+                    'danger' => ['class' => 'alert-error', 'icon' => '🚨'],
+                    'success' => ['class' => 'alert-success', 'icon' => '🎉'],
+                    'warning' => ['class' => 'alert-warning', 'icon' => '🛠️'],
+                    default => ['class' => 'alert-info', 'icon' => '📢'],
+                };
+                ?>
                 <div class="container mx-auto px-4 mt-4">
                     <div class="alert <?= $alertStyle['class'] ?> shadow-lg">
                         <span class="text-2xl shrink-0"><?= $alertStyle['icon'] ?></span>
@@ -561,7 +579,7 @@ if (!Yii::$app->user->isGuest) {
 
         <div class="drawer-side z-50">
             <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-            <div class="menu p-4 w-80 min-h-full bg-base-100 text-base-content flex flex-col justify-between">
+            <div class="menu p-4 w-80 min-h-full bg-base-100 text-base-content flex flex-col justify-between border-r border-base-300 shadow-xl lg:shadow-none">
                 <div>
                     <!-- Logo ATSYS -->
                     <div class="mb-6 px-4 py-2 flex justify-center">
@@ -584,7 +602,9 @@ if (!Yii::$app->user->isGuest) {
                     $isTeamActive = ($controllerId === 'subaccounts');
                     $isWorkOrdersActive = ($controllerId === 'work-orders');
                     $isContractsActive = ($controllerId === 'contracts');
+                    $isProjectsActive = ($controllerId === 'projects');
                     $isAnnouncementsActive = ($controllerId === 'announcements');
+
                     $isSpamBlacklistActive = ($controllerId === 'ticket-spam-blacklist');
                     $isHelpActive = ($controllerId === 'help');
                     $isDomainSearchActive = ($controllerId === 'site' && $actionId === 'domain-search');
@@ -730,6 +750,14 @@ if (!Yii::$app->user->isGuest) {
                         <?php endif; ?>
 
                         <?php if (!Yii::$app->user->isGuest): ?>
+                            <!-- Projects -->
+                            <li>
+                                <a href="/projects/index" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isProjectsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" /></svg>
+                                    Proyectos
+                                </a>
+                            </li>
+
                             <!-- Contracts -->
                             <li>
                                 <a href="/contracts/index" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isContractsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
@@ -738,6 +766,7 @@ if (!Yii::$app->user->isGuest) {
                                 </a>
                             </li>
                         <?php endif; ?>
+
 
                         <?php if (!Yii::$app->user->isGuest && (Yii::$app->user->identity->isAdmin || Yii::$app->user->identity->role == 10 || Yii::$app->user->identity->role == 12)): ?>
                             <!-- Work Orders -->

@@ -6,7 +6,7 @@ use yii\helpers\Html;
 $rateUrl = Yii::$app->urlManager->createAbsoluteUrl(['feedback/rate', 'ticket_id' => $ticket->ticket_code]);
 $ticketUrl = Yii::$app->urlManager->createAbsoluteUrl(['tickets/view', 'id' => $ticket->id]);
 ?>
-<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
     
     <div style="text-align: center; margin-bottom: 24px;">
         <h2 style="color: #134C42; margin: 0; font-size: 22px; font-weight: bold;">Tu Ticket ha sido Cerrado</h2>

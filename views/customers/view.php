@@ -184,6 +184,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
 
         </div>
 
+
         <div class="lg:col-span-1 space-y-6">
             
             <div class="card bg-base-100 shadow-xl border border-base-200">

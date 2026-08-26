@@ -56,7 +56,20 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                         'label' => 'Cliente',
                     ],
 
+                    [
+                        'attribute' => 'project_id',
+                        'label' => 'Proyecto / Filial',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            if ($model->project) {
+                                return Html::a(Html::encode($model->project->name), ['projects/view', 'id' => $model->project_id], ['class' => 'link link-secondary no-underline font-medium']);
+                            }
+                            return '<span class="text-base-content/40 italic">Sin proyecto</span>';
+                        }
+                    ],
+
                     'title',
+
 
                     [
                         'attribute' => 'total_cost',

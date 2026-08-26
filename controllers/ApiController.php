@@ -106,22 +106,11 @@ class ApiController extends Controller
                 if ($reply->save()) {
                     $transaction->commit();
 
-                    // Disparar envío de correos asincrónicamente/controlado
+                    // Disparar notificaciones completas (Email, In-App, y Push N8N)
                     try {
-                        $this->sendNewTicketEmails($model, $model->message, $user);
-                    } catch (\Exception $mailEx) {
-                        Yii::error("Error enviando correos de ticket API (" . $model->ticket_code . "): " . $mailEx->getMessage(), 'api_ticket');
-                    }
-
-                    // Disparar webhook push a administradores por n8n
-                    try {
-                        $this->triggerN8nNotification(
-                            "🎟️ Nuevo Ticket API: " . $model->ticket_code . " de: " . $model->customer->business_name,
-                            "Mensaje: " . substr(strip_tags($reply->message), 0, 50) . "...",
-                            $model->id
-                        );
-                    } catch (\Exception $n8nEx) {
-                        Yii::error("Error enviando push n8n desde API (" . $model->ticket_code . "): " . $n8nEx->getMessage(), 'api_ticket');
+                        $model->sendNewTicketNotifications($model->message, $user, false);
+                    } catch (\Exception $notifEx) {
+                        Yii::error("Error enviando notificaciones de ticket API (" . $model->ticket_code . "): " . $notifEx->getMessage(), 'api_ticket');
                     }
 
                     return [
@@ -216,11 +205,13 @@ class ApiController extends Controller
             'tokens' => $tokens,
             'title' => $title,
             'body' => $body,
+            'message' => $body,
             'link' => "https://clientarea.atsys.co/tickets/view?id=" . $ticketId,
-            'image' => 'https://clientarea.atsys.co/images/atsys-clientarea-og.webp'
+            'image' => 'https://clientarea.atsys.co/images/atsys-clientarea-og.webp',
+            'type' => 'ticket'
         ];
 
-        $n8nUrl = 'https://n8n.atsys.co/webhook/send-admin-push';
+        $n8nUrl = Yii::$app->params['n8n_admin_push_url'] ?? 'https://n8n-new.atsys.co/webhook/send-admin-push';
 
         try {
             $ch = curl_init($n8nUrl);
@@ -228,7 +219,7 @@ class ApiController extends Controller
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT_MS, 500); // 500ms timeout
+            curl_setopt($ch, CURLOPT_TIMEOUT_MS, 3000);
             curl_exec($ch);
             curl_close($ch);
         } catch (\Exception $e) {

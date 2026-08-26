@@ -34,6 +34,22 @@ class WorkOrderUpdates extends \yii\db\ActiveRecord
         ];
     }
 
+    public function beforeSave($insert)
+    {
+        if (!parent::beforeSave($insert)) {
+            return false;
+        }
+
+        if ($this->description !== null) {
+            $this->description = mb_convert_encoding($this->description, 'UTF-8', 'UTF-8');
+        }
+        if ($this->client_reply !== null) {
+            $this->client_reply = mb_convert_encoding($this->client_reply, 'UTF-8', 'UTF-8');
+        }
+
+        return true;
+    }
+
     public function rules()
     {
         return [

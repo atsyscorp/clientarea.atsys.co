@@ -37,7 +37,7 @@ $percent = number_format(floatval($model->progress_percentage), 1);
                 </tr>
                 <tr>
                     <td style="padding: 4px 0; color: #6b7280;"><strong>Vencimiento:</strong></td>
-                    <td style="padding: 4px 0;"><?= $model->end_date ? date('d/m/Y', strtotime($model->end_date)) : '-' ?></td>
+                    <td style="padding: 4px 0; font-weight: bold; color: #4F46E5;"><?= $model->end_date ? date('d/m/Y', strtotime($model->end_date)) : 'Indefinido (Sin fecha de finalización)' ?></td>
                 </tr>
                 <tr>
                     <td style="padding: 4px 0; color: #6b7280;"><strong>% Avance Inicial:</strong></td>

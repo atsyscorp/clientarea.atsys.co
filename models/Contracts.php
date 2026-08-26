@@ -33,6 +33,7 @@ use yii\db\ActiveRecord;
 class Contracts extends ActiveRecord
 {
     public $attachmentFile;
+    public $is_indefinite;
 
     const STATUS_DRAFT = 0;
     const STATUS_ACTIVE = 1;
@@ -73,6 +74,7 @@ class Contracts extends ActiveRecord
             [['total_amount', 'progress_percentage'], 'number'],
             [['description', 'contract_file'], 'string'],
             [['start_date', 'end_date', 'created_at', 'updated_at'], 'safe'],
+            [['is_indefinite'], 'boolean'],
 
             [['code'], 'string', 'max' => 50],
             [['title'], 'string', 'max' => 255],
@@ -109,11 +111,20 @@ class Contracts extends ActiveRecord
         return $prefix . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
     }
 
+    public function afterFind()
+    {
+        parent::afterFind();
+        $this->is_indefinite = empty($this->end_date);
+    }
+
     public function beforeSave($insert)
     {
         if (parent::beforeSave($insert)) {
             if ($this->isNewRecord && empty($this->code)) {
                 $this->code = self::generateNextCode();
+            }
+            if ($this->is_indefinite) {
+                $this->end_date = null;
             }
             return true;
         }
@@ -132,6 +143,7 @@ class Contracts extends ActiveRecord
             'currency' => 'Moneda',
             'start_date' => 'Fecha de Inicio',
             'end_date' => 'Fecha de Vencimiento',
+            'is_indefinite' => 'Duración Indefinida (Sin fecha de vencimiento)',
             'status' => 'Estado',
             'progress_percentage' => '% de Avance',
             'progress_mode' => 'Modo de Cálculo de Avance',

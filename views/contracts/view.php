@@ -53,9 +53,8 @@ $colorClass = $model->getProgressColorClass();
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <!-- Stat: Porcentaje de Avance -->
         <div class="bg-base-100 p-5 rounded-box shadow-md border border-base-200 flex flex-col justify-between">
-            <div class="flex justify-between items-center text-xs text-base-content/70 uppercase font-bold tracking-wider">
-                <span>Porcentaje de Avance</span>
-                <span class="badge badge-sm badge-ghost font-mono"><?= number_format($percent, 1) ?>%</span>
+            <div class="text-xs text-base-content/70 uppercase font-bold tracking-wider">
+                Porcentaje de Avance
             </div>
             <div class="my-3">
                 <div class="text-3xl font-black text-primary mb-2 flex items-baseline gap-1">
@@ -97,7 +96,7 @@ $colorClass = $model->getProgressColorClass();
                 </div>
                 <div class="text-sm font-semibold flex items-center justify-between">
                     <span class="text-base-content/60">Fin:</span>
-                    <span class="font-mono text-warning"><?= $model->end_date ? date('d/m/Y', strtotime($model->end_date)) : 'N/A' ?></span>
+                    <span class="font-mono text-warning"><?= $model->end_date ? date('d/m/Y', strtotime($model->end_date)) : '♾️ Indefinido' ?></span>
                 </div>
             </div>
             <div class="text-xs text-base-content/60">
@@ -218,7 +217,7 @@ $colorClass = $model->getProgressColorClass();
                             </tr>
                             <tr>
                                 <th class="bg-base-200/50">Fecha Vencimiento:</th>
-                                <td><?= $model->end_date ? date('d/m/Y', strtotime($model->end_date)) : '-' ?></td>
+                                <td><?= $model->end_date ? date('d/m/Y', strtotime($model->end_date)) : '<span class="badge badge-ghost badge-sm font-semibold">♾️ Indefinido</span>' ?></td>
                             </tr>
                             <tr>
                                 <th class="bg-base-200/50">Modo Avance:</th>
@@ -385,7 +384,8 @@ $colorClass = $model->getProgressColorClass();
                                         ?>
                                     </td>
                                     <?php if ($isAdmin): ?>
-                                        <td>
+                                        <td class="flex gap-1">
+                                            <button type="button" onclick='openEditTaskModal(<?= $task->id ?>, <?= htmlspecialchars(json_encode($task->title), ENT_QUOTES, 'UTF-8') ?>, <?= $task->weight_percentage ?>, <?= $task->progress_percentage ?>, <?= $task->status ?>, "<?= $task->due_date ?>", <?= htmlspecialchars(json_encode($task->description), ENT_QUOTES, 'UTF-8') ?>)' class="btn btn-ghost btn-xs text-primary">Editar</button>
                                             <?= Html::a('Eliminar', ['delete-task', 'id' => $task->id], [
                                                 'class' => 'btn btn-ghost btn-xs text-error',
                                                 'data' => [
@@ -530,6 +530,46 @@ $colorClass = $model->getProgressColorClass();
     <button type="button" onclick="closeAddTaskModal()">close</button>
   </form>
 </dialog>
+
+<!-- Modal para Editar Tarea/Hito -->
+<dialog id="dialog-edit-task" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg text-primary mb-4">Editar Hito o Tarea</h3>
+    
+    <?php $formEditTask = ActiveForm::begin([
+        'action' => ['update-task', 'id' => 0],
+        'id' => 'form-edit-task',
+    ]); ?>
+
+    <?= $formEditTask->field($newTask, 'title')->textInput(['id' => 'edit-task-title', 'required' => true, 'class' => 'input input-bordered w-full']) ?>
+    
+    <div class="grid grid-cols-2 gap-4 mt-3">
+        <?= $formEditTask->field($newTask, 'weight_percentage')->textInput(['id' => 'edit-task-weight', 'type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('Peso en Contrato (%)') ?>
+        <?= $formEditTask->field($newTask, 'progress_percentage')->textInput(['id' => 'edit-task-progress', 'type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('% de Avance Actual') ?>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mt-3">
+        <?= $formEditTask->field($newTask, 'status')->dropDownList([
+            0 => 'Pendiente',
+            1 => 'En Progreso',
+            2 => 'Completada',
+        ], ['id' => 'edit-task-status', 'class' => 'select select-bordered w-full']) ?>
+        <?= $formEditTask->field($newTask, 'due_date')->input('date', ['id' => 'edit-task-date', 'class' => 'input input-bordered w-full']) ?>
+    </div>
+
+    <?= $formEditTask->field($newTask, 'description')->textarea(['id' => 'edit-task-desc', 'rows' => 3, 'class' => 'textarea textarea-bordered w-full']) ?>
+
+    <div class="modal-action">
+        <button type="button" onclick="closeEditTaskModal()" class="btn btn-ghost">Cancelar</button>
+        <button type="submit" class="btn btn-primary text-white font-bold">Guardar Cambios</button>
+    </div>
+
+    <?php ActiveForm::end(); ?>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button type="button" onclick="closeEditTaskModal()">close</button>
+  </form>
+</dialog>
 <?php endif; ?>
 
 <!-- Script para control limpio de Pestañas (Tabs), Modal y Réplica de Filas de Documentos -->
@@ -572,6 +612,37 @@ function openAddTaskModal() {
 
 function closeAddTaskModal() {
     var dialog = document.getElementById('dialog-add-task');
+    if (dialog) {
+        if (typeof dialog.close === 'function') {
+            dialog.close();
+        } else {
+            dialog.classList.remove('modal-open');
+        }
+    }
+}
+
+function openEditTaskModal(id, title, weight, progress, status, dueDate, desc) {
+    var dialog = document.getElementById('dialog-edit-task');
+    if (dialog) {
+        var baseUrl = '<?= \yii\helpers\Url::to(['update-task', 'id' => '__id__']) ?>';
+        document.getElementById('form-edit-task').action = baseUrl.replace('__id__', id);
+        document.getElementById('edit-task-title').value = title || '';
+        document.getElementById('edit-task-weight').value = weight || 0;
+        document.getElementById('edit-task-progress').value = progress || 0;
+        document.getElementById('edit-task-status').value = status || 0;
+        document.getElementById('edit-task-date').value = dueDate || '';
+        document.getElementById('edit-task-desc').value = desc || '';
+        
+        if (typeof dialog.showModal === 'function') {
+            dialog.showModal();
+        } else {
+            dialog.classList.add('modal-open');
+        }
+    }
+}
+
+function closeEditTaskModal() {
+    var dialog = document.getElementById('dialog-edit-task');
     if (dialog) {
         if (typeof dialog.close === 'function') {
             dialog.close();

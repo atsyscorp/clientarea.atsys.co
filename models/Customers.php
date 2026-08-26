@@ -467,4 +467,29 @@ class Customers extends \yii\db\ActiveRecord
         ];
     }
 
+    public function getProjects()
+    {
+        return $this->hasMany(Projects::class, ['customer_id' => 'id']);
+    }
+
+    public function afterSave($insert, $changedAttributes)
+    {
+        parent::afterSave($insert, $changedAttributes);
+
+        if ($insert) {
+            $name = !empty($this->trade_name) ? $this->trade_name : $this->business_name;
+            $project = new Projects();
+            $project->customer_id = $this->id;
+            $project->code = 'PRJ-' . str_pad($this->id, 4, '0', STR_PAD_LEFT) . '-DEF';
+            $project->name = 'Proyecto Principal - ' . $name;
+            $project->business_name = $this->business_name;
+            $project->document_number = $this->document_number;
+            $project->address = $this->address;
+            $project->is_default = 1;
+            $project->status = Projects::STATUS_ACTIVE;
+            $project->save(false);
+        }
+    }
+
 }
+
