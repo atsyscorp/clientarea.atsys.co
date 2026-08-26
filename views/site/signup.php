@@ -29,12 +29,12 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
             </div>
         </div>
 
-        <div class="absolute bg-white opacity-10 w-96 h-96 rounded-full -top-10 -left-10 blur-3xl"></div>
-        <div class="absolute bg-white opacity-10 w-80 h-80 rounded-full bottom-10 right-10 blur-3xl"></div>
+        <div class="absolute bg-base-100 opacity-10 w-96 h-96 rounded-full -top-10 -left-10 blur-3xl"></div>
+        <div class="absolute bg-base-100 opacity-10 w-80 h-80 rounded-full bottom-10 right-10 blur-3xl"></div>
 
         <div class="z-10 text-center text-primary-content px-10">
             <div class="mb-6 flex justify-center">
-                 <div class="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-xl border border-white/30">
+                 <div class="w-24 h-24 bg-base-100/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-xl border border-white/30">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-white">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
                     </svg>
@@ -52,8 +52,8 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
         
         <div class="w-full max-w-md space-y-6">
             <div class="text-center lg:text-left">
-                <h2 class="text-3xl font-bold text-gray-900">Registro de Clientes</h2>
-                <p class="mt-2 text-sm text-gray-500">Completa el formulario para acceder a la plataforma.</p>
+                <h2 class="text-3xl font-bold text-base-content">Registro de Clientes</h2>
+                <p class="mt-2 text-sm text-base-content/50">Completa el formulario para acceder a la plataforma.</p>
             </div>
 
             <?php $form = ActiveForm::begin([
@@ -61,7 +61,7 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
                 'options' => ['class' => 'mt-8 space-y-5'],
                 'fieldConfig' => [
                     'template' => "{label}\n<div class=\"relative\">{input}</div>\n{error}",
-                    'labelOptions' => ['class' => 'label-text font-semibold text-gray-700 mb-1 block'],
+                    'labelOptions' => ['class' => 'label-text font-semibold text-base-content/70 mb-1 block'],
                     'inputOptions' => ['class' => 'input input-bordered w-full pl-10 focus:input-primary transition-all'],
                     'errorOptions' => ['class' => 'text-error text-sm mt-1'],
                 ],
@@ -69,7 +69,7 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
 
             <?= $form->field($model, 'email', [
                 'template' => "{label}\n<div class=\"relative\">
-                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400\">
+                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-base-content/40\">
                         <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"w-5 h-5\">
                             <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75\" />
                         </svg>
@@ -80,7 +80,7 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
 
             <?= $form->field($model, 'password', [
                 'template' => "{label}\n<div class=\"relative\">
-                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400\">
+                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-base-content/40\">
                         <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"w-5 h-5\">
                             <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z\" />
                         </svg>
@@ -91,7 +91,7 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
             
             <?= $form->field($model, 'password_repeat', [
                 'template' => "{label}\n<div class=\"relative\">
-                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400\">
+                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-base-content/40\">
                         <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"w-5 h-5\">
                             <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z\" />
                         </svg>
@@ -114,13 +114,13 @@ $this->registerJsFile('https://code.jquery.com/jquery-3.7.1.min.js', ['position'
             <?php ActiveForm::end(); ?>
 
             <div class="mt-6 text-center">
-                <p class="text-sm text-gray-600">
+                <p class="text-sm text-base-content/60">
                     ¿Ya tienes una cuenta? 
                     <?= Html::a('Inicia Sesión', ['site/login'], ['class' => 'font-medium text-primary hover:text-primary-focus hover:underline']) ?>
                 </p>
             </div>
             
-            <div class="mt-8 text-center text-xs text-gray-400">
+            <div class="mt-8 text-center text-xs text-base-content/40">
                 &copy; <?= date('Y') ?> Arkitech Systems SAS. Todos los derechos reservados.
             </div>
         </div>

@@ -186,15 +186,15 @@ $estadosList = [
         ?>
         <div class="card bg-base-100 shadow-xl border border-base-200">
             <div class="card-body p-6">
-                <h3 class="card-title text-xl font-bold text-gray-800 mb-2">
+                <h3 class="card-title text-xl font-bold text-base-content/80 mb-2">
                     <i class="fas fa-tasks text-primary mr-1"></i> Cronograma Global de Tickets (Gantt)
                 </h3>
-                <p class="text-xs text-gray-400 mb-6 font-semibold">Línea de tiempo y avance de las últimas 25 solicitudes de soporte.</p>
+                <p class="text-xs text-base-content/40 mb-6 font-semibold">Línea de tiempo y avance de las últimas 25 solicitudes de soporte.</p>
                 
                 <?php if (!empty($ganttData['timeline'])): ?>
                     <div class="space-y-6">
                         <!-- Rulers de la Línea de Tiempo -->
-                        <div class="grid grid-cols-12 text-center text-[10px] font-extrabold text-gray-400 border-b border-base-200 pb-2">
+                        <div class="grid grid-cols-12 text-center text-[10px] font-extrabold text-base-content/40 border-b border-base-200 pb-2">
                             <div class="col-span-3 text-left">Ticket / Asunto</div>
                             <div class="col-span-9 relative">
                                 <div class="flex justify-between w-full px-2">
@@ -235,7 +235,7 @@ $estadosList = [
                                                 <?= Html::encode($tkt['status_text']) ?>
                                             </span>
                                         </div>
-                                        <span class="text-xs font-semibold text-gray-700 truncate mt-1 group-hover:text-primary transition-colors" title="<?= Html::encode($tkt['subject']) ?>">
+                                        <span class="text-xs font-semibold text-base-content/70 truncate mt-1 group-hover:text-primary transition-colors" title="<?= Html::encode($tkt['subject']) ?>">
                                             <?= Html::encode($tkt['subject']) ?>
                                         </span>
                                     </div>
@@ -248,7 +248,7 @@ $estadosList = [
                                                  data-tip="Creado: <?= date('d M H:i', strtotime($tkt['created_at'])) ?> | Duración: <?= $tkt['duration_text'] ?>">
                                             </div>
                                         </div>
-                                        <div class="absolute right-0 top-0 text-[9px] text-gray-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block">
+                                        <div class="absolute right-0 top-0 text-[9px] text-base-content/40 font-mono opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block">
                                             Duración: <?= Html::encode($tkt['duration_text']) ?>
                                         </div>
                                     </div>
@@ -257,9 +257,9 @@ $estadosList = [
                         </div>
                     </div>
                 <?php else: ?>
-                    <div class="text-center py-16 text-gray-400 flex flex-col items-center justify-center">
+                    <div class="text-center py-16 text-base-content/40 flex flex-col items-center justify-center">
                         <i class="fas fa-tasks text-5xl mb-3 opacity-30"></i>
-                        <span class="text-base font-semibold text-gray-700">No hay tickets registrados</span>
+                        <span class="text-base font-semibold text-base-content/70">No hay tickets registrados</span>
                         <p class="text-xs max-w-xs mt-1">Los datos de progreso temporal se mostrarán aquí una vez que crees solicitudes de tickets.</p>
                     </div>
                 <?php endif; ?>
@@ -309,7 +309,7 @@ $estadosList = [
                 <span id="selected-count" class="text-accent text-lg font-extrabold">0</span> seleccionados
             </div>
 
-            <div class="h-6 w-px bg-white/20"></div>
+            <div class="h-6 w-px bg-base-100/20"></div>
 
             <div class="flex gap-2">
                 <button type="button" onclick="applyBulkAction('close')" class="btn btn-sm btn-ghost hover:bg-base-100/10 text-white gap-2">

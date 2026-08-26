@@ -68,7 +68,7 @@ $selectedCurrency = Yii::$app->session->get('currency', 'COP');
         <?php endforeach; ?>
 
         <?php if (empty($products)): ?>
-            <div class="col-span-full text-center text-gray-500 py-20">
+            <div class="col-span-full text-center text-base-content/50 py-20">
                 <p class="text-xl">No hay productos disponibles en este momento.</p>
             </div>
         <?php endif; ?>

@@ -47,7 +47,7 @@ use yii\widgets\ActiveForm;
             </div>
         </div>
         
-        <div class="text-xs text-gray-500 mt-2 mb-4 px-1">
+        <div class="text-xs text-base-content/50 mt-2 mb-4 px-1">
             * Para servicios estándar (Hosting/Soporte), puedes poner el mismo valor en Registro y Renovación, y 0 en Restauración.
         </div>
 

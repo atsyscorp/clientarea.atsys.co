@@ -16,7 +16,7 @@ $this->params['breadcrumbs'][] = $this->title;
     <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-3xl font-bold text-primary"><?= Html::encode($this->title) ?></h1>
-            <p class="text-xs text-gray-400 mt-1 font-semibold">Administra los correos electrónicos bloqueados para la creación automática de tickets.</p>
+            <p class="text-xs text-base-content/40 mt-1 font-semibold">Administra los correos electrónicos bloqueados para la creación automática de tickets.</p>
         </div>
     </div>
 
@@ -24,7 +24,7 @@ $this->params['breadcrumbs'][] = $this->title;
         <!-- Tarjeta de Registro (Formulario) -->
         <div class="card bg-base-100 shadow-xl border border-base-200 h-fit">
             <div class="card-body p-6">
-                <h3 class="card-title text-lg font-bold text-gray-800 mb-4">
+                <h3 class="card-title text-lg font-bold text-base-content/80 mb-4">
                     <i class="fas fa-ban text-error mr-1"></i> Bloquear Correo
                 </h3>
 
@@ -35,7 +35,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
                 <?= $form->field($model, 'email', [
                     'options' => ['class' => 'form-control w-full'],
-                    'labelOptions' => ['class' => 'label text-sm font-semibold text-gray-600'],
+                    'labelOptions' => ['class' => 'label text-sm font-semibold text-base-content/60'],
                     'errorOptions' => ['class' => 'text-error text-xs mt-1 font-semibold'],
                 ])->textInput([
                     'class' => 'input input-bordered w-full focus:input-primary',
@@ -44,7 +44,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
                 <?= $form->field($model, 'reason', [
                     'options' => ['class' => 'form-control w-full'],
-                    'labelOptions' => ['class' => 'label text-sm font-semibold text-gray-600'],
+                    'labelOptions' => ['class' => 'label text-sm font-semibold text-base-content/60'],
                     'errorOptions' => ['class' => 'text-error text-xs mt-1 font-semibold'],
                 ])->textInput([
                     'class' => 'input input-bordered w-full focus:input-primary',
@@ -64,7 +64,7 @@ $this->params['breadcrumbs'][] = $this->title;
         <!-- Tarjeta de Listado (Tabla) -->
         <div class="lg:col-span-2 card bg-base-100 shadow-xl border border-base-200">
             <div class="card-body p-6">
-                <h3 class="card-title text-lg font-bold text-gray-800 mb-4">
+                <h3 class="card-title text-lg font-bold text-base-content/80 mb-4">
                     <i class="fas fa-list text-primary mr-1"></i> Correos Bloqueados
                 </h3>
 
@@ -72,7 +72,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     <?= GridView::widget([
                         'dataProvider' => $dataProvider,
                         'emptyText' => 'No hay correos registrados en la lista negra.',
-                        'summary' => '<div class="text-xs text-gray-400 mb-4 font-semibold">Mostrando <b>{begin}-{end}</b> de <b>{totalCount}</b> correos bloqueados.</div>',
+                        'summary' => '<div class="text-xs text-base-content/40 mb-4 font-semibold">Mostrando <b>{begin}-{end}</b> de <b>{totalCount}</b> correos bloqueados.</div>',
                         'tableOptions' => ['class' => 'table table-zebra table-hover w-full'],
                         'layout' => "{summary}\n{items}\n{pager}",
                         'pager' => [
@@ -86,13 +86,13 @@ $this->params['breadcrumbs'][] = $this->title;
                                 'attribute' => 'email',
                                 'format' => 'email',
                                 'label' => 'Correo Electrónico',
-                                'contentOptions' => ['class' => 'font-semibold text-gray-800'],
+                                'contentOptions' => ['class' => 'font-semibold text-base-content/80'],
                             ],
                             [
                                 'attribute' => 'reason',
                                 'label' => 'Motivo / Notas',
                                 'value' => function($model) {
-                                    return $model->reason ? Html::encode($model->reason) : Html::tag('span', 'Sin especificar', ['class' => 'text-gray-400 italic']);
+                                    return $model->reason ? Html::encode($model->reason) : Html::tag('span', 'Sin especificar', ['class' => 'text-base-content/40 italic']);
                                 },
                                 'format' => 'raw',
                             ],
@@ -102,7 +102,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 'value' => function($model) {
                                     return date('d/m/Y H:i', strtotime($model->created_at));
                                 },
-                                'contentOptions' => ['class' => 'text-xs text-gray-500'],
+                                'contentOptions' => ['class' => 'text-xs text-base-content/50'],
                             ],
                             [
                                 'class' => 'yii\grid\ActionColumn',

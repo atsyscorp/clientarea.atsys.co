@@ -92,7 +92,7 @@ function react(id, type, btn) {
 
     if (!isActive) {
         // Asignar color según tipo
-        let colorClass = 'bg-gray-200';
+        let colorClass = 'bg-base-200';
         if(type === 'like') colorClass = 'bg-blue-100 border-blue-300';
         if(type === 'love') colorClass = 'bg-red-100 border-red-300';
         if(type === 'clap') colorClass = 'bg-green-100 border-green-300';

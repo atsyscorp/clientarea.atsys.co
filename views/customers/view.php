@@ -27,14 +27,14 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
             <div class="flex items-center gap-3">
-                <h1 class="text-3xl font-bold text-gray-800">
+                <h1 class="text-3xl font-bold text-base-content/80">
                     <?= Html::encode($this->title) ?>
                 </h1>
                 <span class="badge <?= $statusColor ?> badge-lg shadow-sm">
                     <?= Html::encode(['active'=>'Activo', 'inactive'=>'Inactivo', 'prospect'=>'Prospecto'][$model->status] ?? $model->status) ?>
                 </span>
             </div>
-            <p class="text-gray-500 mt-1">
+            <p class="text-base-content/50 mt-1">
                 <i class="fas fa-id-card mr-1"></i> <?= Html::encode($model->document_type) ?>: <?= Html::encode($model->document_number) ?>
             </p>
         </div>
@@ -56,27 +56,27 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
                         <div>
-                            <span class="label-text text-xs uppercase font-bold text-gray-400">Razón Social</span>
+                            <span class="label-text text-xs uppercase font-bold text-base-content/40">Razón Social</span>
                             <div class="font-semibold text-lg"><?= Html::encode($model->business_name ?: 'N/A') ?></div>
                         </div>
                         <div>
-                            <span class="label-text text-xs uppercase font-bold text-gray-400">Nombre Comercial</span>
+                            <span class="label-text text-xs uppercase font-bold text-base-content/40">Nombre Comercial</span>
                             <div class="font-semibold text-lg"><?= Html::encode($model->trade_name ?: 'Igual a Razón Social') ?></div>
                         </div>
                         <div>
-                            <span class="label-text text-xs uppercase font-bold text-gray-400">Correo Electrónico</span>
+                            <span class="label-text text-xs uppercase font-bold text-base-content/40">Correo Electrónico</span>
                             <div class="text-base break-words">
                                 <?php if($model->email): ?>
                                     <a href="mailto:<?= Html::encode($model->email) ?>" class="link link-primary no-underline hover:underline">
                                         <?= Html::encode($model->email) ?>
                                     </a>
                                 <?php else: ?>
-                                    <span class="text-gray-400">No registrado</span>
+                                    <span class="text-base-content/40">No registrado</span>
                                 <?php endif; ?>
                             </div>
                         </div>
                          <div>
-                            <span class="label-text text-xs uppercase font-bold text-gray-400">Fecha de Registro</span>
+                            <span class="label-text text-xs uppercase font-bold text-base-content/40">Fecha de Registro</span>
                             <div class="text-base"><?= Yii::$app->formatter->asDate($model->created_at, 'long') ?></div>
                         </div>
                     </div>
@@ -91,23 +91,91 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 mb-6">
                         <div class="md:col-span-2">
-                            <span class="label-text text-xs uppercase font-bold text-gray-400">Dirección</span>
+                            <span class="label-text text-xs uppercase font-bold text-base-content/40">Dirección</span>
                             <div class="text-base font-medium"><?= Html::encode($model->address ?: 'Sin dirección') ?></div>
                         </div>
                         <div>
-                            <span class="label-text text-xs uppercase font-bold text-gray-400">Ciudad</span>
+                            <span class="label-text text-xs uppercase font-bold text-base-content/40">Ciudad</span>
                             <div class="text-base"><?= Html::encode($model->city) ?></div>
                         </div>
                          <div>
-                            <span class="label-text text-xs uppercase font-bold text-gray-400">Departamento / Provincia</span>
+                            <span class="label-text text-xs uppercase font-bold text-base-content/40">Departamento / Provincia</span>
                             <div class="text-base"><?= Html::encode($model->state_province) ?></div>
                         </div>
                     </div>
 
                     <?php if($model->notes): ?>
                         <div class="bg-base-200 p-4 rounded-lg">
-                            <span class="label-text text-xs uppercase font-bold text-gray-500 mb-1 block">Notas / Observaciones</span>
-                            <p class="text-sm italic text-gray-700 whitespace-pre-wrap"><?= Html::encode($model->notes) ?></p>
+                            <span class="label-text text-xs uppercase font-bold text-base-content/50 mb-1 block">Notas / Observaciones</span>
+                            <p class="text-sm italic text-base-content/70 whitespace-pre-wrap"><?= Html::encode($model->notes) ?></p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl border border-base-200">
+
+                <div class="card-body p-6">
+                    <div class="flex justify-between items-center border-b border-base-200 pb-3 mb-4">
+                        <h2 class="card-title text-primary">
+                            <i class="fas fa-project-diagram mr-2"></i> Proyectos y Empresas Filiales
+                        </h2>
+                        <?php if (!Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin): ?>
+                            <?= Html::a('<i class="fas fa-plus mr-1"></i> Nuevo Proyecto', ['projects/create', 'customer_id' => $model->id], ['class' => 'btn btn-sm btn-primary text-white shadow-sm']) ?>
+                        <?php endif; ?>
+                    </div>
+
+                    <?php $projects = $model->projects; ?>
+                    <?php if (empty($projects)): ?>
+                        <p class="text-sm text-base-content/50 italic">No hay proyectos registrados para este cliente.</p>
+                    <?php else: ?>
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra w-full text-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Nombre del Proyecto / Empresa</th>
+                                        <th>Razón Social / NIT Filial</th>
+                                        <th>OTs</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($projects as $proj): ?>
+                                        <tr>
+                                            <td class="font-mono font-bold"><?= Html::encode($proj->code) ?></td>
+                                            <td>
+                                                <div class="font-semibold text-base-content/80"><?= Html::encode($proj->name) ?></div>
+                                                <?php if ($proj->is_default): ?>
+                                                    <span class="badge badge-info text-[10px]">Predeterminado</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if ($proj->business_name || $proj->document_number): ?>
+                                                    <div class="font-medium"><?= Html::encode($proj->business_name ?: '-') ?></div>
+                                                    <div class="text-xs text-base-content/40">NIT: <?= Html::encode($proj->document_number ?: '-') ?></div>
+                                                <?php else: ?>
+                                                    <span class="text-xs text-base-content/40 italic">Mismos del cliente</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-ghost font-bold"><?= count($proj->workOrders) ?> OTs</span>
+                                            </td>
+                                            <td>
+                                                <?php if ($proj->status == \app\models\Projects::STATUS_ACTIVE): ?>
+                                                    <span class="badge badge-success text-xs">Activo</span>
+                                                <?php else: ?>
+                                                    <span class="badge badge-ghost text-xs">Inactivo</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?= Html::a('Ver Detalle', ['projects/view', 'id' => $proj->id], ['class' => 'btn btn-xs btn-ghost text-primary']) ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -131,7 +199,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                         </div>
                         <div>
                             <div class="font-bold text-lg leading-tight"><?= Html::encode($model->contact_name) ?></div>
-                            <div class="text-sm text-gray-500"><?= Html::encode($model->contact_position) ?></div>
+                            <div class="text-sm text-base-content/50"><?= Html::encode($model->contact_position) ?></div>
                         </div>
                     </div>
 
@@ -142,7 +210,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                                     <i class="fas fa-phone-alt text-sm"></i>
                                 </div>
                                 <div>
-                                    <div class="text-xs text-gray-400 font-bold">Teléfono Principal</div>
+                                    <div class="text-xs text-base-content/40 font-bold">Teléfono Principal</div>
                                     <a href="tel:<?= Html::encode($model->primary_phone) ?>" class="link link-hover font-medium">
                                         <?= Html::encode($model->primary_phone) ?>
                                     </a>
@@ -156,7 +224,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                                     <i class="fas fa-mobile-alt text-sm"></i>
                                 </div>
                                 <div>
-                                    <div class="text-xs text-gray-400 font-bold">Teléfono Secundario</div>
+                                    <div class="text-xs text-base-content/40 font-bold">Teléfono Secundario</div>
                                     <a href="tel:<?= Html::encode($model->secondary_phone) ?>" class="link link-hover font-medium">
                                         <?= Html::encode($model->secondary_phone) ?>
                                     </a>
@@ -174,7 +242,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
             </div>
 
             <div class="card bg-base-100 shadow-sm border border-base-200 opacity-80">
-                <div class="card-body p-4 text-xs text-gray-500">
+                <div class="card-body p-4 text-xs text-base-content/50">
                     <div class="flex justify-between">
                         <span>ID Sistema:</span>
                         <span class="font-mono"><?= $model->id ?></span>
@@ -263,7 +331,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                         'attribute' => 'next_due_date',
                         'format' => 'raw',
                         'value' => function($service) {
-                            if (!$service->next_due_date) return '<span class="text-gray-400">N/A</span>';
+                            if (!$service->next_due_date) return '<span class="text-base-content/40">N/A</span>';
                             
                             $due = new DateTime($service->next_due_date);
                             $now = new DateTime();
@@ -380,7 +448,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
             ]); ?>
             
             <?php if (empty($model->services)): ?>
-                <div class="p-6 text-center text-gray-500">
+                <div class="p-6 text-center text-base-content/50">
                     Este cliente no tiene servicios activos aún.
                 </div>
             <?php endif; ?>
@@ -436,12 +504,12 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                         <td class="font-mono text-sm">
                             <?php if ($wo->total_cost > 0): ?>
                                 $<?= Yii::$app->formatter->asDecimal($wo->total_cost, 0) ?>
-                                <span class="text-xs text-gray-400"><?= $wo->currency ?></span>
+                                <span class="text-xs text-base-content/40"><?= $wo->currency ?></span>
                             <?php else: ?>
-                                <span class="text-gray-400">—</span>
+                                <span class="text-base-content/40">—</span>
                             <?php endif; ?>
                         </td>
-                        <td class="text-sm text-gray-500">
+                        <td class="text-sm text-base-content/50">
                             <?= Yii::$app->formatter->asDate($wo->created_at, 'php:d M, Y') ?>
                         </td>
                         <td class="text-right">
@@ -456,7 +524,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                 </tbody>
             </table>
             <?php else: ?>
-                <div class="p-8 text-center text-gray-400">
+                <div class="p-8 text-center text-base-content/40">
                     <i class="fas fa-clipboard-list text-4xl mb-2 opacity-50"></i>
                     <p class="text-sm font-bold">Este cliente no tiene órdenes de trabajo aún.</p>
                 </div>
@@ -476,36 +544,36 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                 <div class="stat-figure text-primary">
                     <i class="fas fa-ticket-alt text-3xl opacity-80"></i>
                 </div>
-                <div class="stat-title text-gray-400 font-semibold uppercase text-xs tracking-wider">Total Tickets</div>
+                <div class="stat-title text-base-content/40 font-semibold uppercase text-xs tracking-wider">Total Tickets</div>
                 <div class="stat-value text-primary text-3xl font-extrabold mt-1"><?= $ticketStats['total'] ?></div>
-                <div class="stat-desc text-gray-400 text-xs mt-1">Registrados en la cuenta</div>
+                <div class="stat-desc text-base-content/40 text-xs mt-1">Registrados en la cuenta</div>
             </div>
             
             <div class="stat p-6 border-b md:border-b-0 md:border-r border-base-200">
                 <div class="stat-figure text-success">
                     <i class="fas fa-check-circle text-3xl opacity-80"></i>
                 </div>
-                <div class="stat-title text-gray-400 font-semibold uppercase text-xs tracking-wider">Contestados</div>
+                <div class="stat-title text-base-content/40 font-semibold uppercase text-xs tracking-wider">Contestados</div>
                 <div class="stat-value text-success text-3xl font-extrabold mt-1"><?= $ticketStats['answered'] ?></div>
-                <div class="stat-desc text-gray-400 text-xs mt-1">Respondidos o Cerrados</div>
+                <div class="stat-desc text-base-content/40 text-xs mt-1">Respondidos o Cerrados</div>
             </div>
             
             <div class="stat p-6 border-b md:border-b-0 md:border-r border-base-200">
                 <div class="stat-figure text-error">
                     <i class="fas fa-hourglass-half text-3xl opacity-80"></i>
                 </div>
-                <div class="stat-title text-gray-400 font-semibold uppercase text-xs tracking-wider">Pendientes</div>
+                <div class="stat-title text-base-content/40 font-semibold uppercase text-xs tracking-wider">Pendientes</div>
                 <div class="stat-value text-error text-3xl font-extrabold mt-1"><?= $ticketStats['pending'] ?></div>
-                <div class="stat-desc text-gray-400 text-xs mt-1">En espera de respuesta</div>
+                <div class="stat-desc text-base-content/40 text-xs mt-1">En espera de respuesta</div>
             </div>
             
             <div class="stat p-6">
                 <div class="stat-figure text-secondary">
                     <i class="fas fa-clock text-3xl opacity-80"></i>
                 </div>
-                <div class="stat-title text-gray-400 font-semibold uppercase text-xs tracking-wider">Tiempo de Resp.</div>
+                <div class="stat-title text-base-content/40 font-semibold uppercase text-xs tracking-wider">Tiempo de Resp.</div>
                 <div class="stat-value text-secondary text-3xl font-extrabold mt-1"><?= $ticketStats['avg_response_time'] ?></div>
-                <div class="stat-desc text-gray-400 text-xs mt-1">Promedio de respuesta admin</div>
+                <div class="stat-desc text-base-content/40 text-xs mt-1">Promedio de respuesta admin</div>
             </div>
         </div>
 
@@ -514,17 +582,17 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
             <div class="card bg-base-100 shadow-xl border border-base-200">
                 <div class="card-body p-6 flex flex-col justify-between">
                     <div>
-                        <h3 class="card-title text-lg font-bold text-gray-800 mb-2">
+                        <h3 class="card-title text-lg font-bold text-base-content/80 mb-2">
                             <i class="fas fa-chart-pie text-primary mr-1"></i> Estado de Respuesta
                         </h3>
-                        <p class="text-xs text-gray-400 mb-4 font-semibold">Proporción de tickets contestados versus pendientes.</p>
+                        <p class="text-xs text-base-content/40 mb-4 font-semibold">Proporción de tickets contestados versus pendientes.</p>
                     </div>
                     <?php if ($ticketStats['total'] > 0): ?>
                         <div class="relative w-full flex items-center justify-center" style="height: 250px;">
                             <canvas id="ticketsChart"></canvas>
                         </div>
                     <?php else: ?>
-                        <div class="text-center py-12 text-gray-400 flex flex-col items-center justify-center h-full">
+                        <div class="text-center py-12 text-base-content/40 flex flex-col items-center justify-center h-full">
                             <i class="fas fa-folder-open text-4xl mb-2 opacity-50"></i>
                             <span class="text-sm font-bold">Sin datos para graficar</span>
                         </div>
@@ -536,17 +604,17 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
             <div class="card bg-base-100 shadow-xl border border-base-200">
                 <div class="card-body p-6 flex flex-col justify-between">
                     <div>
-                        <h3 class="card-title text-lg font-bold text-gray-800 mb-2">
+                        <h3 class="card-title text-lg font-bold text-base-content/80 mb-2">
                             <i class="fas fa-chart-bar text-primary mr-1"></i> Tickets por Mes (<?= date('Y') ?>)
                         </h3>
-                        <p class="text-xs text-gray-400 mb-4 font-semibold">Cantidad de solicitudes recibidas por mes en el año en curso.</p>
+                        <p class="text-xs text-base-content/40 mb-4 font-semibold">Cantidad de solicitudes recibidas por mes en el año en curso.</p>
                     </div>
                     <?php if ($ticketStats['total'] > 0): ?>
                         <div class="relative w-full flex items-center justify-center" style="height: 250px;">
                             <canvas id="monthlyTicketsChart"></canvas>
                         </div>
                     <?php else: ?>
-                        <div class="text-center py-12 text-gray-400 flex flex-col items-center justify-center h-full">
+                        <div class="text-center py-12 text-base-content/40 flex flex-col items-center justify-center h-full">
                             <i class="fas fa-folder-open text-4xl mb-2 opacity-50"></i>
                             <span class="text-sm font-bold">Sin datos para graficar</span>
                         </div>
@@ -620,7 +688,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                             </span>
                         </td>
                         <td><?= $ticket->getDepartmentLabelShort() ?></td>
-                        <td class="text-sm text-gray-500">
+                        <td class="text-sm text-base-content/50">
                             <?= Yii::$app->formatter->asDate($ticket->updated_at, 'php:d M, Y') ?>
                         </td>
                         <td class="text-right">
@@ -635,7 +703,7 @@ $statusColor = $statusColors[$model->status] ?? 'badge-ghost';
                 </tbody>
             </table>
             <?php else: ?>
-                <div class="p-8 text-center text-gray-400">
+                <div class="p-8 text-center text-base-content/40">
                     <i class="fas fa-ticket-alt text-4xl mb-2 opacity-50"></i>
                     <p class="text-sm font-bold">Este cliente no tiene tickets aún.</p>
                 </div>

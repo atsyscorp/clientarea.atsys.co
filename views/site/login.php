@@ -31,7 +31,7 @@ $this->registerMetaTag(['property' => 'og:image', 'content' => Yii::$app->reques
 
         <div class="z-10 text-center text-primary-content px-10">
             <div class="mb-6 flex justify-center">
-                 <div class="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-xl border border-white/30">
+                 <div class="w-24 h-24 bg-base-100/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-xl border border-white/30">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-white">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
                     </svg>
@@ -49,8 +49,8 @@ $this->registerMetaTag(['property' => 'og:image', 'content' => Yii::$app->reques
         
         <div class="w-full max-w-md space-y-8">
             <div class="text-center lg:text-left">
-                <h2 class="text-3xl font-bold text-gray-900">Bienvenido de nuevo</h2>
-                <p class="mt-2 text-sm text-gray-500">Ingresa tus credenciales para acceder al portal.</p>
+                <h2 class="text-3xl font-bold text-base-content">Bienvenido de nuevo</h2>
+                <p class="mt-2 text-sm text-base-content/50">Ingresa tus credenciales para acceder al portal.</p>
             </div>
 
             <?php $form = ActiveForm::begin([
@@ -58,7 +58,7 @@ $this->registerMetaTag(['property' => 'og:image', 'content' => Yii::$app->reques
                 'options' => ['class' => 'mt-8 space-y-6'],
                 'fieldConfig' => [
                     'template' => "{label}\n<div class=\"relative\">{input}</div>\n{error}",
-                    'labelOptions' => ['class' => 'label-text font-semibold text-gray-700 mb-1 block'],
+                    'labelOptions' => ['class' => 'label-text font-semibold text-base-content/70 mb-1 block'],
                     'inputOptions' => ['class' => 'input input-bordered w-full pl-10 focus:input-primary transition-all'],
                     'errorOptions' => ['class' => 'text-error text-sm mt-1'],
                 ],
@@ -66,7 +66,7 @@ $this->registerMetaTag(['property' => 'og:image', 'content' => Yii::$app->reques
 
             <?= $form->field($model, 'username', [
                 'template' => "{label}\n<div class=\"relative\">
-                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400\">
+                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-base-content/40\">
                         <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"w-5 h-5\">
                             <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z\" />
                         </svg>
@@ -77,7 +77,7 @@ $this->registerMetaTag(['property' => 'og:image', 'content' => Yii::$app->reques
 
             <?= $form->field($model, 'password', [
                 'template' => "{label}\n<div class=\"relative\">
-                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400\">
+                    <div class=\"absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-base-content/40\">
                         <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"w-5 h-5\">
                             <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z\" />
                         </svg>
@@ -109,7 +109,7 @@ $this->registerMetaTag(['property' => 'og:image', 'content' => Yii::$app->reques
 
             <?php ActiveForm::end(); ?>
 
-            <div class="mt-6 text-center text-xs text-gray-400">
+            <div class="mt-6 text-center text-xs text-base-content/40">
                 &copy; <?= date('Y') ?> Arkitech Systems SAS. Todos los derechos reservados.
             </div>
         </div>

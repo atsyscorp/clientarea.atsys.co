@@ -9,11 +9,11 @@ $this->title = 'Centro de Ayuda';
     <!-- Hero Header -->
     <div class="relative overflow-hidden rounded-3xl bg-primary text-primary-content p-8 md:p-12 shadow-xl mb-12">
         <!-- Decorative subtle background shapes -->
-        <div class="absolute -right-10 -bottom-10 w-40 h-40 rounded-full bg-white/10 blur-xl"></div>
-        <div class="absolute -left-10 -top-10 w-40 h-40 rounded-full bg-white/10 blur-xl"></div>
+        <div class="absolute -right-10 -bottom-10 w-40 h-40 rounded-full bg-base-100/10 blur-xl"></div>
+        <div class="absolute -left-10 -top-10 w-40 h-40 rounded-full bg-base-100/10 blur-xl"></div>
         
         <div class="relative z-10 max-w-2xl">
-            <span class="inline-block px-3 py-1 rounded-full bg-white/20 text-xs font-semibold uppercase tracking-wider mb-4">Soporte Técnico</span>
+            <span class="inline-block px-3 py-1 rounded-full bg-base-100/20 text-xs font-semibold uppercase tracking-wider mb-4">Soporte Técnico</span>
             <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">¿Cómo podemos ayudarte hoy?</h1>
             <p class="text-lg opacity-90 leading-relaxed mb-6">
                 Bienvenido a nuestro Centro de Ayuda. Aquí encontrarás guías paso a paso para configurar tu servicio de hosting, correos corporativos, bases de datos y resolver las dudas más frecuentes.

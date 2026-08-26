@@ -30,7 +30,7 @@ if (!isset($formatMessage)) {
 $isSupport = ($reply->sender_type === 'admin');
 $alignment = $isSupport ? 'chat-end' : 'chat-start';
 $darkLink = $isSupport ? true : false;
-$bubbleColor = $isSupport ? 'chat-bubble-primary text-primary-content' : 'dark:bg-base-300 dark:text-base-content bg-white text-base-content border border-base-300';
+$bubbleColor = $isSupport ? 'chat-bubble-primary text-primary-content' : 'dark:bg-base-300 dark:text-base-content bg-base-100 text-base-content border border-base-300';
 
 $name = 'Usuario Desconocido';
 $badgeRol = '';

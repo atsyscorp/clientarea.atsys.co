@@ -70,7 +70,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     'attribute' => 'business_name',
                     'label' => 'Razón Social / Filial',
                     'value' => function ($model) {
-                        return $model->business_name ?: '<span class="text-gray-400 italic">Misma del cliente</span>';
+                        return $model->business_name ?: '<span class="text-base-content/40 italic">Misma del cliente</span>';
                     },
                     'format' => 'raw',
                 ],
@@ -79,7 +79,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     'attribute' => 'document_number',
                     'label' => 'NIT / Doc. Filial',
                     'value' => function ($model) {
-                        return $model->document_number ?: '<span class="text-gray-400 italic">Mismo del cliente</span>';
+                        return $model->document_number ?: '<span class="text-base-content/40 italic">Mismo del cliente</span>';
                     },
                     'format' => 'raw',
                 ],

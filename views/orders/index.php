@@ -142,7 +142,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                 <span id="selected-count" class="text-accent text-lg font-extrabold">0</span> seleccionados
             </div>
 
-            <div class="h-6 w-px bg-white/20"></div>
+            <div class="h-6 w-px bg-base-100/20"></div>
 
             <div class="flex gap-2">
                 <?php if ($isAdmin): ?>

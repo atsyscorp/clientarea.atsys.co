@@ -47,8 +47,8 @@ $this->params['breadcrumbs'][] = $this->title;
                     'format' => 'raw',
                     'contentOptions' => ['class' => 'w-24'], // Ancho fijo opcional
                     'value' => function ($model) {
-                        return '<div class="font-bold text-gray-700">' . Html::encode($model->document_number) . '</div>' .
-                            '<div class="text-xs uppercase text-gray-400 font-semibold">' . Html::encode($model->document_type) . '</div>';
+                        return '<div class="font-bold text-base-content/70">' . Html::encode($model->document_number) . '</div>' .
+                            '<div class="text-xs uppercase text-base-content/40 font-semibold">' . Html::encode($model->document_type) . '</div>';
                     },
                 ],
 
@@ -75,7 +75,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             $badge = 'Particular'; // O puedes dejarlo vacío si prefieres
                         }
 
-                        $html = '<div class="font-bold text-base text-gray-800">' . Html::encode($mainName) . '</div>';
+                        $html = '<div class="font-bold text-base text-base-content/80">' . Html::encode($mainName) . '</div>';
                         
                         if (!empty($badge)) {
                             $html .= '<span class="badge badge-ghost badge-sm text-xs mt-1">' . Html::encode($badge) . '</span>';
@@ -93,7 +93,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     'value' => function ($model) {
                         // Si el nombre del contacto ya se mostró como nombre principal, no repetirlo tanto
                         $nameDisplay = Html::encode($model->contact_name);
-                        $posDisplay = $model->contact_position ? '<div class="text-xs text-gray-500">' . Html::encode($model->contact_position) . '</div>' : '';
+                        $posDisplay = $model->contact_position ? '<div class="text-xs text-base-content/50">' . Html::encode($model->contact_position) . '</div>' : '';
 
                         return '<div>
                                     <div class="font-semibold text-sm">' . $nameDisplay . '</div>
@@ -115,7 +115,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     '</div>';
                         }
                         if ($model->primary_phone) {
-                            $html .= '<div class="flex items-center gap-2 text-sm text-gray-600">
+                            $html .= '<div class="flex items-center gap-2 text-sm text-base-content/60">
                                         <i class="fas fa-phone text-xs opacity-70"></i> ' . Html::encode($model->primary_phone) . 
                                     '</div>';
                         }
@@ -153,7 +153,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 
                                 $html .= '<div class="text-xs flex items-center gap-1" title="' . Html::encode($delegate->email) . '">';
                                 $html .= '<span class="badge ' . $badgeClass . ' badge-xs scale-90 px-1 py-1 font-semibold">' . $roleLabel . '</span>';
-                                $html .= ' <span class="text-gray-500 font-medium">' . Html::encode($delegateName) . '</span>';
+                                $html .= ' <span class="text-base-content/50 font-medium">' . Html::encode($delegateName) . '</span>';
                                 $html .= '</div>';
                             }
                             $html .= '</div>';
