@@ -32,15 +32,27 @@ class FeedbackController extends Controller
 
     /**
      * Muestra y procesa el formulario de satisfacción.
-     * Puedes pasarle un ?ticket_id=XYZ123 en la URL para vincularlo.
+     * Puedes pasarle un ?ticket_id=XYZ123 o ?work_order_id=456 en la URL para vincularlo.
      */
-    public function actionRate($ticket_id = null)
+    public function actionRate($ticket_id = null, $work_order_id = null)
     {
         $model = new ServiceFeedback();
         
         // Pre-cargar datos si vienen en la URL
         if ($ticket_id) {
             $model->ticket_id = (string)$ticket_id;
+            $ticket = $model->getResolvedTicket();
+            if ($ticket && $ticket->customer && !empty($ticket->customer->email)) {
+                $model->client_email = $ticket->customer->email;
+            }
+        }
+
+        if ($work_order_id) {
+            $model->work_order_id = (string)$work_order_id;
+            $workOrder = $model->getResolvedWorkOrder();
+            if ($workOrder && $workOrder->customer && !empty($workOrder->customer->email)) {
+                $model->client_email = $workOrder->customer->email;
+            }
         }
 
         if (Yii::$app->request->isPost) {
@@ -168,7 +180,7 @@ class FeedbackController extends Controller
         fputcsv($output, [
             'ID',
             'Fecha',
-            'Ticket',
+            'Referencia (Ticket / Orden)',
             'Cliente / Empresa',
             'Correo',
             'IP',
@@ -184,12 +196,23 @@ class FeedbackController extends Controller
             $customer = $fb->getResolvedCustomer();
             $customerName = $customer ? ($customer->business_name ?: $customer->contact_name) : 'Anónimo / Desconocido';
             $ticket = $fb->getResolvedTicket();
-            $ticketRef = $ticket ? "#{$ticket->ticket_code} - {$ticket->subject}" : ($fb->ticket_id ?: 'N/A');
+            $workOrder = $fb->getResolvedWorkOrder();
+
+            $ref = 'N/A';
+            if ($workOrder) {
+                $ref = "Orden #{$workOrder->code} - {$workOrder->title}";
+            } elseif ($ticket) {
+                $ref = "Ticket #{$ticket->ticket_code} - {$ticket->subject}";
+            } elseif ($fb->ticket_id) {
+                $ref = "Ticket {$fb->ticket_id}";
+            } elseif ($fb->work_order_id) {
+                $ref = "Orden {$fb->work_order_id}";
+            }
 
             fputcsv($output, [
                 $fb->id,
                 Yii::$app->formatter->asDatetime($fb->created_at, 'php:Y-m-d H:i:s'),
-                $ticketRef,
+                $ref,
                 $customerName,
                 $fb->client_email ?: 'N/A',
                 $fb->ip_address ?: 'N/A',

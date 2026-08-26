@@ -19,7 +19,16 @@ $this->title = 'Encuesta de Satisfacción';
             <?php if (Yii::$app->session->hasFlash('success')): ?>
             <?php else: ?>
 
-                <p class="text-muted">Tu opinión es muy importante para nosotros.</p>
+                <?php 
+                $workOrder = $model->getResolvedWorkOrder();
+                $ticket = $model->getResolvedTicket();
+                if ($workOrder): ?>
+                    <p class="text-sm font-semibold text-primary mb-3">Orden de Trabajo #<?= Html::encode($workOrder->code) ?> &mdash; <?= Html::encode($workOrder->title) ?></p>
+                <?php elseif ($ticket): ?>
+                    <p class="text-sm font-semibold text-primary mb-3">Ticket #<?= Html::encode($ticket->ticket_code) ?> &mdash; <?= Html::encode($ticket->subject) ?></p>
+                <?php else: ?>
+                    <p class="text-muted">Tu opinión es muy importante para nosotros.</p>
+                <?php endif; ?>
 
                 <?php $form = ActiveForm::begin(); ?>
 
@@ -44,12 +53,16 @@ $this->title = 'Encuesta de Satisfacción';
                     5 => 'Muy fácil'
                 ]) ?>
 
-                <?= $form->field($model, 'is_resolved')->checkbox(['label' => '¿Pudimos resolver tu problema completamente?']) ?>
+                <?= $form->field($model, 'is_resolved')->checkbox(['label' => '¿Pudimos resolver tu requerimiento completamente?']) ?>
 
                 <?= $form->field($model, 'comments')->textarea(['rows' => 4, 'placeholder' => 'Cuéntanos más (opcional)...']) ?>
                 
                 <?php if($model->ticket_id): ?>
                     <?= $form->field($model, 'ticket_id')->hiddenInput()->label(false) ?>
+                <?php endif; ?>
+
+                <?php if($model->work_order_id): ?>
+                    <?= $form->field($model, 'work_order_id')->hiddenInput()->label(false) ?>
                 <?php endif; ?>
 
                 <div class="form-group text-center">

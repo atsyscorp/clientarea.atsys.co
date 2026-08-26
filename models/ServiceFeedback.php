@@ -31,7 +31,7 @@ class ServiceFeedback extends \yii\db\ActiveRecord
             
             [['is_resolved'], 'boolean'],
             [['comments'], 'string'],
-            [['ticket_id'], 'string', 'max' => 50],
+            [['ticket_id', 'work_order_id'], 'string', 'max' => 50],
             ['client_email', 'email'],
             
             // Capturar IP automáticamente antes de validar si es necesario
@@ -50,6 +50,7 @@ class ServiceFeedback extends \yii\db\ActiveRecord
             'is_resolved' => '¿Tu solicitud fue resuelta?',
             'comments' => 'Comentarios o sugerencias',
             'client_email' => 'Tu correo (Opcional)',
+            'work_order_id' => 'Orden de Trabajo',
         ];
     }
 
@@ -59,6 +60,14 @@ class ServiceFeedback extends \yii\db\ActiveRecord
     public function getTicket()
     {
         return $this->hasOne(Tickets::class, ['ticket_code' => 'ticket_id']);
+    }
+
+    /**
+     * Relación directa con la orden de trabajo.
+     */
+    public function getWorkOrder()
+    {
+        return $this->hasOne(WorkOrders::class, ['id' => 'work_order_id']);
     }
 
     /**
@@ -84,7 +93,21 @@ class ServiceFeedback extends \yii\db\ActiveRecord
     }
 
     /**
-     * Resuelve el cliente asociado usando el correo o el ticket de la evaluación.
+     * Resuelve la orden de trabajo asociada por ID numérico o código.
+     */
+    public function getResolvedWorkOrder()
+    {
+        if (empty($this->work_order_id)) {
+            return null;
+        }
+        if (is_numeric($this->work_order_id)) {
+            return WorkOrders::findOne((int)$this->work_order_id);
+        }
+        return WorkOrders::findOne(['code' => $this->work_order_id]);
+    }
+
+    /**
+     * Resuelve el cliente asociado usando el correo, el ticket o la orden de trabajo de la evaluación.
      */
     public function getResolvedCustomer()
     {
@@ -97,6 +120,10 @@ class ServiceFeedback extends \yii\db\ActiveRecord
         $ticket = $this->getResolvedTicket();
         if ($ticket && $ticket->customer) {
             return $ticket->customer;
+        }
+        $workOrder = $this->getResolvedWorkOrder();
+        if ($workOrder && $workOrder->customer) {
+            return $workOrder->customer;
         }
         return null;
     }
