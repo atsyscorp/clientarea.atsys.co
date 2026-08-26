@@ -13,10 +13,22 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>
-<html lang="<?= Yii::$app->language ?>" data-theme="atsys_theme">
+<html lang="<?= Yii::$app->language ?>">
 <head>
     <meta charset="<?= Yii::$app->charset ?>">
     <title><?= Html::encode($this->title) ?></title>
+    <script>
+        // Misma detección que views/layouts/main.php: se aplica antes de pintar
+        // para evitar el parpadeo de tema. Antes este layout fijaba
+        // data-theme="atsys_theme", un tema que no existe en tailwind.config.js
+        // ni en el CSS compilado, así que sólo funcionaba por herencia de :root.
+        (function() {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const systemTheme = prefersDark ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', systemTheme);
+            document.documentElement.classList.toggle('dark', prefersDark);
+        })();
+    </script>
     <?php $this->head() ?>
 </head>
 <body>
@@ -58,13 +70,17 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
             $text = '';
         }
         ?>
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script>
-            Swal.fire({
-                title: '<?= $title ?>',
-                text: '<?= $text ?>',
-                icon: '<?= $type ?>',
-                confirmButtonText: 'OK'
+            // sweetalert2 lo carga AppAsset al final del body, así que la llamada
+            // debe esperar. json_encode escapa el mensaje: los flashes llevan
+            // texto variable y aquí se interpola dentro de un literal JS.
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: <?= json_encode($title, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                    text: <?= json_encode($text, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                    icon: <?= json_encode($type, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                    confirmButtonText: 'OK'
+                });
             });
         </script>
     <?php endforeach; ?>

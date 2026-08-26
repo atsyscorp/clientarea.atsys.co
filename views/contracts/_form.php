@@ -161,3 +161,27 @@ use yii\widgets\ActiveForm;
 
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var check = document.getElementById('is-indefinite-check');
+    var input = document.getElementById('end-date-input');
+
+    function toggleEndDate() {
+        if (!check || !input) return;
+        if (check.checked) {
+            input.value = '';
+            input.disabled = true;
+            input.classList.add('bg-base-200', 'opacity-60', 'cursor-not-allowed');
+        } else {
+            input.disabled = false;
+            input.classList.remove('bg-base-200', 'opacity-60', 'cursor-not-allowed');
+        }
+    }
+
+    if (check) {
+        check.addEventListener('change', toggleEndDate);
+        toggleEndDate();
+    }
+});
+</script>
