@@ -55,8 +55,15 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     <div class="card-body p-6 flex-grow">
 
                         <div class="flex justify-between items-start mb-3">
-                            <div class="badge <?= $typeConfig['color'] ?> gap-2 p-3 font-semibold">
-                                <?= $typeConfig['icon'] ?>         <?= $typeConfig['label'] ?>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <div class="badge <?= $typeConfig['color'] ?> gap-2 p-3 font-semibold">
+                                    <?= $typeConfig['icon'] ?> <?= $typeConfig['label'] ?>
+                                </div>
+                                <?php if ($model->is_pinned): ?>
+                                    <div class="badge badge-secondary gap-1 p-3 font-semibold">
+                                        📌 Fijado
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             <div class="text-xs text-base-content/50 font-mono mt-1">
                                 <?= Yii::$app->formatter->asDate($model->created_at, 'medium') ?>

@@ -44,9 +44,10 @@ class Announcements extends \yii\db\ActiveRecord
             [['expires_at', 'created_by'], 'default', 'value' => null],
             [['type'], 'default', 'value' => 'info'],
             [['is_active'], 'default', 'value' => 1],
+            [['is_pinned'], 'default', 'value' => 0],
             [['type', 'content'], 'string'],
             [['title', 'content'], 'required'],
-            [['is_active', 'created_by'], 'integer'],
+            [['is_active', 'is_pinned', 'created_by'], 'integer'],
             [['created_at', 'expires_at'], 'safe'],
             [['title'], 'string', 'max' => 255],
             ['type', 'in', 'range' => array_keys(self::optsType())],
@@ -64,6 +65,7 @@ class Announcements extends \yii\db\ActiveRecord
             'title' => 'Title',
             'content' => 'Content',
             'is_active' => 'Is Active',
+            'is_pinned' => 'Fijar en la parte superior',
             'created_at' => 'Created At',
             'expires_at' => 'Expires At',
             'created_by' => 'Created By',
@@ -184,5 +186,105 @@ class Announcements extends \yii\db\ActiveRecord
     {
         // Esto te devolvería los IDs de usuarios que reaccionaron
         return $this->getReactions()->select('user_id')->column();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function beforeSave($insert)
+    {
+        if (!parent::beforeSave($insert)) {
+            return false;
+        }
+
+        // Si es urgente (danger), automáticamente debe fijarse arriba
+        if ($this->type === self::TYPE_DANGER) {
+            $this->is_pinned = 1;
+        }
+
+        return true;
+    }
+
+    /**
+     * Devuelve el contenido con saltos de línea y detecta URLs convirtiéndolas en enlaces <a>.
+     * Si la URL es externa se abre en nueva pestaña (_blank), si es del mismo host en la misma pestaña (_self).
+     *
+     * @return string
+     */
+    public function getFormattedContent()
+    {
+        $content = \yii\helpers\Html::decode($this->content);
+
+        // Detectar si el texto contiene HTML estructurado (p.ej. tags p, div, br)
+        $hasStructure = preg_match('/<(?:p|div|br|ul|ol|table|h[1-6])\b[^>]*>/i', $content);
+
+        $formatted = self::formatUrls($content);
+
+        if (!$hasStructure) {
+            $formatted = nl2br($formatted);
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Convierte URLs de texto plano en enlaces HTML respetando la procedencia (interna o externa).
+     *
+     * @param string $content
+     * @return string
+     */
+    public static function formatUrls($content)
+    {
+        if (empty($content)) {
+            return '';
+        }
+
+        $currentHost = '';
+        if (\Yii::$app->has('request') && !\Yii::$app->request->isConsoleRequest) {
+            $currentHost = \Yii::$app->request->serverName ?? '';
+            if (empty($currentHost)) {
+                $currentHost = parse_url(\Yii::$app->request->hostInfo, PHP_URL_HOST);
+            }
+        }
+
+        // Expresión regular para no re-reemplazar etiquetas <a> ya existentes
+        $pattern = '~(?><a\b[^>]*>.*?</a>)|(?<url>(?:https?://|www\.)[^\s<"\'\)\(\]]+)~is';
+
+        return preg_replace_callback($pattern, function ($matches) use ($currentHost) {
+            if (empty($matches['url'])) {
+                return $matches[0];
+            }
+
+            $rawUrl = $matches['url'];
+            $cleanUrl = $rawUrl;
+
+            // Quitar puntuación final (puntos, comas, etc.) al final de la URL
+            $trailingPunctuation = '';
+            if (preg_match('/[.,;:!]+$/', $cleanUrl, $pMatch)) {
+                $trailingPunctuation = $pMatch[0];
+                $cleanUrl = substr($cleanUrl, 0, -strlen($trailingPunctuation));
+            }
+
+            $href = $cleanUrl;
+            if (strpos(strtolower($href), 'www.') === 0) {
+                $href = 'https://' . $href;
+            }
+
+            $linkHost = parse_url($href, PHP_URL_HOST);
+            $isExternal = true;
+
+            if (!empty($currentHost) && !empty($linkHost)) {
+                $currentHostLower = strtolower($currentHost);
+                $linkHostLower = strtolower($linkHost);
+                if ($linkHostLower === $currentHostLower || (strlen($linkHostLower) > strlen($currentHostLower) && substr($linkHostLower, -strlen('.' . $currentHostLower)) === '.' . $currentHostLower)) {
+                    $isExternal = false;
+                }
+            }
+
+            $targetAttr = $isExternal ? ' target="_blank" rel="noopener noreferrer"' : ' target="_self"';
+            $linkHtml = '<a href="' . \yii\helpers\Html::encode($href) . '"' . $targetAttr . ' class="underline hover:text-primary font-semibold text-current">' . \yii\helpers\Html::encode($cleanUrl) . '</a>';
+
+            return $linkHtml . $trailingPunctuation;
+        }, $content);
     }
 }

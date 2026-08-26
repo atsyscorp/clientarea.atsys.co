@@ -13,14 +13,40 @@ use yii\widgets\ActiveForm;
 
     <?php $form = ActiveForm::begin(); ?>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <?php
+    $isDanger = ($model->type === 'danger');
+    if ($isDanger) {
+        $model->is_pinned = 1;
+    }
+    ?>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         <?= $form->field($model, 'type')->dropDownList([
             'info' => '🔵 Noticia General (Azul)',
             'success' => '🟢 Éxito / Logro (Verde)',
             'warning' => '🟡 Advertencia / Mantenimiento (Amarillo)',
-            'danger' => '🔴 URGENTE / CRÍTICO (Rojo - Sale Arriba)',
-        ], ['class' => 'select select-bordered w-full']) ?>
+            'danger' => '🔴 URGENTE / CRÍTICO (Rojo - Siempre arriba)',
+        ], [
+            'class' => 'select select-bordered w-full',
+            'id' => 'announcement-type-select'
+        ]) ?>
+
+        <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-4 mt-8">
+                <div>
+                    <span class="label-text font-bold block">¿Fijar arriba?</span>
+                    <span id="pinned-help-text" class="text-xs text-error font-medium <?= $isDanger ? '' : 'hidden' ?>">(Obligatorio si es Urgente)</span>
+                </div>
+                <?= $form->field($model, 'is_pinned')->checkbox([
+                    'template' => "{input}", 
+                    'class' => 'toggle toggle-secondary',
+                    'id' => 'announcement-pinned-toggle',
+                    'disabled' => $isDanger,
+                    'title' => 'Muestra este comunicado en el banner superior del panel'
+                ]) ?>
+            </label>
+        </div>
 
         <div class="form-control">
             <label class="label cursor-pointer justify-start gap-4 mt-8">
@@ -62,3 +88,21 @@ use yii\widgets\ActiveForm;
 
     </div>
 </div>
+
+<?php
+$script = <<<JS
+document.getElementById('announcement-type-select').addEventListener('change', function() {
+    var pinnedToggle = document.getElementById('announcement-pinned-toggle');
+    var helpText = document.getElementById('pinned-help-text');
+    if (this.value === 'danger') {
+        pinnedToggle.checked = true;
+        pinnedToggle.disabled = true;
+        if (helpText) helpText.classList.remove('hidden');
+    } else {
+        pinnedToggle.disabled = false;
+        if (helpText) helpText.classList.add('hidden');
+    }
+});
+JS;
+$this->registerJs($script);
+?>
