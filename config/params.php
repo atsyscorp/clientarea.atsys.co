@@ -30,6 +30,7 @@ return [
     ],
     'fallback_trm' => 4000.00,
     'fallback_trm_eur' => 4300.00,
-    'webhookSecretKey' => getenv('WEBHOOK_SECRET_KEY') ?: 'at_isW52qtEVPZG9Px6Vp1R3kShHyN1Zray',
+    // Sin valor de reserva a proposito: si falta, el webhook rechaza toda peticion.
+    'webhookSecretKey' => env('WEBHOOK_SECRET_KEY'),
 ];
 

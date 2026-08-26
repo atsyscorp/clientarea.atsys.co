@@ -19,8 +19,13 @@ class WebhookController extends Controller
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
 
         // 1. SEGURIDAD
-        $secretKey = 'at_isW52qtEVPZG9Px6Vp1R3kShHyN1Zray';
-        if (Yii::$app->request->headers->get('X-API-KEY') !== $secretKey) {
+        $secretKey = Yii::$app->params['webhookSecretKey'] ?? null;
+        if (empty($secretKey)) {
+            Yii::error('WEBHOOK_SECRET_KEY no esta configurada; se rechaza la peticion.', __METHOD__);
+            Yii::$app->response->statusCode = 503;
+            return ['status' => 'error', 'message' => 'Webhook no configurado.'];
+        }
+        if (!hash_equals($secretKey, (string) Yii::$app->request->headers->get('X-API-KEY'))) {
             Yii::$app->response->statusCode = 401;
             return ['status' => 'error', 'message' => 'API Key inválida.'];
         }
@@ -145,26 +150,39 @@ class WebhookController extends Controller
                 
                 // Usamos un operador ternario seguro por si el asunto limpio quedó vacío
                 $asuntoMostrar = !empty($cleanIncomingSubject) ? $cleanIncomingSubject : $incomingSubject;
-                $notifBody = $customerName . ": " . substr(strip_tags($reply->message), 0, 50) . "...";
+                $notifBody = $customerName . ": " . mb_substr(strip_tags($reply->message), 0, 50, 'UTF-8') . "...";
                 
                 $finalTicketId = $existingTicket->id;
                 $finalTicketCode = $existingTicket->ticket_code;
 
-                // Enviar notificacion al admin
-                $tokens = \app\models\AdminTokens::find()->column();
+                // Enviar notificaciones in-app y push a los admins
+                try {
+                    \app\models\Notifications::notifyAdmins(
+                        "💬 Respuesta en Ticket: " . $existingTicket->ticket_code,
+                        "Respuesta de $customerName en el ticket #" . $existingTicket->ticket_code,
+                        "/tickets/view?id=" . $existingTicket->id,
+                        \app\models\Notifications::TYPE_INFO
+                    );
+                } catch (\Throwable $notifEx) {
+                    Yii::error("Error registrando notificación in-app para respuesta: " . $notifEx->getMessage());
+                }
 
-                // Definir la URL del Webhook (Nueva IP)
-                $webhookUrl = 'https://n8n-new.atsys.co/webhook/send-admin-push';
+                $tokens = \app\models\AdminTokens::find()->column();
+                $webhookUrl = Yii::$app->params['n8n_admin_push_url'] ?? 'https://n8n-new.atsys.co/webhook/send-admin-push';
 
                 if (!empty($tokens)) {
                     $ch = curl_init();
                     curl_setopt($ch, CURLOPT_URL, $webhookUrl);
                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                     curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
                     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
                         'tokens' => $tokens,
                         'title' => "Nueva respuesta en Ticket",
+                        'body' => "Respuesta de $customerName en el ticket #{$existingTicket->ticket_code}.",
                         'message' => "Respuesta de $customerName en el ticket #{$existingTicket->ticket_code}.",
+                        'link' => "https://clientarea.atsys.co/tickets/view?id=" . $existingTicket->id,
                         'type' => 'ticket'
                     ]));
                     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
@@ -233,8 +251,8 @@ class WebhookController extends Controller
                 $reply->created_at = date('Y-m-d H:i:s');
                 $reply->save();
 
-                // Emails
-                $this->sendNewTicketEmails($model, $data['body'], $userData);
+                // Disparar notificaciones completas (Email, In-App, y Push N8N)
+                $model->sendNewTicketNotifications($data['body'], $userData, false);
 
                 $notifTitle = "🎟️ Nuevo Ticket: " . $model->ticket_code;
                 $notifBody = $model->subject;
