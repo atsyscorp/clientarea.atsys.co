@@ -28,7 +28,7 @@ $departmentList = $model->getDepartmentList();
                 'template' => '{input}' // Evita que Yii2 meta divs extra que rompan Tailwind
             ])->textInput([
                 'class' => 'input input-bordered w-full',
-                'placeholder' => 'Ej: TKT-12345'
+                'placeholder' => 'Ej: TKT-12345', 'aria-label' => 'Ej: TKT-12345'
             ])->label(false) ?>
         </div>
         
@@ -38,7 +38,7 @@ $departmentList = $model->getDepartmentList();
                 'template' => '{input}'
             ])->dropDownList($clientesList, [
                 'class' => 'select select-bordered w-full',
-                'prompt' => 'Todos los clientes'
+                'prompt' => 'Todos los clientes', 'aria-label' => 'Filtrar por cliente'
             ])->label(false) ?>
         </div>
         <?php endif; ?>
@@ -47,7 +47,7 @@ $departmentList = $model->getDepartmentList();
                 'template' => '{input}'
             ])->dropDownList($departmentList, [
                 'class' => 'select select-bordered w-full',
-                'prompt' => 'Todos los departamentos'
+                'prompt' => 'Todos los departamentos', 'aria-label' => 'Filtrar por departamento'
             ])->label(false) ?> 
         </div>
 
@@ -56,7 +56,7 @@ $departmentList = $model->getDepartmentList();
                 'template' => '{input}'
             ])->dropDownList($estadosList, [
                 'class' => 'select select-bordered w-full',
-                'prompt' => 'Cualquier estado'
+                'prompt' => 'Cualquier estado', 'aria-label' => 'Filtrar por estado'
             ])->label(false) ?>
         </div>
 

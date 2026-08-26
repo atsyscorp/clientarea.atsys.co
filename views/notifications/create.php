@@ -50,7 +50,7 @@ $this->title = 'Crear Notificación Campaña';
             ])->textInput([
                 'id' => 'notifications-title',
                 'class' => 'input input-bordered w-full rounded-xl bg-base-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary',
-                'placeholder' => 'Ej: 🚀 Nueva funcionalidad disponible / Mantenimiento programado',
+                'placeholder' => 'Ej: 🚀 Nueva funcionalidad disponible / Mantenimiento programado', 'aria-label' => 'Ej: 🚀 Nueva funcionalidad disponible / Mantenimiento programado',
                 'required' => true,
             ])->label(false) ?>
         </div>
@@ -65,7 +65,7 @@ $this->title = 'Crear Notificación Campaña';
             ])->textarea([
                 'id' => 'notifications-body',
                 'class' => 'textarea textarea-bordered w-full rounded-xl bg-base-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary h-32',
-                'placeholder' => 'Describe el anuncio con claridad y de forma atractiva...',
+                'placeholder' => 'Describe el anuncio con claridad y de forma atractiva...', 'aria-label' => 'Describe el anuncio con claridad y de forma atractiva...',
                 'required' => true,
             ])->label(false) ?>
         </div>
@@ -80,7 +80,7 @@ $this->title = 'Crear Notificación Campaña';
             ])->textInput([
                 'id' => 'notifications-link',
                 'class' => 'input input-bordered w-full rounded-xl bg-base-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary',
-                'placeholder' => 'Ej: /shop /tickets/view?id=123 (URL interna o externa)',
+                'placeholder' => 'Ej: /shop /tickets/view?id=123 (URL interna o externa)', 'aria-label' => 'Ej: /shop /tickets/view?id=123 (URL interna o externa)',
             ])->label(false) ?>
             <span class="label-text-alt text-base-content/50 mt-1">Al hacer clic en la notificación, el usuario será redirigido a este enlace.</span>
         </div>

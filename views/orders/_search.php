@@ -32,7 +32,7 @@ $estadosList = [
                 'template' => '{input}'
             ])->textInput([
                 'class' => 'input input-bordered w-full',
-                'placeholder' => 'Código de orden (Ej: ORD-12345)'
+                'placeholder' => 'Código de orden (Ej: ORD-12345)', 'aria-label' => 'Código de orden (Ej: ORD-12345)'
             ])->label(false) ?>
         </div>
         
@@ -42,7 +42,7 @@ $estadosList = [
                 'template' => '{input}'
             ])->dropDownList($clientesList, [
                 'class' => 'select select-bordered w-full',
-                'prompt' => 'Todos los clientes'
+                'prompt' => 'Todos los clientes', 'aria-label' => 'Filtrar por cliente'
             ])->label(false) ?>
         </div>
         <?php endif; ?>
@@ -52,7 +52,7 @@ $estadosList = [
                 'template' => '{input}'
             ])->dropDownList($estadosList, [
                 'class' => 'select select-bordered w-full',
-                'prompt' => 'Cualquier estado'
+                'prompt' => 'Cualquier estado', 'aria-label' => 'Filtrar por estado'
             ])->label(false) ?>
         </div>
 

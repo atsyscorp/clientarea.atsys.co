@@ -73,7 +73,7 @@ $selectedCurrency = Yii::$app->session->get('currency', 'COP');
                                         'options' => ['class' => 'w-full'],
                                     ])->textInput([
                                         'class' => 'input input-bordered join-item w-full focus:outline-none', 
-                                        'placeholder' => 'ejemplo-empresa'
+                                        'placeholder' => 'ejemplo-empresa', 'aria-label' => 'ejemplo-empresa'
                                     ])->label(false) ?>
                                 </div>
                                 

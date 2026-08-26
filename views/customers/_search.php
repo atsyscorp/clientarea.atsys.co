@@ -23,7 +23,7 @@ $estadosList = [
                 'template' => '{input}' // Evita divs extras de Bootstrap
             ])->textInput([
                 'class' => 'input input-bordered w-full',
-                'placeholder' => 'Nombre o Razón Social'
+                'placeholder' => 'Nombre o Razón Social', 'aria-label' => 'Nombre o Razón Social'
             ])->label(false) ?>
         </div>
         
@@ -32,7 +32,7 @@ $estadosList = [
                 'template' => '{input}'
             ])->textInput([
                 'class' => 'input input-bordered w-full',
-                'placeholder' => 'Correo electrónico'
+                'placeholder' => 'Correo electrónico', 'aria-label' => 'Correo electrónico'
             ])->label(false) ?>
         </div>
 
@@ -41,7 +41,7 @@ $estadosList = [
                 'template' => '{input}'
             ])->textInput([
                 'class' => 'input input-bordered w-full',
-                'placeholder' => 'Teléfono / Móvil'
+                'placeholder' => 'Teléfono / Móvil', 'aria-label' => 'Teléfono / Móvil'
             ])->label(false) ?>
         </div>
 
@@ -50,7 +50,7 @@ $estadosList = [
                 'template' => '{input}'
             ])->dropDownList($estadosList, [
                 'class' => 'select select-bordered w-full',
-                'prompt' => 'Cualquier estado'
+                'prompt' => 'Cualquier estado', 'aria-label' => 'Filtrar por estado'
             ])->label(false) ?>
         </div>
 

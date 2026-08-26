@@ -77,7 +77,22 @@ use yii\widgets\ActiveForm;
 
             <!-- Fecha Vencimiento -->
             <div class="form-control w-full">
-                <?= $form->field($model, 'end_date')->input('date', ['class' => 'input input-bordered w-full']) ?>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="label-text font-bold">Fecha de Vencimiento</label>
+                    <label class="cursor-pointer label p-0 gap-2">
+                        <span class="label-text text-xs text-primary font-bold">Duración Indefinida</span>
+                        <?= Html::activeCheckbox($model, 'is_indefinite', [
+                            'label' => false,
+                            'id' => 'is-indefinite-check',
+                            'class' => 'checkbox checkbox-primary checkbox-xs'
+                        ]) ?>
+                    </label>
+                </div>
+                <?= $form->field($model, 'end_date')->input('date', [
+                    'class' => 'input input-bordered w-full',
+                    'id' => 'end-date-input',
+                    'aria-label' => 'Fecha de Vencimiento'
+                ])->label(false) ?>
             </div>
 
             <!-- Estado -->
@@ -115,7 +130,8 @@ use yii\widgets\ActiveForm;
                 </label>
                 <?= $form->field($model, 'attachmentFile')->fileInput([
                     'class' => 'file-input file-input-bordered file-input-primary w-full',
-                    'accept' => '.pdf,.doc,.docx,.zip,.rar'
+                    'accept' => '.pdf,.doc,.docx,.zip,.rar',
+                    'aria-label' => 'Documento del Contrato (PDF)'
                 ])->label(false) ?>
 
                 <?php if ($model->contract_file): ?>

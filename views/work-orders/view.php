@@ -565,7 +565,7 @@ JS;
                         <?= $form->field($newUpdate, 'description')->textarea([
                             'rows' => 4,
                             'class' => 'textarea textarea-bordered w-full',
-                            'placeholder' => 'Describe detalladamente qué se trabajó hoy...'
+                            'placeholder' => 'Describe detalladamente qué se trabajó hoy...', 'aria-label' => 'Describe detalladamente qué se trabajó hoy...'
                         ])->label(false) ?>
 
                         <div class="form-control mb-4">
@@ -573,7 +573,8 @@ JS;
                                 <span class="label-text text-xs font-semibold opacity-75">Adjuntar archivo a este avance (opcional - Google Drive):</span>
                             </label>
                             <?= $form->field($newUpdate, 'attachmentFile')->fileInput([
-                                'class' => 'file-input file-input-bordered file-input-sm w-full bg-base-100'
+                                'class' => 'file-input file-input-bordered file-input-sm w-full bg-base-100',
+                                'aria-label' => 'Adjuntar archivo a este avance'
                             ])->label(false) ?>
                         </div>
 

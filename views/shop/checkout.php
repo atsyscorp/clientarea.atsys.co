@@ -132,8 +132,8 @@ if ($selectedCurrency === 'USD') {
                                     <div>
                                         <h3 class="font-bold mb-3">Ya tengo cuenta</h3>
                                         <?php $form = ActiveForm::begin(['action' => ['site/login']]); ?>
-                                            <?= $form->field($modelLogin, 'username')->textInput(['placeholder' => 'Usuario', 'class' => 'input input-bordered w-full'])->label(false) ?>
-                                            <?= $form->field($modelLogin, 'password')->passwordInput(['placeholder' => 'Contraseña', 'class' => 'input input-bordered w-full mt-2'])->label(false) ?>
+                                            <?= $form->field($modelLogin, 'username')->textInput(['placeholder' => 'Usuario', 'aria-label' => 'Usuario', 'class' => 'input input-bordered w-full'])->label(false) ?>
+                                            <?= $form->field($modelLogin, 'password')->passwordInput(['placeholder' => 'Contraseña', 'aria-label' => 'Contraseña', 'class' => 'input input-bordered w-full mt-2'])->label(false) ?>
                                             <button type="submit" class="btn btn-primary btn-sm mt-3 w-full">Iniciar Sesión</button>
                                         <?php ActiveForm::end(); ?>
                                     </div>
