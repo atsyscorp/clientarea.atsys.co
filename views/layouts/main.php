@@ -297,7 +297,7 @@ if (!Yii::$app->user->isGuest) {
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                                     </svg>
-                                    <span id="notifications-badge-mobile" class="badge badge-xs badge-error indicator-item font-bold text-white <?= $unreadNotificationsCount > 0 ? '' : 'hidden' ?>"><?= $unreadNotificationsCount ?></span>
+                                    <span id="notifications-badge-mobile" class="badge badge-xs badge-error indicator-item font-bold <?= $unreadNotificationsCount > 0 ? '' : 'hidden' ?>"><?= $unreadNotificationsCount ?></span>
                                 </div>
                             </label>
                             <div tabindex="0" class="dropdown-content z-[100] card card-compact w-72 p-2 shadow-2xl bg-base-100 rounded-2xl border border-base-200 mt-2">
@@ -360,7 +360,7 @@ if (!Yii::$app->user->isGuest) {
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                                     </svg>
-                                    <span id="notifications-badge-desktop" class="badge badge-sm badge-error indicator-item font-bold text-white <?= $unreadNotificationsCount > 0 ? '' : 'hidden' ?>"><?= $unreadNotificationsCount ?></span>
+                                    <span id="notifications-badge-desktop" class="badge badge-sm badge-error indicator-item font-bold <?= $unreadNotificationsCount > 0 ? '' : 'hidden' ?>"><?= $unreadNotificationsCount ?></span>
                                 </div>
                             </label>
                             <div tabindex="0" class="dropdown-content z-[100] card card-compact w-80 p-2 shadow-2xl bg-base-100 rounded-2xl border border-base-200 mt-4">
@@ -457,7 +457,7 @@ if (!Yii::$app->user->isGuest) {
                             <?= Html::a(
                                 '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 mr-1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg> Volver a Admin',
                                 ['/customers/stop-impersonating'],
-                                ['class' => 'btn btn-sm btn-warning text-white font-bold flex items-center shadow-md']
+                                ['class' => 'btn btn-sm btn-warning font-bold flex items-center shadow-md']
                             ) ?>
                         </div>
                     </div>
@@ -473,12 +473,8 @@ if (!Yii::$app->user->isGuest) {
 
             <?php if ($urgentAlert): ?>
                 <div class="container mx-auto px-4 mt-4">
-                    <div class="alert alert-error shadow-lg text-white">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+                    <div class="alert <?= $alertStyle['class'] ?> shadow-lg">
+                        <span class="text-2xl shrink-0"><?= $alertStyle['icon'] ?></span>
                         <div class="w-full">
                             <h3 class="font-bold text-lg"><?= \yii\helpers\Html::encode($urgentAlert->title) ?></h3>
                             <div class="text-sm opacity-90">
@@ -524,12 +520,12 @@ if (!Yii::$app->user->isGuest) {
 
                     switch ($type) {
                         case 'success':
-                            $alertClass = 'alert-success text-white'; // Verde
+                            $alertClass = 'alert-success'; // Verde
                             $icon = '<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
                             break;
                         case 'error':
                         case 'danger':
-                            $alertClass = 'alert-error text-white'; // Rojo
+                            $alertClass = 'alert-error'; // Rojo
                             $icon = '<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
                             break;
                         case 'warning':
@@ -635,7 +631,7 @@ if (!Yii::$app->user->isGuest) {
                                 <a href="/tickets/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isTicketsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v9.632c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" /></svg>
                                     Tickets
-                                    <span id="ticket-badge-count" class="badge badge-error badge-sm font-bold ml-auto animate-pulse text-white shadow-sm <?= $ticketBadgeCount > 0 ? '' : 'hidden' ?>"><?= $ticketBadgeCount ?></span>
+                                    <span id="ticket-badge-count" class="badge badge-error badge-sm font-bold ml-auto animate-pulse shadow-sm <?= $ticketBadgeCount > 0 ? '' : 'hidden' ?>"><?= $ticketBadgeCount ?></span>
                                 </a>
                             </li>
 
@@ -720,7 +716,7 @@ if (!Yii::$app->user->isGuest) {
                                 <a href="/tickets/index" id="tour-tickets" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isTicketsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" /></svg>
                                     Tickets
-                                    <span id="ticket-badge-count" class="badge badge-accent badge-sm font-bold ml-auto animate-pulse text-white shadow-sm <?= $ticketBadgeCount > 0 ? '' : 'hidden' ?>"><?= $ticketBadgeCount ?></span>
+                                    <span id="ticket-badge-count" class="badge badge-accent badge-sm font-bold ml-auto animate-pulse shadow-sm <?= $ticketBadgeCount > 0 ? '' : 'hidden' ?>"><?= $ticketBadgeCount ?></span>
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -742,7 +738,7 @@ if (!Yii::$app->user->isGuest) {
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125 1.125 1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" /></svg>
                                     Órdenes de Trabajo
                                     <?php if ($workOrderBadgeCount > 0): ?>
-                                        <span class="badge badge-accent badge-sm font-bold ml-auto animate-pulse text-white shadow-sm"><?= $workOrderBadgeCount ?></span>
+                                        <span class="badge badge-accent badge-sm font-bold ml-auto animate-pulse shadow-sm"><?= $workOrderBadgeCount ?></span>
                                     <?php endif; ?>
                                 </a>
                             </li>

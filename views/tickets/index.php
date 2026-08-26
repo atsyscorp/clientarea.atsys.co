@@ -33,11 +33,13 @@ $estadosList = [
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-primary"><?=$this->title?></h1>
 
-        <?= Html::a(
-            '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg> Crear Ticket', 
-            ['create'], 
-            ['class' => 'btn btn-primary text-white shadow-lg']
-        ) ?>
+        <?php if (!$isUserBlocked): ?>
+            <?= Html::a(
+                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg> Crear Ticket', 
+                ['create'], 
+                ['class' => 'btn btn-primary text-white shadow-lg']
+            ) ?>
+        <?php endif; ?>
     </div>
 
     <?= $this->render('_search', ['model' => $searchModel, 'isAdmin' => $isAdmin]) ?>
@@ -221,14 +223,6 @@ $estadosList = [
                                 ];
                                 $barColor = $barColors[$tkt['status']] ?? 'from-gray-400 to-gray-500';
                                 
-                                $badgeColors = [
-                                    'open' => 'badge-error text-white',
-                                    'answered' => 'badge-success text-white',
-                                    'customer_reply' => 'badge-warning text-black',
-                                    'closed' => 'badge-neutral text-white',
-                                    'in_progress' => 'badge-secondary text-white',
-                                ];
-                                $badgeColor = $badgeColors[$tkt['status']] ?? 'badge-ghost';
                                 ?>
                                 <div class="grid grid-cols-12 gap-3 items-center group">
                                     <!-- Código e Info del Ticket -->
@@ -318,7 +312,7 @@ $estadosList = [
             <div class="h-6 w-px bg-white/20"></div>
 
             <div class="flex gap-2">
-                <button type="button" onclick="applyBulkAction('close')" class="btn btn-sm btn-ghost hover:bg-white/10 text-white gap-2">
+                <button type="button" onclick="applyBulkAction('close')" class="btn btn-sm btn-ghost hover:bg-base-100/10 text-white gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                     </svg>

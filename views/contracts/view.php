@@ -33,7 +33,7 @@ $colorClass = $model->getProgressColorClass();
 
         <div class="flex flex-wrap gap-2">
             <?php if ($model->contract_file): ?>
-                <a href="<?= Html::encode($model->contract_file) ?>" target="_blank" class="btn btn-success text-white btn-sm shadow">
+                <a href="<?= Html::encode($model->contract_file) ?>" target="_blank" class="btn btn-success btn-sm shadow">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     Descargar PDF
                 </a>
@@ -378,7 +378,7 @@ $colorClass = $model->getProgressColorClass();
                                         $st = [
                                             0 => ['Pendiente', 'badge-ghost'],
                                             1 => ['En Progreso', 'badge-warning font-bold'],
-                                            2 => ['Completada', 'badge-success text-white font-bold'],
+                                            2 => ['Completada', 'badge-success font-bold'],
                                         ];
                                         $s = $st[$task->status] ?? ['Desconocido', 'badge-ghost'];
                                         echo "<span class='badge {$s[1]}'>{$s[0]}</span>";

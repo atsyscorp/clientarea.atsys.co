@@ -125,7 +125,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                                     <?php endif; ?>
 
                                     <?php if ($item->action_type == 'restore'): ?>
-                                        <span class="badge badge-error badge-xs mt-2 text-white">Restauración (+Cargo
+                                        <span class="badge badge-error badge-xs mt-2">Restauración (+Cargo
                                             Extra)</span>
                                     <?php elseif ($item->action_type == 'renew'): ?>
                                         <span class="badge badge-success badge-outline badge-xs mt-2">Renovación</span>

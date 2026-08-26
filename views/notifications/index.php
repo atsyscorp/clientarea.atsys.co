@@ -23,7 +23,7 @@ $this->title = 'Centro de Notificaciones';
                 Marcar todas leídas
             </a>
             <?php if (Yii::$app->user->identity->isAdmin): ?>
-                <a href="/notifications/create" class="btn btn-sm btn-secondary text-white rounded-xl gap-2">
+                <a href="/notifications/create" class="btn btn-sm btn-secondary rounded-xl gap-2">
                     <span>📣 Crear Campaña</span>
                 </a>
             <?php endif; ?>

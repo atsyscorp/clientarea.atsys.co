@@ -76,9 +76,9 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                             'value' => function($model) {
                                 $badges = [
                                     0 => '<span class="badge badge-warning">Pendiente</span>',
-                                    1 => '<span class="badge badge-success text-white">Pagado</span>',
-                                    2 => '<span class="badge badge-info text-white">Activo</span>',
-                                    3 => '<span class="badge badge-error text-white">Cancelado</span>',
+                                    1 => '<span class="badge badge-success">Pagado</span>',
+                                    2 => '<span class="badge badge-info">Activo</span>',
+                                    3 => '<span class="badge badge-error">Cancelado</span>',
                                 ];
                                 return $badges[$model->status] ?? '<span class="badge">Desconocido</span>';
                             }

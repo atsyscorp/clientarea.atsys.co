@@ -61,9 +61,9 @@ $formatMessage = function ($text, $dark = false) {
 
 // 1. Estados
 $statusLabels = [
-    'open' => ['text' => 'ABIERTO', 'color' => 'badge-error text-white'],
-    'in_progress' => ['text' => 'EN PROGRESO', 'color' => 'badge-info text-white'],
-    'answered' => ['text' => 'RESPONDIDO', 'color' => 'badge-success text-white'],
+    'open' => ['text' => 'ABIERTO', 'color' => 'badge-error'],
+    'in_progress' => ['text' => 'EN PROGRESO', 'color' => 'badge-info'],
+    'answered' => ['text' => 'RESPONDIDO', 'color' => 'badge-success'],
     'closed' => ['text' => 'CERRADO', 'color' => 'badge-neutral text-white'],
 ];
 $st = strtolower($model->status);
@@ -71,9 +71,9 @@ $currentStatus = $statusLabels[$st] ?? ['text' => strtoupper($st), 'color' => 'b
 
 // 2. Prioridades
 $priorityLabels = [
-    'medium' => ['text' => 'Media', 'color' => 'badge-success text-white'],
+    'medium' => ['text' => 'Media', 'color' => 'badge-success'],
     'high' => ['text' => 'Alta', 'color' => 'badge-warning'],
-    'critical' => ['text' => 'Urgente', 'color' => 'badge-error text-white'],
+    'critical' => ['text' => 'Urgente', 'color' => 'badge-error'],
 ];
 $pr = strtolower($model->priority);
 $currentPriority = $priorityLabels[$pr] ?? ['text' => ucfirst($pr), 'color' => 'bg-ghost'];

@@ -55,7 +55,7 @@ if ($selectedCurrency === 'USD') {
                             </div>
 
                             <?= Html::a('×', ['clear-cart'], [
-                                'class' => 'absolute -left-4 start-auto end-auto btn btn-circle btn-xs btn-error text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-md',
+                                'class' => 'absolute -left-4 start-auto end-auto btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity shadow-md',
                                 'title' => 'Quitar producto',
                                 'data' => [
                                     'confirm' => '¿Quitar el plan de hosting vaciará tu carrito. ¿Continuar?',
@@ -81,7 +81,7 @@ if ($selectedCurrency === 'USD') {
                                 <?= Yii::$app->formatter->asCurrency($cart['domain_price'] / $trm, $selectedCurrency) ?>
                             </div>
                             <?= Html::a('×', ['remove-domain'], [
-                                'class' => 'absolute -left-4 start-auto end-auto btn btn-circle btn-xs btn-error text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-md',
+                                'class' => 'absolute -left-4 start-auto end-auto btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity shadow-md',
                                 'title' => 'Quitar dominio',
                                 'data-method' => 'post'
                             ]) ?>
@@ -96,7 +96,7 @@ if ($selectedCurrency === 'USD') {
                                 $0
                             </div>
                             <?= Html::a('×', ['remove-domain'], [
-                                'class' => 'absolute -left-4 start-auto end-auto btn btn-circle btn-xs btn-error text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-md',
+                                'class' => 'absolute -left-4 start-auto end-auto btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity shadow-md',
                                 'data-method' => 'post'
                             ]) ?>
                         </div>

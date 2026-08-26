@@ -42,10 +42,10 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                 <?php
                 // Configuración visual según tipo
                 $typeConfig = match ($model->type) {
-                    'success' => ['color' => 'badge-success text-white', 'icon' => '🎉', 'label' => 'Logro'],
+                    'success' => ['color' => 'badge-success', 'icon' => '🎉', 'label' => 'Logro'],
                     'warning' => ['color' => 'badge-warning', 'icon' => '🛠️', 'label' => 'Aviso'],
-                    'danger' => ['color' => 'badge-error text-white', 'icon' => '🚨', 'label' => 'Urgente'],
-                    default => ['color' => 'badge-info text-white', 'icon' => '📢', 'label' => 'Noticia'],
+                    'danger' => ['color' => 'badge-error', 'icon' => '🚨', 'label' => 'Urgente'],
+                    default => ['color' => 'badge-info', 'icon' => '📢', 'label' => 'Noticia'],
                 };
                 $borderClass = ($model->type === 'danger') ? 'border-error' : 'border-base-200';
                 ?>

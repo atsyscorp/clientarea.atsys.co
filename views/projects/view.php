@@ -21,10 +21,10 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
             <div class="flex items-center gap-3">
                 <span class="badge badge-primary text-white font-mono"><?= Html::encode($model->code) ?></span>
                 <?php if ($model->is_default): ?>
-                    <span class="badge badge-info text-white font-semibold">Proyecto Predeterminado</span>
+                    <span class="badge badge-info font-semibold">Proyecto Predeterminado</span>
                 <?php endif; ?>
                 <?php if ($model->status == Projects::STATUS_ACTIVE): ?>
-                    <span class="badge badge-success text-white">Activo</span>
+                    <span class="badge badge-success">Activo</span>
                 <?php else: ?>
                     <span class="badge badge-ghost">Inactivo</span>
                 <?php endif; ?>
@@ -35,10 +35,10 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
         <?php if ($isAdmin): ?>
             <div class="flex gap-2">
-                <?= Html::a('Editar', ['update', 'id' => $model->id], ['class' => 'btn btn-warning text-white shadow']) ?>
+                <?= Html::a('Editar', ['update', 'id' => $model->id], ['class' => 'btn btn-warning shadow']) ?>
                 <?php if (!$model->is_default && $workOrdersCount === 0): ?>
                     <?= Html::a('Eliminar', ['delete', 'id' => $model->id], [
-                        'class' => 'btn btn-error text-white shadow',
+                        'class' => 'btn btn-error shadow',
                         'data' => [
                             'confirm' => '¿Estás seguro de que deseas eliminar este proyecto?',
                             'method' => 'post',

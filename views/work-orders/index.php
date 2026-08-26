@@ -90,7 +90,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                         'format' => 'raw',
                         'value' => function ($model) {
                             return $model->has_service_contract 
-                                ? '<span class="badge badge-info text-white font-bold">Sí</span>' 
+                                ? '<span class="badge badge-info font-bold">Sí</span>' 
                                 : '<span class="badge badge-ghost">No</span>';
                         },
                         'filter' => [0 => 'No', 1 => 'Sí'],

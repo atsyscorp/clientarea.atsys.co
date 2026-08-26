@@ -142,7 +142,7 @@ $this->title = 'Manual de Virtualmin';
                             El estado de tu hosting está sincronizado directamente con la base de datos física del servidor:
                         </p>
                         <ul class="list-disc list-inside pl-4 space-y-2">
-                            <li><span class="badge badge-success badge-sm text-white font-semibold">Activo</span> El servicio opera con normalidad, todas las webs, accesos de correo e email están disponibles.</li>
+                            <li><span class="badge badge-success badge-sm font-semibold">Activo</span> El servicio opera con normalidad, todas las webs, accesos de correo e email están disponibles.</li>
                             <li><span class="badge badge-warning badge-sm font-semibold">Suspendido</span> La cuenta ha sido desactivada (usualmente por falta de pago o mantenimiento). En este estado, Virtualmin redirige automáticamente las visitas web a una página de aviso y detiene los servicios de correo y bases de datos temporalmente. Podrás reactivarlo al generar y completar la orden de pago en tu Área de Clientes.</li>
                         </ul>
                     </div>

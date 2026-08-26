@@ -94,10 +94,10 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     <?php
                     // 1. Configuración de Colores e Íconos
                     $typeConfig = match ($item->type) {
-                        'success' => ['color' => 'badge-success text-white', 'icon' => '🎉', 'label' => 'Logro'],
+                        'success' => ['color' => 'badge-success', 'icon' => '🎉', 'label' => 'Logro'],
                         'warning' => ['color' => 'badge-warning', 'icon' => '🛠️', 'label' => 'Aviso'],
-                        'danger' => ['color' => 'badge-error text-white', 'icon' => '🚨', 'label' => 'Urgente'],
-                        default => ['color' => 'badge-info text-white', 'icon' => '📢', 'label' => 'Noticia'],
+                        'danger' => ['color' => 'badge-error', 'icon' => '🚨', 'label' => 'Urgente'],
+                        default => ['color' => 'badge-info', 'icon' => '📢', 'label' => 'Noticia'],
                     };
 
                     // 2. Borde rojo si es urgente

@@ -278,8 +278,8 @@ $this->title = 'Módulo de Satisfacción y Encuestas de Servicio';
                         'filter' => [1 => 'Sí', 0 => 'No'],
                         'value' => function ($model) {
                             return $model->is_resolved 
-                                ? '<span class="badge badge-success badge-sm text-white font-medium">Sí</span>'
-                                : '<span class="badge badge-error badge-sm text-white font-medium">No</span>';
+                                ? '<span class="badge badge-success badge-sm font-medium">Sí</span>'
+                                : '<span class="badge badge-error badge-sm font-medium">No</span>';
                         }
                     ],
                     [
@@ -317,7 +317,7 @@ $this->title = 'Módulo de Satisfacción y Encuestas de Servicio';
                                     'data-nps' => $model->nps_score !== null ? $model->nps_score : '-',
                                     'data-nps-badge' => $model->getNpsCategoryBadge(),
                                     'data-ces' => Html::encode($model->getEffortScoreLabel()),
-                                    'data-resolved' => $model->is_resolved ? '<span class="badge badge-success text-white">Sí</span>' : '<span class="badge badge-error text-white">No</span>',
+                                    'data-resolved' => $model->is_resolved ? '<span class="badge badge-success">Sí</span>' : '<span class="badge badge-error">No</span>',
                                     'data-comment' => Html::encode($model->comments),
                                 ]);
                             },

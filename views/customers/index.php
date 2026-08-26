@@ -139,7 +139,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             $html .= '</div>';
                         } else {
                             $html .= '<div class="mb-1 text-sm font-semibold flex items-center gap-1.5 text-error">';
-                            $html .= '<span class="badge badge-error badge-xs py-1.5 px-2 text-white">⚠️ Sin titular</span>';
+                            $html .= '<span class="badge badge-error badge-xs py-1.5 px-2">⚠️ Sin titular</span>';
                             $html .= '</div>';
                         }
                         
@@ -149,7 +149,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             foreach ($model->delegates as $delegate) {
                                 $delegateName = $delegate->contact_name ?: $delegate->email;
                                 $roleLabel = $delegate->role == 12 ? 'Admin' : 'Estándar';
-                                $badgeClass = $delegate->role == 12 ? 'badge-info text-white' : 'badge-ghost';
+                                $badgeClass = $delegate->role == 12 ? 'badge-info' : 'badge-ghost';
                                 
                                 $html .= '<div class="text-xs flex items-center gap-1" title="' . Html::encode($delegate->email) . '">';
                                 $html .= '<span class="badge ' . $badgeClass . ' badge-xs scale-90 px-1 py-1 font-semibold">' . $roleLabel . '</span>';
@@ -171,9 +171,9 @@ $this->params['breadcrumbs'][] = $this->title;
                     'headerOptions' => ['class' => 'text-center'],
                     'value' => function ($model) {
                         $colors = [
-                            'active' => 'badge-success text-white',
-                            'inactive' => 'badge-error text-white',
-                            'prospect' => 'badge-warning text-white',
+                            'active' => 'badge-success',
+                            'inactive' => 'badge-error',
+                            'prospect' => 'badge-warning',
                         ];
                         $labels = [
                             'active' => 'Activo',

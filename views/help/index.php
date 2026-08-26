@@ -58,7 +58,7 @@ $this->title = 'Centro de Ayuda';
                 </div>
                 <div class="flex items-center gap-2 mb-2">
                     <h2 class="card-title text-xl font-bold">Manual de CyberPanel</h2>
-                    <span class="badge badge-accent badge-sm text-white font-bold">Próximamente</span>
+                    <span class="badge badge-accent badge-sm font-bold">Próximamente</span>
                 </div>
                 <p class="text-base-content/70 text-sm leading-relaxed mb-6">
                     Guías para la administración de hosting con OpenLiteSpeed mediante CyberPanel. Administra archivos web, bases de datos y certificados SSL de forma veloz.

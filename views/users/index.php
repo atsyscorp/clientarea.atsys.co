@@ -71,9 +71,9 @@ $this->params['breadcrumbs'][] = $this->title;
                     'value' => function ($model) {
                         $roles = [
                             20 => ['label' => 'Administrador', 'class' => 'badge-primary text-white'],
-                            10 => ['label' => 'Cliente', 'class' => 'badge-success text-white'],
-                            11 => ['label' => 'Subcuenta (Soporte)', 'class' => 'badge-info text-white'],
-                            12 => ['label' => 'Delegado Admin (Backup)', 'class' => 'badge-secondary text-white'],
+                            10 => ['label' => 'Cliente', 'class' => 'badge-success'],
+                            11 => ['label' => 'Subcuenta (Soporte)', 'class' => 'badge-info'],
+                            12 => ['label' => 'Delegado Admin (Backup)', 'class' => 'badge-secondary '],
                         ];
                         $roleInfo = $roles[$model->role] ?? ['label' => 'Desconocido (#' . $model->role . ')', 'class' => 'badge-ghost'];
                         return "<span class='badge {$roleInfo['class']} badge-sm font-semibold'>{$roleInfo['label']}</span>";
@@ -85,9 +85,9 @@ $this->params['breadcrumbs'][] = $this->title;
                     'format' => 'raw',
                     'value' => function ($model) {
                         $statuses = [
-                            10 => ['label' => 'Activo', 'class' => 'badge-success text-white'],
-                            9 => ['label' => 'Inactivo', 'class' => 'badge-warning text-white'],
-                            0 => ['label' => 'Eliminado', 'class' => 'badge-error text-white'],
+                            10 => ['label' => 'Activo', 'class' => 'badge-success'],
+                            9 => ['label' => 'Inactivo', 'class' => 'badge-warning'],
+                            0 => ['label' => 'Eliminado', 'class' => 'badge-error'],
                         ];
                         $statusInfo = $statuses[$model->status] ?? ['label' => 'Desconocido', 'class' => 'badge-ghost'];
                         return "<span class='badge {$statusInfo['class']} badge-sm font-semibold'>{$statusInfo['label']}</span>";

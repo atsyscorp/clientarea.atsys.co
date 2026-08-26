@@ -24,7 +24,7 @@ $this->title = 'Manual de CyberPanel';
         </div>
 
         <h1 class="text-2xl font-bold mb-4">Guía de CyberPanel</h1>
-        <span class="badge badge-accent badge-lg text-white font-bold mx-auto mb-4">Próximamente</span>
+        <span class="badge badge-accent badge-lg font-bold mx-auto mb-4">Próximamente</span>
         
         <p class="text-sm text-base-content/75 leading-relaxed mb-8">
             Estamos preparando un manual completo y amigable en español sobre el uso de CyberPanel con OpenLiteSpeed. Pronto aprenderás a gestionar tu administrador de archivos, bases de datos optimizadas y certificados SSL con un solo clic.

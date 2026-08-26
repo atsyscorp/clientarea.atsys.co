@@ -124,7 +124,7 @@ if ($model->is_request == 1) {
                 <div class="mt-2 flex items-center justify-end gap-1">
                     <?= $model->getStatusHtml() ?>
                     <?php if ($model->has_service_contract): ?>
-                        <span class="badge badge-info text-white font-bold ml-1">Contrato de Servicios</span>
+                        <span class="badge badge-info font-bold ml-1">Contrato de Servicios</span>
                     <?php endif; ?>
                 </div>
                 <div class="text-sm opacity-60 mt-1">Fecha: <?= Yii::$app->formatter->asDate($model->created_at) ?>
@@ -748,7 +748,7 @@ JS;
                     </label>
                 </div>
 
-                <button type="submit" class="btn btn-success text-white w-full md:w-auto gap-2"
+                <button type="submit" class="btn btn-success w-full md:w-auto gap-2"
                     onclick="return confirm('¿Confirmas que el trabajo está terminado?');">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                         stroke="currentColor" class="w-5 h-5">
@@ -798,7 +798,7 @@ JS;
                     </label>
                 </div>
 
-                <button type="submit" class="btn btn-warning text-white gap-2"
+                <button type="submit" class="btn btn-warning gap-2"
                     onclick="return confirm('¿Confirmas que deseas pausar esta orden?');">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9v6m-4.5 0V9M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

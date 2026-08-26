@@ -60,7 +60,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     'value' => function ($model) {
                         $html = '<div class="font-semibold text-base">' . Html::encode($model->name) . '</div>';
                         if ($model->is_default) {
-                            $html .= '<span class="badge badge-info text-xs text-white">Predeterminado</span>';
+                            $html .= '<span class="badge badge-info text-xs">Predeterminado</span>';
                         }
                         return $html;
                     }
@@ -98,7 +98,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                     'format' => 'raw',
                     'value' => function ($model) {
                         if ($model->status == Projects::STATUS_ACTIVE) {
-                            return '<span class="badge badge-success text-white">Activo</span>';
+                            return '<span class="badge badge-success">Activo</span>';
                         }
                         return '<span class="badge badge-ghost">Inactivo</span>';
                     }
