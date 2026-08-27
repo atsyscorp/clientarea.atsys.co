@@ -45,15 +45,21 @@ class CronController extends Controller
             ->all();
 
         $count = 0;
+        $groupedSuspensions = [];
 
         foreach ($overdueServices as $service) {
             echo "Procesando: {$service->domain}... ";
+            
+            if (!$service->customer) {
+                echo "SALTADO (Sin cliente asignado).\n";
+                continue;
+            }
 
             // 2. Identificar Servidor y Tipo
             $server = $service->server;
 
             // Fallback: Si no tiene server_id directo, intentamos el del producto
-            if (!$server && $service->product->server_id) {
+            if (!$server && $service->product && $service->product->server_id) {
                 $server = \app\models\Servers::findOne($service->product->server_id);
             }
 
@@ -89,15 +95,24 @@ class CronController extends Controller
                 $service->status = 2; // Suspendido
                 $service->save(false);
 
-                // Notificaciones (Solo si no es modo silencioso, aunque en cron suele ser activo siempre)
-                $this->sendSuspensionEmail($service);
+                // Agrupamos la suspensión para mandar 1 solo correo por cliente
+                $customerId = $service->customer_id;
+                if (!isset($groupedSuspensions[$customerId])) {
+                    $groupedSuspensions[$customerId] = [
+                        'customer' => $service->customer,
+                        'services' => []
+                    ];
+                }
+                $groupedSuspensions[$customerId]['services'][] = $service;
+
+                // Notificación push a los admins individual por servicio
                 $this->triggerN8nNotification(
                     "⚠️ Servicio Suspendido",
                     "El servicio {$service->domain} ha sido suspendido.",
                     $service->id
                 );
 
-                // Notificación en plataforma
+                // Notificación en plataforma individual (para que se vea la lista)
                 Notifications::notifyCustomer(
                     $service->customer_id,
                     "⚠️ Servicio Suspendido: " . $service->domain,
@@ -114,6 +129,11 @@ class CronController extends Controller
             }
         }
 
+        // Enviar un solo email agrupado de suspensión por cliente
+        foreach ($groupedSuspensions as $customerId => $data) {
+            $this->sendGroupedSuspensionEmail($data['customer'], $data['services']);
+        }
+
         echo "Terminado. Total procesados: $count\n";
         Yii::$app->mailer->compose()
         ->setHtmlBody('Cron completed for suspend overdue')
@@ -125,18 +145,17 @@ class CronController extends Controller
     }
 
     /**
-     * Envía el correo de advertencia usando la plantilla de Yii2
+     * Envía el correo de advertencia usando la plantilla de Yii2 (agrupado)
      */
-    private function sendSuspensionEmail($service)
+    private function sendGroupedSuspensionEmail($customer, $servicesData)
     {
         try {
-            $customer = $service->customer;
-            $subject = "⚠️ Servicio Suspendido: {$service->domain}";
+            $multiple = count($servicesData) > 1;
+            $subject = $multiple ? "⚠️ Servicios Suspendidos" : "⚠️ Servicio Suspendido: {$servicesData[0]->domain}";
 
             Yii::$app->mailer->compose(['html' => 'overdue_hosting-html'], [
                 'business_name' => $customer->business_name,
-                'domain' => $service->domain,
-                'due_date' => $service->next_due_date
+                'servicesData' => $servicesData
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
@@ -146,7 +165,7 @@ class CronController extends Controller
 
         } catch (\Throwable $e) {
             echo "Error enviando email: " . $e->getMessage() . "\n";
-            Yii::error("Error enviando email suspensión: " . $e->getMessage());
+            Yii::error("Error enviando email suspensión agrupado: " . $e->getMessage());
         }
     }
 
@@ -208,35 +227,58 @@ class CronController extends Controller
 
         $count = 0;
         // Días gatillo para enviar recordatorio preventivo
-        $triggerDays = [30, 20, 15, 10, 7, 5, 2, 1];
+        $triggerDays = [30, 20, 15, 10, 7, 5, 2, 1, 0];
+        
+        $groupedReminders = [];
 
         foreach ($services as $service) {
+            if (!$service->customer) {
+                continue;
+            }
+
             // Calcular días faltantes
             $today = new \DateTime(date('Y-m-d'));
-            $dueDate = new \DateTime($service->next_due_date);
+            $dueDate = new \DateTime(substr($service->next_due_date, 0, 10));
             $diff = $today->diff($dueDate);
             $daysLeft = $diff->days;
 
             // Verificamos si hoy coincide con uno de los días gatillo
-            // (El diff->invert == 0 asegura que sea fecha futura)
             if ($diff->invert == 0 && in_array($daysLeft, $triggerDays)) {
+                $customerId = $service->customer->id;
+                if (!isset($groupedReminders[$customerId])) {
+                    $groupedReminders[$customerId] = [
+                        'customer' => $service->customer,
+                        'services' => []
+                    ];
+                }
+                $groupedReminders[$customerId]['services'][] = [
+                    'model' => $service,
+                    'daysLeft' => $daysLeft,
+                    'date_long' => Yii::$app->formatter->asDate($service->next_due_date, 'long')
+                ];
 
-                echo "Enviando aviso preventivo de {$daysLeft} días a {$service->domain}... ";
-                $this->sendRenewalReminderEmail($service, $daysLeft);
+                // Notificación en plataforma (individual sigue siendo útil para que el cliente las vea separadas)
+                $notifTitle = $daysLeft == 0 ? "🚨 Servicio vence HOY: {$service->domain}" : "📅 Servicio por vencer: {$service->domain}";
+                $notifBody = $daysLeft == 0 
+                    ? "Tu servicio {$service->domain} vence el día de hoy (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando de inmediato."
+                    : "Tu servicio {$service->domain} vence en {$daysLeft} días (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando hoy.";
 
-                // Notificación en plataforma
                 Notifications::notifyCustomer(
                     $service->customer_id,
-                    "📅 Servicio por vencer: {$service->domain}",
-                    "Tu servicio {$service->domain} vence en {$daysLeft} días (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando hoy.",
+                    $notifTitle,
+                    $notifBody,
                     "/customer-services",
                     ($daysLeft <= 5) ? Notifications::TYPE_DANGER : (($daysLeft <= 15) ? Notifications::TYPE_WARNING : Notifications::TYPE_INFO)
                 );
-
-                $count++;
-                echo "OK.\n";
-
             }
+        }
+        
+        // Enviar correos agrupados preventivos
+        foreach ($groupedReminders as $customerId => $data) {
+            echo "Enviando aviso preventivo agrupado a {$data['customer']->email} (" . count($data['services']) . " servicios)... ";
+            $this->sendGroupedRenewalReminderEmail($data['customer'], $data['services']);
+            $count += count($data['services']);
+            echo "OK.\n";
         }
 
         // 2. Alertas de Servicios Vencidos (Suspendidos hasta 30 días después)
@@ -251,8 +293,12 @@ class CronController extends Controller
         $triggerExpiredDays = [1, 3, 7, 14, 21, 30];
 
         foreach ($expiredServices as $service) {
+            if (!$service->customer) {
+                continue;
+            }
+
             $today = new \DateTime(date('Y-m-d'));
-            $dueDate = new \DateTime($service->next_due_date);
+            $dueDate = new \DateTime(substr($service->next_due_date, 0, 10));
             $diff = $today->diff($dueDate);
             $daysExpired = $diff->days;
 
@@ -285,38 +331,47 @@ class CronController extends Controller
     }
 
     /**
-     * Genera el correo de recordatorio con urgencia dinámica
+     * Genera el correo de recordatorio agrupado con urgencia dinámica
      */
-    private function sendRenewalReminderEmail($service, $daysLeft)
+    private function sendGroupedRenewalReminderEmail($customer, $servicesData)
     {
         try {
-            $customer = $service->customer;
+            $minDaysLeft = 999;
+            foreach ($servicesData as $data) {
+                if ($data['daysLeft'] < $minDaysLeft) {
+                    $minDaysLeft = $data['daysLeft'];
+                }
+            }
 
-            // Personalización según urgencia
-            if ($daysLeft <= 5) {
-                $subject = "🚨 ÚLTIMO AVISO: Tu servicio vence en {$daysLeft} días";
+            $multiple = count($servicesData) > 1;
+
+            if ($minDaysLeft == 0) {
+                $subject = $multiple ? "🚨 HOY vencen " . count($servicesData) . " de tus servicios" : "🚨 HOY vence tu servicio: {$servicesData[0]['model']->domain}";
                 $color = "#dc2626"; // Rojo
-                $msgIntro = "Es urgente que renueves para evitar la suspensión y desconexión de tu sitio.";
-            } elseif ($daysLeft <= 15) {
-                $subject = "⚠️ Recordatorio: {$service->domain} vence pronto";
+                $msgIntro = $multiple ? "Tienes servicios que vencen el día de hoy. Por favor renueva de inmediato para evitar la suspensión." : "Tu servicio vence el día de hoy. Por favor renueva de inmediato para evitar la suspensión.";
+            } elseif ($minDaysLeft <= 5) {
+                $subject = $multiple ? "🚨 ÚLTIMO AVISO: Tienes servicios por vencer en {$minDaysLeft} días" : "🚨 ÚLTIMO AVISO: Tu servicio vence en {$minDaysLeft} días";
+                $color = "#dc2626"; // Rojo
+                $msgIntro = $multiple ? "Es urgente que renueves para evitar la suspensión y desconexión de tus servicios." : "Es urgente que renueves para evitar la suspensión y desconexión de tu sitio.";
+            } elseif ($minDaysLeft <= 15) {
+                $subject = $multiple ? "⚠️ Recordatorio: Tienes servicios que vencen pronto" : "⚠️ Recordatorio: {$servicesData[0]['model']->domain} vence pronto";
                 $color = "#d97706"; // Naranja
                 $msgIntro = "Te recordamos que la fecha de renovación se acerca.";
             } else {
-                $subject = "📅 Próximo vencimiento de servicios";
+                $subject = $multiple ? "📅 Próximo vencimiento de tus servicios" : "📅 Próximo vencimiento de servicios";
                 $color = "#2563eb"; // Azul
                 $msgIntro = "Este es un aviso preventivo para programar tu renovación.";
             }
 
-            $renewLink = "https://clientarea.atsys.co/customer-services/"; // O link directo al pago si lo tienes
+            $renewLink = "https://clientarea.atsys.co/customer-services/";
 
             Yii::$app->mailer->compose([
                 'html' => 'renewal_alert-html'
             ], [
-                'daysLeft' => $daysLeft,
+                'daysLeft' => $minDaysLeft,
                 'business_name' => $customer->business_name,
                 'msgIntro' => $msgIntro,
-                'domain' => $service->domain,
-                'date_long' => Yii::$app->formatter->asDate($service->next_due_date, 'long'),
+                'servicesData' => $servicesData,
                 'renewLink' => $renewLink,
                 'color' => $color
             ])
@@ -327,7 +382,7 @@ class CronController extends Controller
                 ->send();
 
         } catch (\Throwable $e) {
-            Yii::error("Error enviando recordatorio: " . $e->getMessage());
+            Yii::error("Error enviando recordatorio agrupado: " . $e->getMessage());
         }
     }
 
@@ -484,6 +539,8 @@ class CronController extends Controller
         $type = $isCritical ? \app\models\Notifications::TYPE_DANGER : \app\models\Notifications::TYPE_WARNING;
         
         $customer = $service->customer;
+        if (!$customer) return;
+
         $userId = $customer->user_id;
 
         if ($userId) {

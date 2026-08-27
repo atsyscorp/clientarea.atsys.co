@@ -6,8 +6,25 @@ $warningText = "IMPORTANTE: En caso de no reactivarse, se eliminará cualquier a
 $clientAreaLink = Yii::$app->urlManager->createAbsoluteUrl(['customer-services']);
 ?>
 <h2>Hola, <?=$business_name?></h2>
-<p>Te informamos que tu servicio de hosting para el dominio <strong><?=$domain?></strong> ha sido suspendido por falta de pago.</p>
-<p>Fecha de vencimiento: <?=$due_date?></p>
+<?php 
+if (!isset($servicesData) && isset($domain)) {
+    $servicesData = [
+        (object)['domain' => $domain, 'next_due_date' => $due_date]
+    ];
+}
+$multiple = count($servicesData) > 1;
+?>
+<p>Te informamos que <?=$multiple ? 'los siguientes servicios han sido suspendidos' : 'tu servicio para el dominio <strong>'.$servicesData[0]->domain.'</strong> ha sido suspendido'?> por falta de pago.</p>
+
+<?php if ($multiple): ?>
+    <ul>
+    <?php foreach ($servicesData as $s): ?>
+        <li><strong><?=$s->domain?></strong> (Vencimiento: <?=Yii::$app->formatter->asDate($s->next_due_date, 'long')?>)</li>
+    <?php endforeach; ?>
+    </ul>
+<?php else: ?>
+    <p>Fecha de vencimiento: <?=Yii::$app->formatter->asDate($servicesData[0]->next_due_date, 'long')?></p>
+<?php endif; ?>
 
 <div style='background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 15px; border-radius: 5px; margin: 20px 0;'>
     <strong><?=$warningText?></strong>
