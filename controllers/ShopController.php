@@ -182,6 +182,7 @@ class ShopController extends Controller
                 $order->subtotal = $cart['total']; // Usamos el TOTAL calculado
                 $order->total = $cart['total'];
                 $order->status = 0; // Pendiente
+                $order->require_invoice = Yii::$app->request->post('require_invoice') ? 1 : 0;
                 $order->created_at = date('Y-m-d H:i:s');
                 
                 if (!$order->save()) throw new \Exception('Error al crear orden.');

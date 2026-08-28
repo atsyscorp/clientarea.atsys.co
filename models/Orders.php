@@ -21,6 +21,7 @@ use Yii;
  * @property string|null $transaction_ref
  * @property string|null $created_at
  * @property string|null $updated_at
+ * @property int $require_invoice
  *
  * @property Customers $customer
  * @property OrderItems[] $orderItems
@@ -48,7 +49,7 @@ class Orders extends \yii\db\ActiveRecord
             [['currency'], 'default', 'value' => 'COP'],
             [['status'], 'default', 'value' => 0],
             [['code', 'customer_id', 'subtotal', 'total'], 'required'],
-            [['customer_id', 'status'], 'integer'],
+            [['customer_id', 'status', 'require_invoice'], 'integer'],
             [['subtotal', 'tax', 'total', 'exchange_rate', 'total_usd'], 'number'],
             [['created_at', 'updated_at'], 'safe'],
             [['code'], 'string', 'max' => 30],

@@ -277,6 +277,23 @@ class CustomerServicesController extends \yii\web\Controller
                         }
                     }
 
+                    // 4. Registrar Dominio (Namecheap API)
+                    if ($model->product && $model->product->type == 'domain' && $this->request->post('register_domain_api')) {
+                        $coupon = $this->request->post('domain_coupon');
+                        $years = 1; // Default to 1 year for new creations here. In shop/renew it varies.
+                        
+                        try {
+                            $ncService = new \app\services\NamecheapService();
+                            if ($ncService->registerDomain($model->domain, $years, $model->customer, $coupon)) {
+                                Yii::$app->session->setFlash('success', 'Servicio creado y Dominio registrado correctamente en el proveedor.');
+                            } else {
+                                Yii::$app->session->setFlash('warning', 'Servicio guardado localmente, pero el proveedor reportó un error al registrar el dominio.');
+                            }
+                        } catch (\Exception $e) {
+                            Yii::$app->session->setFlash('error', 'Servicio guardado localmente, pero error en proveedor: ' . $e->getMessage());
+                        }
+                    }
+
                     // 5. Redirecciones Finales
                     if ($model->customer_id) {
                         Yii::$app->session->setFlash('success', 'Servicio procesado correctamente.');

@@ -180,6 +180,15 @@ if ($selectedCurrency === 'USD') {
                 </div>
 
                 <?= Html::beginForm(['checkout'], 'post') ?>
+                    <div class="mb-4 bg-base-200/50 p-4 rounded-lg border border-base-200">
+                        <label class="label cursor-pointer justify-start gap-3">
+                            <input type="checkbox" name="require_invoice" value="1" class="checkbox checkbox-primary" />
+                            <span class="label-text font-medium text-sm">
+                                Requerir factura electrónica
+                                <br><span class="text-xs opacity-60">Se notificará a administración para la emisión de la factura al procesarse el pago.</span>
+                            </span>
+                        </label>
+                    </div>
                     <button type="submit" class="btn btn-primary btn-lg w-full shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 gap-3">
                         Realizar pago
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>

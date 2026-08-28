@@ -355,15 +355,24 @@ class OrdersController extends Controller
 
             foreach ($order->orderItems as $item) {
 
-                // --- LÓGICA DE RENOVACIÓN ---
-                if ($item->action_type == 'renew') {
-                    $service = CustomerServices::find()->where(['customer_id' => $order->customer_id, 'domain' => $item->domain_name])->one();
+                // --- LÓGICA DE RENOVACIÓN Y RESTAURACIÓN ---
+                if ($item->action_type == 'renew' || $item->action_type == 'penalty') {
+                    // Importante: Buscar por product_id ($item->service_id) para no confundir hosting y dominio
+                    $service = CustomerServices::find()->where([
+                        'customer_id' => $order->customer_id, 
+                        'domain' => $item->domain_name,
+                        'product_id' => $item->service_id
+                    ])->one();
+                    
                     if ($service) {
                         $cycle = $service->product->billing_cycle ?? 'yearly';
+                        
+                        // Si estaba vencido por mucho tiempo, podríamos querer reiniciar la fecha desde hoy,
+                        // pero mantener +ciclo desde la fecha de vencimiento es lo estándar para renovaciones atrasadas.
                         $service->next_due_date = date('Y-m-d', strtotime(($cycle == 'monthly' ? '+1 month' : '+1 year'), strtotime($service->next_due_date)));
                         $service->status = 1;
 
-                        if ($service->product->type == 'hosting' && !empty($service->server_id)) {
+                        if ($service->product && $service->product->type == 'hosting' && !empty($service->server_id)) {
                             // Detectamos el servidor asociado al servicio para desuspender en el panel correcto
                             $serverRen = $service->server;
                             if ($serverRen) {
@@ -427,31 +436,97 @@ class OrdersController extends Controller
                         }
                     }
 
-                    // 3. Registrar el servicio en la base de datos si fue exitoso
+                    // 3. Registrar el servicio en la base de datos si fue exitoso (o como pendiente si falló)
+                    $newService = new CustomerServices();
+                    $newService->customer_id = $customer->id;
+                    $newService->product_id = $product->id;
+                    $newService->domain = $domain;
+                    // OJO AQUÍ: Guardamos el ID del servidor que REALMENTE se usó (ideal para el balanceo)
+                    $newService->server_id = $server->id;
+                    $newService->username_service = $panelUser;
+                    $newService->password_service = $panelPass;
+                    $newService->created_at = date('Y-m-d');
+                    $newService->next_due_date = date('Y-m-d', strtotime(($product->billing_cycle == 'monthly' ? '+1 month' : '+1 year')));
+                    
                     if ($provisionResult['success']) {
-                        $newService = new CustomerServices();
-                        $newService->customer_id = $customer->id;
-                        $newService->product_id = $product->id;
-                        $newService->domain = $domain;
-                        // OJO AQUÍ: Guardamos el ID del servidor que REALMENTE se usó (ideal para el balanceo)
-                        $newService->server_id = $server->id;
-                        $newService->username_service = $panelUser;
-                        $newService->password_service = $panelPass;
-                        $newService->created_at = date('Y-m-d');
-                        $newService->next_due_date = date('Y-m-d', strtotime(($product->billing_cycle == 'monthly' ? '+1 month' : '+1 year')));
                         $newService->status = 1;
-
-                        if (!$newService->save()) {
-                            Yii::error("Se creó en el servidor pero falló al guardar en BD local: " . json_encode($newService->getErrors()));
-                        }
                     } else {
+                        $newService->status = 0; // Pendiente / Error de aprovisionamiento
                         Yii::error("Fallo aprovisionamiento en servidor {$server->hostname} para {$domain}: " . json_encode($provisionResult));
+                    }
+
+                    if (!$newService->save()) {
+                        Yii::error("Fallo al guardar servicio de hosting en BD local: " . json_encode($newService->getErrors()));
+                    }
+                }
+
+                // --- LÓGICA DE REGISTRO/TRANSFERENCIA DE DOMINIO ---
+                if ($item->action_type == 'register' || $item->action_type == 'transfer') {
+                    $domain = $item->domain_name;
+                    $customer = $order->customer;
+                    $product = $item->product;
+
+                    $newService = new CustomerServices();
+                    $newService->customer_id = $customer->id;
+                    $newService->product_id = $product ? $product->id : $item->service_id;
+                    $newService->domain = $domain;
+                    $newService->created_at = date('Y-m-d');
+                    // Los dominios por defecto son anuales
+                    $newService->next_due_date = date('Y-m-d', strtotime('+1 year'));
+                    $newService->status = 1; // 1 = Activo (o pendiente de registro manual por admin)
+
+                    if (!$newService->save()) {
+                        Yii::error("Fallo al guardar dominio en BD local: " . json_encode($newService->getErrors()));
                     }
                 }
             }
 
-            // ENVIAR CONFIRMACIÓN
+            // ENVIAR CONFIRMACIÓN AL CLIENTE
             self::sendPaymentConfirmationEmail($order);
+
+            // NOTIFICAR AL ADMIN SI REQUIERE FACTURA
+            if ($order->require_invoice) {
+                self::sendAdminInvoiceRequiredEmail($order);
+            }
+        }
+    }
+
+    public static function sendAdminInvoiceRequiredEmail($order)
+    {
+        try {
+            $customer = $order->customer;
+            $itemsHtml = "";
+            foreach ($order->orderItems as $item) {
+                $itemsHtml .= "<li>{$item->service_name} - " . Yii::$app->formatter->asCurrency($item->total) . " {$order->currency}</li>";
+            }
+
+            $body = "
+                <h2>Requerimiento de Factura Electrónica</h2>
+                <p>El cliente ha solicitado factura electrónica para la orden <strong>{$order->code}</strong> que acaba de ser pagada.</p>
+                <h3>Detalles del Cliente</h3>
+                <ul>
+                    <li><strong>Nombre/Razón Social:</strong> {$customer->business_name}</li>
+                    <li><strong>Documento/NIT:</strong> {$customer->document_number}</li>
+                    <li><strong>Email:</strong> {$customer->email}</li>
+                    <li><strong>Teléfono:</strong> {$customer->primary_phone}</li>
+                    <li><strong>Dirección:</strong> {$customer->address}, {$customer->city}</li>
+                </ul>
+                <h3>Detalles del Pedido</h3>
+                <ul>
+                    $itemsHtml
+                </ul>
+                <p><strong>Total:</strong> " . Yii::$app->formatter->asCurrency($order->total) . " {$order->currency}</p>
+                <p>Por favor generar la factura y enviarla al cliente.</p>
+            ";
+
+            Yii::$app->mailer->compose()
+                ->setFrom([Yii::$app->params['senderEmail'] ?? 'no-reply@atsys.co' => Yii::$app->params['senderName'] ?? 'ATSYS'])
+                ->setTo(Yii::$app->params['adminEmail'] ?? 'hola@atsys.co')
+                ->setSubject("Factura Electrónica Requerida - Orden {$order->code}")
+                ->setHtmlBody($body)
+                ->send();
+        } catch (\Throwable $e) {
+            Yii::error("Error notificando requerimiento de factura al admin: " . $e->getMessage());
         }
     }
 
@@ -562,6 +637,64 @@ class OrdersController extends Controller
         }
 
         return ['success' => false, 'message' => 'Petición inválida.'];
+    }
+
+    public function actionReceipt($id)
+    {
+        $order = $this->findModel($id);
+        
+        if ($order->status != 1) {
+            throw new ForbiddenHttpException('Solo se pueden generar comprobantes de órdenes pagadas.');
+        }
+
+        // Permisos
+        if (Yii::$app->user->isGuest) {
+            throw new ForbiddenHttpException('Acceso denegado.');
+        }
+        if (!Yii::$app->user->identity->isAdmin) {
+            $identity = Yii::$app->user->identity;
+            $ownerId = (!empty($identity->parent_id)) ? $identity->parent_id : $identity->id;
+            $myCustomer = \app\models\Customers::findOne(['user_id' => $ownerId]);
+            if (!$myCustomer || $order->customer_id != $myCustomer->id) {
+                throw new ForbiddenHttpException('No tienes permiso para ver este comprobante.');
+            }
+        }
+
+        $content = $this->renderPartial('_receipt_pdf', ['model' => $order]);
+
+        $pdf = new \kartik\mpdf\Pdf([
+            'mode' => \kartik\mpdf\Pdf::MODE_UTF8,
+            'format' => \kartik\mpdf\Pdf::FORMAT_A4,
+            'orientation' => \kartik\mpdf\Pdf::ORIENT_PORTRAIT,
+            'destination' => \kartik\mpdf\Pdf::DEST_BROWSER,
+            'content' => $content,
+            'cssInline' => '
+                body { font-family: "Helvetica", sans-serif; color: #333; }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .text-left { text-align: left; }
+                .font-bold { font-weight: bold; }
+                .text-xl { font-size: 24px; }
+                .text-lg { font-size: 18px; }
+                .text-sm { font-size: 12px; }
+                .text-xs { font-size: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 10px; font-size: 14px; }
+                th { background-color: #f8f9fa; }
+                .header-container { width: 100%; margin-bottom: 30px; }
+                .logo-cell { width: 50%; }
+                .info-cell { width: 50%; text-align: right; }
+                .info-cell h1 { margin: 0; color: #2c3e50; font-size: 24px; }
+                .alert-box { border: 1px solid #ddd; background-color: #f9f9f9; padding: 15px; margin-top: 30px; border-radius: 5px; font-size: 12px; text-align: center; }
+            ',
+            'options' => ['title' => 'Comprobante de Venta - ' . $order->code],
+            'methods' => [
+                'SetHeader' => ['Comprobante de Venta - ATSYS'],
+                'SetFooter' => ['{PAGENO}'],
+            ]
+        ]);
+
+        return $pdf->render();
     }
 
 }

@@ -19,6 +19,10 @@ use Yii;
  * @property int|null $status
  * @property string|null $created_at
  * @property int|null $server_id
+ * @property string|null $ns1
+ * @property string|null $ns2
+ * @property string|null $ns3
+ * @property string|null $ns4
  *
  * @property Customers $customer
  * @property Products $product
@@ -43,12 +47,13 @@ class CustomerServices extends \yii\db\ActiveRecord
     {
         return [
             [['description_label', 'domain', 'username_service', 'password_service', 'start_date', 'next_due_date', 'server_id'], 'default', 'value' => null],
+            [['ns1', 'ns2', 'ns3', 'ns4'], 'default', 'value' => null],
             [['status'], 'default', 'value' => 1],
             [['customer_id', 'product_id'], 'required'],
             [['customer_id', 'product_id', 'status', 'server_id'], 'integer'],
             [['start_date', 'next_due_date', 'created_at'], 'safe'],
             [['description_label', 'domain', 'password_service'], 'string', 'max' => 255],
-            [['username_service'], 'string', 'max' => 100],
+            [['username_service', 'ns1', 'ns2', 'ns3', 'ns4'], 'string', 'max' => 100],
             [['customer_id'], 'exist', 'skipOnError' => true, 'targetClass' => Customers::class, 'targetAttribute' => ['customer_id' => 'id']],
             [['product_id'], 'exist', 'skipOnError' => true, 'targetClass' => Products::class, 'targetAttribute' => ['product_id' => 'id']],
             [['server_id'], 'exist', 'skipOnError' => true, 'targetClass' => Servers::class, 'targetAttribute' => ['server_id' => 'id']],
@@ -72,7 +77,11 @@ class CustomerServices extends \yii\db\ActiveRecord
             'next_due_date' => 'Próxima renovación',
             'status' => 'Estado',
             'created_at' => 'Fecha creación',
-            'server_id' => 'Servidor'
+            'server_id' => 'Servidor',
+            'ns1' => 'NameServer 1',
+            'ns2' => 'NameServer 2',
+            'ns3' => 'NameServer 3',
+            'ns4' => 'NameServer 4',
         ];
     }
 
