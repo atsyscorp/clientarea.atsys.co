@@ -16,12 +16,16 @@ class NamecheapService
 
     public function __construct()
     {
-        $this->apiUser = getenv('NAMECHEAP_API_USER') ?: '';
-        $this->apiKey = getenv('NAMECHEAP_API_KEY') ?: '';
-        $this->userName = getenv('NAMECHEAP_USERNAME') ?: $this->apiUser;
-        // The ClientIp must match the whitelisted IP exactly
-        $this->clientIp = getenv('NAMECHEAP_CLIENT_IP') ?: ($_SERVER['SERVER_ADDR'] ?? '127.0.0.1');
-        $this->isSandbox = (bool)getenv('NAMECHEAP_SANDBOX');
+        // Usar $_ENV o $_SERVER como fallback primario, ya que getenv() suele fallar en prod
+        $this->apiUser = $_ENV['NAMECHEAP_API_USER'] ?? $_SERVER['NAMECHEAP_API_USER'] ?? getenv('NAMECHEAP_API_USER') ?: '';
+        $this->apiKey = $_ENV['NAMECHEAP_API_KEY'] ?? $_SERVER['NAMECHEAP_API_KEY'] ?? getenv('NAMECHEAP_API_KEY') ?: '';
+        $this->userName = $_ENV['NAMECHEAP_USERNAME'] ?? $_SERVER['NAMECHEAP_USERNAME'] ?? getenv('NAMECHEAP_USERNAME') ?: $this->apiUser;
+        
+        $clientIp = $_ENV['NAMECHEAP_CLIENT_IP'] ?? $_SERVER['NAMECHEAP_CLIENT_IP'] ?? getenv('NAMECHEAP_CLIENT_IP') ?: '';
+        $this->clientIp = $clientIp ?: ($_SERVER['SERVER_ADDR'] ?? '127.0.0.1');
+        
+        $sandbox = $_ENV['NAMECHEAP_SANDBOX'] ?? $_SERVER['NAMECHEAP_SANDBOX'] ?? getenv('NAMECHEAP_SANDBOX');
+        $this->isSandbox = filter_var($sandbox, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**
@@ -114,6 +118,33 @@ class NamecheapService
             }
         }
         return $records;
+    }
+
+    /**
+     * Check if the domain is using Namecheap's DNS (BasicDNS, PremiumDNS, FreeDNS)
+     * If true, we can manage the DNS records via API.
+     */
+    public function isUsingOurDNS($domain)
+    {
+        $params = $this->getBaseParams('namecheap.domains.dns.getList');
+        
+        $parts = explode('.', $domain, 2);
+        if (count($parts) != 2) return false;
+        
+        $params['SLD'] = $parts[0];
+        $params['TLD'] = $parts[1];
+
+        try {
+            $response = $this->executeRequest($params);
+            if (isset($response->DomainDNSGetListResult)) {
+                $attrs = $response->DomainDNSGetListResult->attributes();
+                return (string)$attrs['IsUsingOurDNS'] === 'true';
+            }
+        } catch (\Exception $e) {
+            return false;
+        }
+
+        return false;
     }
 
     /**

@@ -72,9 +72,17 @@ class DomainsController extends Controller
     public function actionManage($id)
     {
         $model = $this->findModel($id);
+        
+        // El control DNS ahora asume que si los nameservers apuntan a ns1/ns2.atsys.co,
+        // Virtualmin gestiona la zona.
+        $isUsingOurDNS = (
+            trim(strtolower($model->ns1)) === 'ns1.atsys.co' &&
+            trim(strtolower($model->ns2)) === 'ns2.atsys.co'
+        );
 
         return $this->render('manage', [
             'model' => $model,
+            'isUsingOurDNS' => $isUsingOurDNS
         ]);
     }
 
@@ -85,20 +93,50 @@ class DomainsController extends Controller
     {
         $model = $this->findModel($id);
         
-        $records = DomainDnsRecords::find()
-            ->where(['customer_service_id' => $model->id])
-            ->all();
+        $zoneExists = true;
+        $virtService = new \app\services\VirtualminService();
+        $records = [];
+        
+        try {
+            // Obtener registros en vivo desde Virtualmin
+            $records = $virtService->getHosts($model->domain);
+        } catch (\Exception $e) {
+            $zoneExists = false;
+            Yii::error("DNS Zone Check Failed for {$model->domain}: " . $e->getMessage(), 'virtualmin');
+        }
+
+        // Auto-crear zona si no existe
+        if (!$zoneExists) {
+            try {
+                $virtService->createDnsZone($model->domain);
+                $zoneExists = true;
+                Yii::$app->session->setFlash('success', 'Zona DNS inicializada automáticamente en el servidor.');
+                // Re-fetch after creation
+                $records = $virtService->getHosts($model->domain);
+            } catch (\Exception $e) {
+                // Falló la auto-creación
+            }
+        }
+        
+        // Filtrar NS y SOA para no mostrarlos al cliente
+        $filteredRecords = [];
+        foreach ($records as $r) {
+            if ($r['Type'] !== 'NS' && $r['Type'] !== 'SOA') {
+                $filteredRecords[] = $r;
+            }
+        }
 
         return $this->render('dns', [
             'model' => $model,
-            'records' => $records,
+            'records' => $filteredRecords,
+            'zoneExists' => $zoneExists,
         ]);
     }
 
     /**
-     * Sync DNS records from Namecheap to local DB
+     * Initializes a DNS zone in Virtualmin for parked domains
      */
-    public function actionDnsSync($id)
+    public function actionDnsInit($id)
     {
         $model = $this->findModel($id);
         
@@ -108,48 +146,25 @@ class DomainsController extends Controller
         }
 
         try {
-            $ncService = new NamecheapService();
-            $hosts = $ncService->getHosts($model->domain);
-            
-            // Begin transaction
-            $transaction = Yii::$app->db->beginTransaction();
-            try {
-                // Clear local records
-                DomainDnsRecords::deleteAll(['customer_service_id' => $model->id]);
-                
-                // Insert new ones
-                foreach ($hosts as $host) {
-                    $record = new DomainDnsRecords();
-                    $record->customer_service_id = $model->id;
-                    $record->host = $host['Name'];
-                    $record->record_type = $host['Type'];
-                    $record->address = $host['Address'];
-                    $record->mx_pref = !empty($host['MXPref']) ? (int)$host['MXPref'] : 10;
-                    $record->ttl = !empty($host['TTL']) ? (int)$host['TTL'] : 1800;
-                    $record->save(false);
-                }
-                $transaction->commit();
-                Yii::$app->session->setFlash('success', 'Registros DNS sincronizados exitosamente.');
-            } catch (Exception $e) {
-                $transaction->rollBack();
-                throw $e;
-            }
+            $virtService = new \app\services\VirtualminService();
+            $virtService->createDnsZone($model->domain);
+            Yii::$app->session->setFlash('success', 'Zona DNS inicializada correctamente en el servidor.');
         } catch (Exception $e) {
-            Yii::$app->session->setFlash('error', 'Error sincronizando registros: ' . $e->getMessage());
+            Yii::$app->session->setFlash('error', 'Error inicializando zona DNS: ' . $e->getMessage());
         }
 
         return $this->redirect(['dns', 'id' => $id]);
     }
 
     /**
-     * Save DNS records from form to local DB and Namecheap
+     * Save DNS records from form to local DB and Virtualmin
      */
     public function actionDnsSave($id)
     {
         $model = $this->findModel($id);
         $postData = Yii::$app->request->post('DnsRecords', []);
         
-        $recordsForNc = [];
+        $recordsForVirt = [];
         $transaction = Yii::$app->db->beginTransaction();
         
         try {
@@ -172,7 +187,7 @@ class DomainsController extends Controller
                     throw new Exception("Error validando el registro: " . json_encode($record->getErrors()));
                 }
 
-                $recordsForNc[] = [
+                $recordsForVirt[] = [
                     'HostName' => $record->host,
                     'RecordType' => $record->record_type,
                     'Address' => $record->address,
@@ -181,13 +196,13 @@ class DomainsController extends Controller
                 ];
             }
             
-            // Push to DNS provider
-            $ncService = new NamecheapService();
-            if ($ncService->setHosts($model->domain, $recordsForNc)) {
+            // Push to DNS provider (Virtualmin)
+            $virtService = new \app\services\VirtualminService();
+            if ($virtService->setHosts($model->domain, $recordsForVirt)) {
                 $transaction->commit();
-                Yii::$app->session->setFlash('success', 'Registros DNS guardados exitosamente.');
+                Yii::$app->session->setFlash('success', 'Registros DNS guardados exitosamente en el servidor.');
             } else {
-                throw new Exception("Error al procesar los registros con el proveedor.");
+                throw new Exception("Error al procesar los registros con Virtualmin.");
             }
         } catch (Exception $e) {
             $transaction->rollBack();
