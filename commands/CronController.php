@@ -49,7 +49,7 @@ class CronController extends Controller
 
         foreach ($overdueServices as $service) {
             echo "Procesando: {$service->domain}... ";
-            
+
             if (!$service->customer) {
                 echo "SALTADO (Sin cliente asignado).\n";
                 continue;
@@ -136,11 +136,11 @@ class CronController extends Controller
 
         echo "Terminado. Total procesados: $count\n";
         Yii::$app->mailer->compose()
-        ->setHtmlBody('Cron completed for suspend overdue')
-        ->setTo(Yii::$app->params['adminEmail'])
-        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-        ->setSubject("Cron Suspended Overdue")
-        ->send();
+            ->setHtmlBody('Cron completed for suspend overdue')
+            ->setTo(Yii::$app->params['adminEmail'])
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+            ->setSubject("Cron Suspended Overdue")
+            ->send();
         return ExitCode::OK;
     }
 
@@ -217,18 +217,18 @@ class CronController extends Controller
     {
         echo "Iniciando envío de recordatorios...\n";
 
-        // 1. Recordatorios preventivos (Servicios Activos que venzan en los próximos 31 días)
+        // 1. Recordatorios preventivos (Servicios Activos que venzan en los próximos 91 días)
         $services = CustomerServices::find()
             ->with(['customer'])
             ->where(['status' => 1])
             ->andWhere(['>=', 'next_due_date', date('Y-m-d')]) // Que no estén vencidos aún
-            ->andWhere(['<=', 'next_due_date', date('Y-m-d', strtotime('+31 days'))])
+            ->andWhere(['<=', 'next_due_date', date('Y-m-d', strtotime('+91 days'))])
             ->all();
 
         $count = 0;
-        // Días gatillo para enviar recordatorio preventivo
-        $triggerDays = [30, 20, 15, 10, 7, 5, 2, 1, 0];
-        
+        // Días gatillo para enviar recordatorio preventivo (desde 90 días antes)
+        $triggerDays = [90, 60, 30, 20, 15, 10, 7, 5, 2, 1, 0];
+
         $groupedReminders = [];
 
         foreach ($services as $service) {
@@ -259,7 +259,7 @@ class CronController extends Controller
 
                 // Notificación en plataforma (individual sigue siendo útil para que el cliente las vea separadas)
                 $notifTitle = $daysLeft == 0 ? "🚨 Servicio vence HOY: {$service->domain}" : "📅 Servicio por vencer: {$service->domain}";
-                $notifBody = $daysLeft == 0 
+                $notifBody = $daysLeft == 0
                     ? "Tu servicio {$service->domain} vence el día de hoy (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando de inmediato."
                     : "Tu servicio {$service->domain} vence en {$daysLeft} días (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando hoy.";
 
@@ -272,10 +272,12 @@ class CronController extends Controller
                 );
             }
         }
-        
+
         // Enviar correos agrupados preventivos
+        $bccEmail = Yii::$app->params['renewalAlertBccEmail'] ?? (Yii::$app->params['adminEmail'] ?? null);
         foreach ($groupedReminders as $customerId => $data) {
-            echo "Enviando aviso preventivo agrupado a {$data['customer']->email} (" . count($data['services']) . " servicios)... ";
+            $bccText = !empty($bccEmail) ? " (con copia BCC a {$bccEmail})" : "";
+            echo "Enviando aviso preventivo agrupado a {$data['customer']->email}{$bccText} (" . count($data['services']) . " servicios)... ";
             $this->sendGroupedRenewalReminderEmail($data['customer'], $data['services']);
             $count += count($data['services']);
             echo "OK.\n";
@@ -322,11 +324,11 @@ class CronController extends Controller
 
         echo "Terminado. Recordatorios y alertas enviadas: $count\n";
         Yii::$app->mailer->compose()
-        ->setHtmlBody('Cron completed for send reminders')
-        ->setTo(Yii::$app->params['adminEmail'])
-        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-        ->setSubject("Cron Send Reminders")
-        ->send();
+            ->setHtmlBody('Cron completed for send reminders')
+            ->setTo(Yii::$app->params['adminEmail'])
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+            ->setSubject("Cron Send Reminders")
+            ->send();
         return ExitCode::OK;
     }
 
@@ -356,16 +358,20 @@ class CronController extends Controller
             } elseif ($minDaysLeft <= 15) {
                 $subject = $multiple ? "⚠️ Recordatorio: Tienes servicios que vencen pronto" : "⚠️ Recordatorio: {$servicesData[0]['model']->domain} vence pronto";
                 $color = "#d97706"; // Naranja
-                $msgIntro = "Te recordamos que la fecha de renovación se acerca.";
-            } else {
-                $subject = $multiple ? "📅 Próximo vencimiento de tus servicios" : "📅 Próximo vencimiento de servicios";
+            } elseif ($minDaysLeft <= 30) {
+                $subject = $multiple ? "📅 Próximo vencimiento de tus servicios ({$minDaysLeft} días)" : "📅 Próximo vencimiento: {$servicesData[0]['model']->domain} ({$minDaysLeft} días)";
                 $color = "#2563eb"; // Azul
                 $msgIntro = "Este es un aviso preventivo para programar tu renovación.";
+            } else {
+                $subject = $multiple ? "📅 Aviso Preventivo: Renovación en {$minDaysLeft} días" : "📅 Aviso Preventivo: {$servicesData[0]['model']->domain} vence en {$minDaysLeft} días";
+                $color = "#0284c7"; // Azul celeste informativo
+                $msgIntro = "Te enviamos este aviso con anticipación para que puedas planificar la renovación de tus servicios y agendarlos en tu calendario.";
             }
 
             $renewLink = "https://clientarea.atsys.co/customer-services/";
+            $bccEmail = Yii::$app->params['renewalAlertBccEmail'] ?? (Yii::$app->params['adminEmail'] ?? null);
 
-            Yii::$app->mailer->compose([
+            $mail = Yii::$app->mailer->compose([
                 'html' => 'renewal_alert-html'
             ], [
                 'daysLeft' => $minDaysLeft,
@@ -377,8 +383,13 @@ class CronController extends Controller
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
-                ->setTo($customer->email)
-                ->setSubject($subject)
+                ->setTo($customer->email);
+
+            if (!empty($bccEmail)) {
+                $mail->setBcc($bccEmail);
+            }
+
+            $mail->setSubject($subject)
                 ->send();
 
         } catch (\Throwable $e) {
@@ -432,10 +443,10 @@ class CronController extends Controller
                     'user' => $user,
                     'notifications' => $userNotifications
                 ])
-                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName'] ?? Yii::$app->name])
-                ->setReplyTo(Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co')
-                ->setTo($user->email)
-                ->setSubject($subject);
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName'] ?? Yii::$app->name])
+                    ->setReplyTo(Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co')
+                    ->setTo($user->email)
+                    ->setSubject($subject);
 
                 if ($mailer->send()) {
                     // Marcar notificaciones como enviadas por email
@@ -478,31 +489,48 @@ class CronController extends Controller
             echo "Consultando servidor: {$server->name}...\n";
 
             try {
-                // Ejecutar list-domains remoto
+                // Ejecutar list-domains remoto (puede demorar con muchas cuentas)
                 $result = Yii::$app->virtualmin->sendCommandDynamic(
                     $server->username,
                     $server->auth_token,
                     $server->hostname,
                     'list-domains',
-                    ['multiline' => '']
+                    ['multiline' => ''],
+                    300
                 );
 
                 if ($result['success'] && !empty($result['data'])) {
                     foreach ($result['data'] as $domainData) {
                         $domainName = $domainData['name'] ?? null;
-                        if (!$domainName) continue;
+                        if (!$domainName)
+                            continue;
 
                         $values = $domainData['values'] ?? [];
-                        $quota = isset($values['server_byte_quota'][0]) ? (int)$values['server_byte_quota'][0] : 0;
-                        $used = isset($values['server_byte_quota_used'][0]) ? (int)$values['server_byte_quota_used'][0] : 0;
+
+                        // Diferentes versiones de Virtualmin devuelven distintas llaves (y formateadas en GiB, MiB, etc)
+                        $quota = 0;
+                        $used = 0;
+                        if (!empty($values['server_byte_quota'][0])) {
+                            $quota = $this->convertToBytes($values['server_byte_quota'][0]);
+                            $used = $this->convertToBytes($values['server_byte_quota_used'][0] ?? '0');
+                        } elseif (!empty($values['server_quota'][0])) {
+                            $quota = $this->convertToBytes($values['server_quota'][0]);
+                            $used = $this->convertToBytes($values['server_quota_used'][0] ?? '0');
+                        } elseif (!empty($values['byte_quota'][0])) {
+                            $quota = $this->convertToBytes($values['byte_quota'][0]);
+                            $used = $this->convertToBytes($values['byte_quota_used'][0] ?? '0');
+                        }
 
                         if ($quota > 0) {
                             $percentage = ($used / $quota) * 100;
+                            echo " - $domainName: " . round($percentage) . "% usado\n";
 
-                            if ($percentage >= 70) {
+                            if ($percentage >= 90) {
                                 $this->processDiskWarning($domainName, $percentage);
                                 $notified++;
                             }
+                        } else {
+                            echo " - $domainName: Cuota ilimitada o no detectada.\n";
                         }
                         $count++;
                     }
@@ -530,22 +558,27 @@ class CronController extends Controller
             ->where(['domain' => $domainName, 'status' => 1])
             ->one();
 
-        if (!$service) return;
+        if (!$service)
+            return;
 
-        $isCritical = $percentage >= 100;
-        
+        $isFull = $percentage >= 100;
+        $isCritical = $percentage >= 90;
+
         // Evitar notificaciones duplicadas usando Notifications
-        $title = $isCritical ? "⚠️ Alerta Urgente: Espacio Lleno en $domainName" : "⚠️ Aviso de Espacio en $domainName";
-        $type = $isCritical ? \app\models\Notifications::TYPE_DANGER : \app\models\Notifications::TYPE_WARNING;
-        
+        $title = $isFull ? "⚠️ Alerta urgente: Espacio lleno en $domainName" :
+            ($isCritical ? "⚠️ Aviso de espacio en $domainName próximo a llenarse" : "⚠️ Aviso de espacio en $domainName");
+        $type = $isFull ? \app\models\Notifications::TYPE_DANGER :
+            ($isCritical ? \app\models\Notifications::TYPE_WARNING : \app\models\Notifications::TYPE_INFO);
+
         $customer = $service->customer;
-        if (!$customer) return;
+        if (!$customer)
+            return;
 
         $userId = $customer->user_id;
 
         if ($userId) {
-            $daysToWait = $isCritical ? 3 : 7;
-            
+            $daysToWait = $isFull ? 3 : ($isCritical ? 7 : 14);
+
             $recentNotification = \app\models\Notifications::find()
                 ->where(['user_id' => $userId, 'title' => $title])
                 ->andWhere(['>=', 'created_at', date('Y-m-d H:i:s', strtotime("-$daysToWait days"))])
@@ -566,8 +599,8 @@ class CronController extends Controller
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
-                ->setTo($customer->email)
-                ->setBcc(Yii::$app->params['adminEmail'])
+                //->setTo($customer->email)
+                ->setTo(Yii::$app->params['adminEmail'])
                 ->setSubject($title)
                 ->send();
         } catch (\Exception $e) {
@@ -575,8 +608,7 @@ class CronController extends Controller
         }
 
         // Crear notificación en sistema
-        $body = $isCritical 
-            ? "El espacio en disco para el dominio $domainName ha alcanzado el 100%. Recomendamos limpiar espacio o actualizar el plan." 
+        $body = $isFull ? "El espacio en disco para el dominio $domainName ha alcanzado el 100%. Recomendamos limpiar espacio o actualizar el plan."
             : "El espacio en disco para el dominio $domainName ha superado el " . round($percentage) . "%.";
 
         \app\models\Notifications::notifyCustomer(
@@ -586,7 +618,36 @@ class CronController extends Controller
             "/customer-services",
             $type
         );
-        
+
         echo " -> Notificación enviada a {$domainName} (" . round($percentage) . "%)\n";
+    }
+
+    /**
+     * Convierte strings de Virtualmin (ej. "3 GiB", "500 MiB") a bytes para calculo preciso.
+     */
+    private function convertToBytes($sizeString)
+    {
+        $sizeString = trim($sizeString);
+        if (preg_match('/^([\d\.]+)\s*(GiB|MiB|KiB|TiB|GB|MB|KB|TB|bytes|B)?$/i', $sizeString, $matches)) {
+            $value = (float) $matches[1];
+            $unit = strtoupper($matches[2] ?? '');
+            switch ($unit) {
+                case 'TIB':
+                case 'TB':
+                    return $value * 1024 * 1024 * 1024 * 1024;
+                case 'GIB':
+                case 'GB':
+                    return $value * 1024 * 1024 * 1024;
+                case 'MIB':
+                case 'MB':
+                    return $value * 1024 * 1024;
+                case 'KIB':
+                case 'KB':
+                    return $value * 1024;
+                default:
+                    return $value;
+            }
+        }
+        return (float) $sizeString;
     }
 }

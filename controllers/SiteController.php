@@ -85,11 +85,23 @@ class SiteController extends Controller
             $countOpen = 0;
             $countAnswered = 0;
             $countTotal = 0;
+            $countClosed = 0;
+            $countPaidOrders = 0;
+            $sumPaidOrders = 0;
+            $countApprovedWO = 0;
+            $sumApprovedWO = 0;
 
             if (Yii::$app->user->identity->isAdmin) {
                 $countOpen = Tickets::find()->where(['status' => 'open'])->count();
                 $countAnswered = Tickets::find()->where(['status' => 'answered'])->count();
                 $countTotal = Tickets::find()->count();
+                
+                // Nuevas métricas solicitadas
+                $countClosed = Tickets::find()->where(['status' => Tickets::STATUS_CLOSED])->count();
+                $countPaidOrders = \app\models\Orders::find()->where(['status' => 1])->count();
+                $sumPaidOrders = \app\models\Orders::find()->where(['status' => 1])->sum('total') ?: 0;
+                $countApprovedWO = \app\models\WorkOrders::find()->where(['status' => \app\models\WorkOrders::STATUS_APPROVED])->count();
+                $sumApprovedWO = \app\models\WorkOrders::find()->where(['status' => \app\models\WorkOrders::STATUS_APPROVED])->sum('total_cost') ?: 0;
             }
 
             $recentTickets = Tickets::find();
@@ -117,6 +129,11 @@ class SiteController extends Controller
                 'countOpen' => $countOpen,
                 'countAnswered' => $countAnswered,
                 'countTotal' => $countTotal,
+                'countClosed' => $countClosed,
+                'countPaidOrders' => $countPaidOrders,
+                'sumPaidOrders' => $sumPaidOrders,
+                'countApprovedWO' => $countApprovedWO,
+                'sumApprovedWO' => $sumApprovedWO,
                 'recentTickets' => $recentTickets,
             ]);
         }

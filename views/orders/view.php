@@ -94,7 +94,17 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
             <div class="flex justify-between items-center mb-4 border-b border-base-200 pb-4">
                 <h2 class="card-title text-2xl">Resumen de Compra</h2>
-                <div class="badge badge-outline font-mono"><?= $model->code ?></div>
+                <div class="flex gap-2 items-center">
+                    <?php if ($model->status == 0): ?>
+                        <a href="<?= Url::to(['orders/proforma', 'id' => $model->id]) ?>" target="_blank" class="btn btn-sm btn-outline btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Descargar Orden de Pago
+                        </a>
+                    <?php endif; ?>
+                    <div class="badge badge-outline font-mono"><?= $model->code ?></div>
+                </div>
             </div>
 
             <div class="overflow-x-auto">

@@ -29,7 +29,7 @@ class AnnouncementsController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'actions' => ['index', 'view', 'react'],
+                        'actions' => ['index', 'view', 'react', 'comment'],
                         'roles' => ['@'],
                     ],
                     [
@@ -47,6 +47,7 @@ class AnnouncementsController extends Controller
                 'actions' => [
                     'delete' => ['POST'],
                     'react' => ['POST'], // Agregamos react como POST para seguridad
+                    'comment' => ['POST'],
                 ],
             ],
         ];
@@ -187,6 +188,38 @@ class AnnouncementsController extends Controller
         } catch (\Exception $e) {
             Yii::error("Error enviando notificación de reacción: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Permite a un usuario comentar en una novedad.
+     */
+    public function actionComment($id)
+    {
+        $announcement = $this->findModel($id);
+        
+        if (Yii::$app->request->isPost && !Yii::$app->user->isGuest) {
+            $commentText = Yii::$app->request->post('comment');
+            $parentId = Yii::$app->request->post('parent_id');
+            
+            if (!empty($commentText)) {
+                $comment = new \app\models\AnnouncementComments();
+                $comment->announcement_id = $announcement->id;
+                $comment->user_id = Yii::$app->user->id;
+                $comment->comment = $commentText;
+                
+                if (!empty($parentId)) {
+                    $comment->parent_id = $parentId;
+                }
+                
+                if ($comment->save()) {
+                    Yii::$app->session->setFlash('success', 'Tu comentario ha sido publicado.');
+                } else {
+                    Yii::$app->session->setFlash('error', 'No se pudo guardar el comentario.');
+                }
+            }
+        }
+        
+        return $this->redirect(['view', 'id' => $id]);
     }
 
     /**

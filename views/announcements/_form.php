@@ -66,6 +66,12 @@ use yii\widgets\ActiveForm;
         'placeholder' => 'Ej: Ventana de Mantenimiento Sábado'
     ]) ?>
 
+    <?= $form->field($model, 'youtube_url')->textInput([
+        'maxlength' => true, 
+        'class' => 'input input-bordered w-full',
+        'placeholder' => 'Ej: https://www.youtube.com/watch?v=...'
+    ]) ?>
+
     <?= $form->field($model, 'content')->textarea([
         'rows' => 6, 
         'class' => 'textarea textarea-bordered w-full',

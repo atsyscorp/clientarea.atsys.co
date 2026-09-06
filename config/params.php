@@ -3,7 +3,8 @@
 require_once __DIR__ . '/env.php';
 
 return [
-    'adminEmail' => 'gerencia@atsys.co',
+    'adminEmail' => env('ADMIN_EMAIL', 'gerencia@atsys.co'),
+    'renewalAlertBccEmail' => env('RENEWAL_ALERTS_BCC_EMAIL', env('ADMIN_EMAIL', 'gerencia@atsys.co')),
     'senderEmail' => 'noreply@atsys.co',
     'senderName' => 'Área de clientes ATSYS',
     'user.passwordResetTokenExpire' => 3600,

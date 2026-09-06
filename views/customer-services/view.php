@@ -28,7 +28,8 @@ $server = $model->server ?? ($product ? $product->server : null);
                 <?php endif; ?>
             </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+            <?= $this->render('_add_to_calendar', ['model' => $model, 'btnClass' => 'btn-primary btn-sm']) ?>
             <?= Html::a('← Volver', ['index'], ['class' => 'btn btn-ghost btn-sm']) ?>
             <?= Html::a('Soporte', ['/tickets/create', 'service_id' => $model->id, 'subject' => 'Consulta sobre: ' . ($model->domain ?? $model->product->name)], ['class' => 'btn btn-outline btn-sm']) ?>
         </div>

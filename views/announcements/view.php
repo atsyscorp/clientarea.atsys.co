@@ -33,6 +33,15 @@ $myReaction = (new \yii\db\Query())
 
             <h1 class="text-3xl font-bold mb-6"><?= Html::encode($model->title) ?></h1>
             
+            <?php if (!empty($model->youtube_url)): ?>
+            <div class="mb-6">
+                <a href="<?= Html::encode($model->youtube_url) ?>" class="glightbox btn btn-outline btn-error w-full max-w-sm gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    Ver Video en YouTube
+                </a>
+            </div>
+            <?php endif; ?>
+
             <div class="prose max-w-none mb-8">
                 <?= $model->getFormattedContent() ?>
             </div>
@@ -73,11 +82,97 @@ $myReaction = (new \yii\db\Query())
 
         </div>
     </div>
+    <div class="mt-8">
+        <h3 class="text-xl font-bold mb-4">Comentarios</h3>
+        
+        <?php if (!Yii::$app->user->isGuest): ?>
+        <div class="mb-6">
+            <?= Html::beginForm(['announcements/comment', 'id' => $model->id], 'post') ?>
+            <div class="form-control">
+                <?= Html::textarea('comment', '', ['class' => 'textarea textarea-bordered w-full', 'placeholder' => 'Escribe un comentario...', 'rows' => 3, 'required' => true]) ?>
+            </div>
+            <div class="mt-2 text-right">
+                <?= Html::submitButton('Comentar', ['class' => 'btn btn-primary btn-sm']) ?>
+            </div>
+            <?= Html::endForm() ?>
+        </div>
+        <?php else: ?>
+        <div class="alert alert-info mb-6">
+            Inicia sesión para poder comentar.
+        </div>
+        <?php endif; ?>
+
+        <div class="space-y-4">
+            <?php 
+            $comments = \app\models\AnnouncementComments::find()
+                ->where(['announcement_id' => $model->id, 'parent_id' => null])
+                ->orderBy(['created_at' => SORT_DESC])
+                ->all();
+            
+            if (empty($comments)): ?>
+                <p class="text-sm opacity-70">Aún no hay comentarios. ¡Sé el primero en comentar!</p>
+            <?php else: ?>
+                <?php foreach ($comments as $comment): ?>
+                    <div class="bg-base-200 p-4 rounded-lg">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold"><?= Html::encode($comment->user->first_name ?? $comment->user->email) ?></span>
+                            <span class="text-xs opacity-70"><?= Yii::$app->formatter->asRelativeTime($comment->created_at) ?></span>
+                        </div>
+                        <p class="text-sm"><?= nl2br(Html::encode($comment->comment)) ?></p>
+                        
+                        <?php if (!Yii::$app->user->isGuest): ?>
+                        <div class="mt-2">
+                            <button class="text-xs text-primary hover:underline" onclick="document.getElementById('reply-form-<?= $comment->id ?>').classList.toggle('hidden')">Responder</button>
+                        </div>
+                        <div id="reply-form-<?= $comment->id ?>" class="hidden mt-2 ml-4">
+                            <?= Html::beginForm(['announcements/comment', 'id' => $model->id], 'post') ?>
+                            <?= Html::hiddenInput('parent_id', $comment->id) ?>
+                            <div class="flex gap-2">
+                                <?= Html::textInput('comment', '', ['class' => 'input input-bordered input-sm w-full', 'placeholder' => 'Escribe una respuesta...', 'required' => true]) ?>
+                                <?= Html::submitButton('Enviar', ['class' => 'btn btn-primary btn-sm']) ?>
+                            </div>
+                            <?= Html::endForm() ?>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php $replies = $comment->getReplies()->orderBy(['created_at' => SORT_ASC])->all(); ?>
+                        <?php if (!empty($replies)): ?>
+                            <div class="mt-4 ml-6 space-y-3 border-l-2 border-base-300 pl-4">
+                                <?php foreach ($replies as $reply): ?>
+                                    <div>
+                                        <div class="flex justify-between items-start">
+                                            <span class="font-semibold text-sm"><?= Html::encode($reply->user->first_name ?? $reply->user->email) ?></span>
+                                            <span class="text-xs opacity-70"><?= Yii::$app->formatter->asRelativeTime($reply->created_at) ?></span>
+                                        </div>
+                                        <p class="text-sm mt-1"><?= nl2br(Html::encode($reply->comment)) ?></p>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
     
-    <div class="mt-4">
+    <div class="mt-6">
         <?= Html::a('← Volver a Novedades', ['index'], ['class' => 'btn btn-ghost']) ?>
     </div>
 </div>
+
+<?php
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js', ['position' => \yii\web\View::POS_END]);
+
+$jsLightbox = <<<JS
+if (typeof GLightbox !== 'undefined') {
+    GLightbox({
+        selector: '.glightbox',
+    });
+}
+JS;
+$this->registerJs($jsLightbox, \yii\web\View::POS_END);
+?>
 
 <script>
 function react(id, type, btn) {

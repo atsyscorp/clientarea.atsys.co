@@ -50,6 +50,8 @@ class Announcements extends \yii\db\ActiveRecord
             [['is_active', 'is_pinned', 'created_by'], 'integer'],
             [['created_at', 'expires_at'], 'safe'],
             [['title'], 'string', 'max' => 255],
+            [['youtube_url'], 'string', 'max' => 255],
+            [['youtube_url'], 'url'],
             ['type', 'in', 'range' => array_keys(self::optsType())],
         ];
     }
@@ -64,6 +66,7 @@ class Announcements extends \yii\db\ActiveRecord
             'type' => 'Type',
             'title' => 'Title',
             'content' => 'Content',
+            'youtube_url' => 'Video (YouTube URL)',
             'is_active' => 'Is Active',
             'is_pinned' => 'Fijar en la parte superior',
             'created_at' => 'Created At',
@@ -169,6 +172,14 @@ class Announcements extends \yii\db\ActiveRecord
     public function getReactions()
     {
         return $this->hasMany(AnnouncementReactions::class, ['announcement_id' => 'id']);
+    }
+
+    /**
+     * Relación con los Comentarios
+     */
+    public function getComments()
+    {
+        return $this->hasMany(AnnouncementComments::class, ['announcement_id' => 'id']);
     }
 
     /**

@@ -697,4 +697,62 @@ class OrdersController extends Controller
         return $pdf->render();
     }
 
+    public function actionProforma($id)
+    {
+        $order = $this->findModel($id);
+        
+        if ($order->status == 1) {
+            throw new ForbiddenHttpException('Para órdenes pagadas, por favor genere el comprobante de venta normal.');
+        }
+
+        // Permisos
+        if (Yii::$app->user->isGuest) {
+            throw new ForbiddenHttpException('Acceso denegado.');
+        }
+        if (!Yii::$app->user->identity->isAdmin) {
+            $identity = Yii::$app->user->identity;
+            $ownerId = (!empty($identity->parent_id)) ? $identity->parent_id : $identity->id;
+            $myCustomer = \app\models\Customers::findOne(['user_id' => $ownerId]);
+            if (!$myCustomer || $order->customer_id != $myCustomer->id) {
+                throw new ForbiddenHttpException('No tienes permiso para ver esta proforma.');
+            }
+        }
+
+        $content = $this->renderPartial('_proforma_pdf', ['model' => $order]);
+
+        $pdf = new \kartik\mpdf\Pdf([
+            'mode' => \kartik\mpdf\Pdf::MODE_UTF8,
+            'format' => \kartik\mpdf\Pdf::FORMAT_A4,
+            'orientation' => \kartik\mpdf\Pdf::ORIENT_PORTRAIT,
+            'destination' => \kartik\mpdf\Pdf::DEST_BROWSER,
+            'content' => $content,
+            'cssInline' => '
+                body { font-family: "Helvetica", sans-serif; color: #333; }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .text-left { text-align: left; }
+                .font-bold { font-weight: bold; }
+                .text-xl { font-size: 24px; }
+                .text-lg { font-size: 18px; }
+                .text-sm { font-size: 12px; }
+                .text-xs { font-size: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 10px; font-size: 14px; }
+                th { background-color: #f8f9fa; }
+                .header-container { width: 100%; margin-bottom: 30px; }
+                .logo-cell { width: 50%; }
+                .info-cell { width: 50%; text-align: right; }
+                .info-cell h1 { margin: 0; color: #2c3e50; font-size: 24px; }
+                .alert-box { border: 1px solid #ddd; background-color: #f9f9f9; padding: 15px; margin-top: 30px; border-radius: 5px; font-size: 12px; text-align: center; }
+            ',
+            'options' => ['title' => 'Orden de Pago - ' . $order->code],
+            'methods' => [
+                'SetHeader' => ['Orden de Pago - ATSYS'],
+                'SetFooter' => ['{PAGENO}'],
+            ]
+        ]);
+
+        return $pdf->render();
+    }
+
 }

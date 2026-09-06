@@ -12,7 +12,7 @@ class Virtualmin extends Component
     public $apiUser;
     public $apiPassword;
 
-    public function sendCommandDynamic($user, $pass, $host, $program, $params = [])
+    public function sendCommandDynamic($user, $pass, $host, $program, $params = [], $timeout = 30)
     {
         // Timeouts explícitos: el transporte por defecto (StreamTransport) no
         // tiene límite y hereda default_socket_timeout (60s). Un servidor
@@ -23,8 +23,8 @@ class Virtualmin extends Component
             'transport' => 'yii\httpclient\CurlTransport',
             'requestConfig' => [
                 'options' => [
-                    CURLOPT_CONNECTTIMEOUT => 5,
-                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_TIMEOUT => $timeout,
                 ],
             ],
         ]);

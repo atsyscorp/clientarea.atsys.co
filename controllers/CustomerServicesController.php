@@ -15,6 +15,7 @@ use app\models\Customers;
 use app\models\OrderItems;
 use app\models\CustomerServices;
 use app\models\CustomerServicesSearch;
+use app\helpers\CalendarHelper;
 
 class CustomerServicesController extends \yii\web\Controller
 {
@@ -75,6 +76,37 @@ class CustomerServicesController extends \yii\web\Controller
         return $this->render('view', [
             'model' => $model,
         ]);
+    }
+
+    /**
+     * Descarga el archivo de calendario (.ics) para el servicio
+     */
+    public function actionCalendarIcs($id)
+    {
+        $model = $this->findModel($id);
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+        
+        if (!$isAdmin) {
+            $user = Yii::$app->user->identity;
+            $customerId = $user->getRealCustomerId();
+            if ($model->customer_id !== $customerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para descargar este recordatorio.');
+            }
+        }
+
+        if (empty($model->next_due_date)) {
+            throw new \yii\web\BadRequestHttpException('Este servicio no tiene fecha de vencimiento configurada.');
+        }
+
+        $icsContent = CalendarHelper::generateIcsContent($model);
+        $filename = 'renovacion-' . ($model->domain ?: 'servicio-' . $model->id) . '.ics';
+
+        $response = Yii::$app->response;
+        $response->format = \yii\web\Response::FORMAT_RAW;
+        $response->headers->set('Content-Type', 'text/calendar; charset=utf-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+
+        return $icsContent;
     }
 
     public function actionGetStats($id)

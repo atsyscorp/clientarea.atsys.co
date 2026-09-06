@@ -39,8 +39,15 @@ $this->params['breadcrumbs'][] = $this->title;
                 [
                     'class' => 'yii\grid\ActionColumn',
                     'header' => 'Acciones',
-                    'template' => '{manage}',
+                    'template' => '{calendar} {manage}',
                     'buttons' => [
+                        'calendar' => function ($url, $model) {
+                            return Yii::$app->controller->renderPartial('/customer-services/_add_to_calendar', [
+                                'model' => $model,
+                                'btnClass' => 'btn btn-xs btn-ghost border border-base-300',
+                                'dropdownDirection' => 'dropdown-end'
+                            ]);
+                        },
                         'manage' => function ($url, $model) {
                             return Html::a('Gestionar', ['manage', 'id' => $model->id], [
                                 'class' => 'btn btn-sm btn-outline btn-primary'

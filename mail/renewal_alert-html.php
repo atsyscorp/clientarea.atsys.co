@@ -32,6 +32,20 @@ use yii\helpers\Html;
         <p style='margin: 5px 0;'><strong>Dominio:</strong> <?=$serviceDomain?></p>
         <p style='margin: 5px 0;'><strong>Vence el:</strong> <?=$serviceDate?></p>
         <p style='margin: 5px 0; color: <?=$color?>; font-weight: bold;'>Estado: Pendiente de Pago</p>
+        <?php if (isset($data['model']) && \app\helpers\CalendarHelper::isEligible($data['model'], 90)): ?>
+        <div style='margin-top: 15px; padding-top: 12px; border-top: 1px dashed #cbd5e1; font-size: 12px;'>
+            <span style='color: #475569; font-weight: bold; display: inline-block; margin-bottom: 6px;'>📅 Agendar recordatorio en tu calendario:</span><br>
+            <a href='<?= Html::encode(\app\helpers\CalendarHelper::getGoogleCalendarUrl($data['model'])) ?>' target='_blank' style='display: inline-block; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 10px; color: #1d4ed8; text-decoration: none; font-size: 11px; margin-right: 6px; margin-bottom: 6px;'>
+                🗓️ Google Calendar
+            </a>
+            <a href='https://clientarea.atsys.co/customer-services/calendar-ics?id=<?= $data['model']->id ?>' target='_blank' style='display: inline-block; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 10px; color: #0f172a; text-decoration: none; font-size: 11px; margin-right: 6px; margin-bottom: 6px;'>
+                🍎 Apple / iCal (.ics)
+            </a>
+            <a href='<?= Html::encode(\app\helpers\CalendarHelper::getOutlookLiveUrl($data['model'])) ?>' target='_blank' style='display: inline-block; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 10px; color: #0369a1; text-decoration: none; font-size: 11px; margin-bottom: 6px;'>
+                📧 Outlook / Office 365
+            </a>
+        </div>
+        <?php endif; ?>
     </div>
     <?php endforeach; ?>
 

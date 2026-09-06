@@ -24,47 +24,128 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
     <?php if (Yii::$app->user->identity->isAdmin) { ?>
 
-        <div class="stats stats-vertical lg:stats-horizontal shadow-xl bg-base-100 w-full">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
 
-            <div class="stat">
-                <div class="stat-figure text-error">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                        class="inline-block w-8 h-8 stroke-current">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
-                        </path>
-                    </svg>
+            <!-- Tickets Pendientes -->
+            <div class="stats bg-base-100 shadow-xl border border-base-200">
+                <div class="stat">
+                    <div class="stat-figure text-error">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="inline-block w-8 h-8 stroke-current">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                            </path>
+                        </svg>
+                    </div>
+                    <div class="stat-title">Pendientes</div>
+                    <div class="stat-value text-error"><?= $countOpen ?></div>
+                    <div class="stat-desc">Requieren respuesta</div>
                 </div>
-                <div class="stat-title">Pendientes de Atención</div>
-                <div class="stat-value text-error"><?= $countOpen ?></div>
-                <div class="stat-desc">Requieren respuesta inmediata</div>
             </div>
 
-            <div class="stat">
-                <div class="stat-figure text-warning">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                        class="inline-block w-8 h-8 stroke-current">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z">
-                        </path>
-                    </svg>
+            <!-- Tickets En Gestión -->
+            <div class="stats bg-base-100 shadow-xl border border-base-200">
+                <div class="stat">
+                    <div class="stat-figure text-warning">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="inline-block w-8 h-8 stroke-current">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z">
+                            </path>
+                        </svg>
+                    </div>
+                    <div class="stat-title">En Gestión</div>
+                    <div class="stat-value text-warning"><?= $countAnswered ?></div>
+                    <div class="stat-desc">Esperando al cliente</div>
                 </div>
-                <div class="stat-title">En Gestión</div>
-                <div class="stat-value text-warning"><?= $countAnswered ?></div>
-                <div class="stat-desc">Esperando respuesta del cliente</div>
             </div>
 
-            <div class="stat">
-                <div class="stat-figure text-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                        class="inline-block w-8 h-8 stroke-current">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
-                    </svg>
+            <!-- Tickets Cerrados -->
+            <div class="stats bg-base-100 shadow-xl border border-base-200">
+                <div class="stat">
+                    <div class="stat-figure text-base-content/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="inline-block w-8 h-8 stroke-current">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-title">Tickets Cerrados</div>
+                    <div class="stat-value text-base-content/70"><?= $countClosed ?></div>
+                    <div class="stat-desc">Tickets resueltos</div>
                 </div>
-                <div class="stat-title">Total Histórico</div>
-                <div class="stat-value text-primary"><?= $countTotal ?></div>
-                <div class="stat-desc">Tickets procesados desde el inicio</div>
+            </div>
+
+            <!-- Tickets Total Histórico -->
+            <div class="stats bg-base-100 shadow-xl border border-base-200">
+                <div class="stat">
+                    <div class="stat-figure text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="inline-block w-8 h-8 stroke-current">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                        </svg>
+                    </div>
+                    <div class="stat-title">Total Histórico</div>
+                    <div class="stat-value text-primary"><?= $countTotal ?></div>
+                    <div class="stat-desc">Desde el inicio</div>
+                </div>
+            </div>
+
+            <!-- Órdenes Pagadas -->
+            <div class="stats bg-base-100 shadow-xl border border-base-200">
+                <div class="stat">
+                    <div class="stat-figure text-success">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="stat-title">Órdenes Pagadas</div>
+                    <div class="stat-value text-success"><?= $countPaidOrders ?></div>
+                    <div class="stat-desc">Pagos recibidos</div>
+                </div>
+            </div>
+
+            <!-- Suma Órdenes Pagadas -->
+            <div class="stats bg-base-100 shadow-xl border border-base-200">
+                <div class="stat">
+                    <div class="stat-figure text-success">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8 opacity-50">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <div class="stat-title">Ingresos Órdenes</div>
+                    <div class="stat-value text-success text-2xl lg:text-3xl"><?= Yii::$app->formatter->asCurrency($sumPaidOrders, 'COP') ?></div>
+                    <div class="stat-desc">Total recaudado</div>
+                </div>
+            </div>
+
+            <!-- OT Aprobadas -->
+            <div class="stats bg-base-100 shadow-xl border border-base-200">
+                <div class="stat">
+                    <div class="stat-figure text-info">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75" />
+                        </svg>
+                    </div>
+                    <div class="stat-title">OT Aprobadas</div>
+                    <div class="stat-value text-info"><?= $countApprovedWO ?></div>
+                    <div class="stat-desc">Órdenes de trabajo</div>
+                </div>
+            </div>
+
+            <!-- Suma OT Aprobadas -->
+            <div class="stats bg-base-100 shadow-xl border border-base-200">
+                <div class="stat">
+                    <div class="stat-figure text-info">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8 opacity-50">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="stat-title">Ingresos OT</div>
+                    <div class="stat-value text-info text-2xl lg:text-3xl"><?= Yii::$app->formatter->asCurrency($sumApprovedWO, 'COP') ?></div>
+                    <div class="stat-desc">Monto en OT aprobadas</div>
+                </div>
             </div>
 
         </div>
