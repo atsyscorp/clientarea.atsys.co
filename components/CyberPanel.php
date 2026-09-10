@@ -105,6 +105,35 @@ class CyberPanel extends Component
     }
 
     /**
+     * Cambia el paquete de hosting de un sitio web (Upgrade / Downgrade)
+     */
+    public static function changePackage($serverId, $domain, $package)
+    {
+        $server = Servers::findOne($serverId);
+        if (!$server) {
+            return ['success' => false, 'message' => 'Servidor no encontrado en BD.'];
+        }
+
+        $baseUrl = "https://{$server->hostname}:8090/api/";
+
+        $payload = [
+            'adminUser' => $server->username,
+            'adminPass' => $server->auth_token,
+            'websiteName' => $domain,
+            'packageName' => $package
+        ];
+
+        $result = self::sendRequest($baseUrl . 'changePackage', $payload);
+        Yii::info("CyberPanel changePackage for {$domain} to {$package}: " . json_encode($result), __METHOD__);
+
+        $success = isset($result['status']) && $result['status'] == 1;
+        return [
+            'success' => $success,
+            'message' => $result['error_message'] ?? ($success ? 'Paquete actualizado con éxito.' : 'Error al cambiar paquete.')
+        ];
+    }
+
+    /**
      * Función auxiliar para cURL
      */
     private static function sendRequest($url, $data)

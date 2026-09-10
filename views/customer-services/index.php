@@ -337,6 +337,7 @@ $this->title = $isAdmin ? 'Gestión Global de Servicios' : 'Mis Servicios Contra
                                 'btnClass' => 'btn-ghost btn-sm border border-base-300'
                             ]) ?>
                             <?php if ($model->product && $model->product->type == 'hosting'): ?>
+                                <?= Html::a('Mejorar Plan ⚡', ['upgrade', 'id' => $model->id], ['class' => 'btn btn-secondary btn-outline btn-sm shadow-sm', 'title' => 'Aumentar capacidad o cambiar a un plan superior']) ?>
                                 <?= Html::a('Ver Detalle / Consumo ↗', ['view', 'id' => $model->id], ['class' => 'btn btn-primary btn-sm btn-outline shadow-sm']) ?>
                             <?php elseif ($model->product && $model->product->type == 'domain'): ?>
                                 <?= Html::a('Gestionar Dominio ↗', ['/domains/manage', 'id' => $model->id], ['class' => 'btn btn-secondary btn-sm text-white shadow-sm']) ?>

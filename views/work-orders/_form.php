@@ -14,6 +14,15 @@ if (!isset($customers) || empty($customers)) {
     $customers = \app\models\Customers::find()->orderBy('business_name')->all();
 }
 
+$customerMetadata = [];
+foreach ($customers as $c) {
+    $customerMetadata[$c->id] = [
+        'email' => $c->email ?? '',
+        'hasUser' => !empty($c->user_id),
+        'name' => $c->business_name,
+    ];
+}
+
 // Cargar proyectos del cliente asociado a la orden server-side
 $projectsList = [];
 if ($model->customer_id) {
@@ -66,6 +75,9 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 
 // B. Inicializamos el editor y la lógica de proyectos y TRM
 $projectsListUrl = Url::to(['/projects/list-by-customer']);
+$customersJson = json_encode($customerMetadata, JSON_UNESCAPED_UNICODE);
+$initialProjectId = (string)($model->project_id ?? '');
+$currentCustId = (string)($model->customer_id ?? '');
 $js = <<<JS
 document.addEventListener("DOMContentLoaded", function() {
     // --- LÓGICA DE TINYMCE ---
@@ -92,7 +104,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // --- LÓGICA DE PROYECTOS POR CLIENTE ---
     const customerSelect = document.getElementById('workorders-customer_id');
     const projectSelect = document.getElementById('workorders-project_id');
-    const initialProjectId = "<?= (string)$model->project_id ?>";
+    const initialProjectId = "{$initialProjectId}";
     const projectsApiUrl = "{$projectsListUrl}";
 
     function loadProjects(customerId, selectedProjectId) {
@@ -136,18 +148,66 @@ document.addEventListener("DOMContentLoaded", function() {
             });
     }
 
+    // --- LÓGICA DE ESTADO DE REGISTRO DEL CLIENTE ---
+    const customersData = {$customersJson};
+
+    function updateCustomerRegistrationStatus(customerId) {
+        const noticeEl = document.getElementById('customer-user-status-notice');
+        const customEmailInput = document.getElementById('workorders-custom_email');
+        if (!noticeEl) return;
+
+        if (!customerId || !customersData[customerId]) {
+            noticeEl.style.display = 'none';
+            return;
+        }
+
+        const cData = customersData[customerId];
+        if (!cData.hasUser) {
+            noticeEl.innerHTML = `
+                <div class="alert alert-warning text-xs p-2.5 rounded-lg flex items-start gap-2 shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4 mt-0.5" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    <div>
+                        <span class="font-bold">Cliente sin usuario en el portal:</span> No tiene cuenta de acceso creada. Recibirá el PDF por correo. Puedes indicar un correo de reenvío abajo si se requiere.
+                    </div>
+                </div>
+            `;
+            noticeEl.style.display = 'block';
+            if (customEmailInput && !customEmailInput.value) {
+                customEmailInput.placeholder = cData.email ? 'Por defecto: ' + cData.email : 'ejemplo@correo.com';
+            }
+        } else {
+            noticeEl.innerHTML = `
+                <div class="text-xs text-success flex items-center gap-1.5 px-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    <span>Cliente con usuario registrado en el portal.</span>
+                </div>
+            `;
+            noticeEl.style.display = 'block';
+            if (customEmailInput && !customEmailInput.value) {
+                customEmailInput.placeholder = cData.email ? 'Por defecto: ' + cData.email : 'ejemplo@correo.com';
+            }
+        }
+    }
+
     if (customerSelect) {
         customerSelect.addEventListener('change', function() {
             loadProjects(this.value, null);
+            updateCustomerRegistrationStatus(this.value);
         });
         // Si el selector no tiene opciones previas cargadas por PHP, cargar vía AJAX
         if (customerSelect.value && projectSelect && projectSelect.options.length <= 1) {
             loadProjects(customerSelect.value, initialProjectId);
         }
+        if (customerSelect.value) {
+            updateCustomerRegistrationStatus(customerSelect.value);
+        }
     } else if (projectSelect) {
-        const currentCustId = "<?= (string)$model->customer_id ?>";
+        const currentCustId = "{$currentCustId}";
         if (currentCustId && projectSelect.options.length <= 1) {
             loadProjects(currentCustId, initialProjectId);
+        }
+        if (currentCustId) {
+            updateCustomerRegistrationStatus(currentCustId);
         }
     }
 
@@ -188,6 +248,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     ArrayHelper::map($customers, 'id', 'business_name'),
                     ['prompt' => 'Seleccione un cliente...', 'class' => 'select select-bordered w-full', 'id' => 'workorders-customer_id']
                 ) ?>
+                <div id="customer-user-status-notice" class="mt-2" style="display: none;"></div>
             </div>
 
             <!-- Proyecto / Filial -->
@@ -310,6 +371,27 @@ $this->registerJs($js, \yii\web\View::POS_END);
                         <span class="font-bold text-sm block">¿Incluye contrato de servicios?</span>
                         <span class="text-xs opacity-70">Al marcar esta opción, la orden no vencerá automáticamente tras 5 días de inactividad.</span>
                     </div>
+                </div>
+            </div>
+
+            <!-- Correo de Reenvío o Alternativo -->
+            <div class="form-control w-full md:col-span-2">
+                <div class="p-4 bg-base-200/50 rounded-xl border border-base-200">
+                    <label class="label pt-0 pb-1">
+                        <span class="label-text font-bold flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-primary"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                            Correo de Notificación / Reenvío Alternativo (Opcional)
+                        </span>
+                    </label>
+                    <?= $form->field($model, 'custom_email', ['template' => '{input}{error}'])->textInput([
+                        'id' => 'workorders-custom_email',
+                        'type' => 'email',
+                        'class' => 'input input-bordered w-full font-mono text-sm',
+                        'placeholder' => 'Dejar vacío para usar el correo principal del cliente'
+                    ]) ?>
+                    <span class="text-xs opacity-70 mt-1 block">
+                        Si el cliente aún no tiene un usuario registrado en el portal, o si deseas reenviar la orden y el PDF a otra dirección de correo (ej. área de compras, tesorería, delegado), especifícala aquí.
+                    </span>
                 </div>
             </div>
 

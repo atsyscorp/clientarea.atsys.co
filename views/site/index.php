@@ -24,7 +24,7 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
     <?php if (Yii::$app->user->identity->isAdmin) { ?>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 w-full">
 
             <!-- Tickets Pendientes -->
             <div class="stats bg-base-100 shadow-xl border border-base-200">

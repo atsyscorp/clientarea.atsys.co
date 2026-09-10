@@ -34,6 +34,7 @@ class OrderItems extends \yii\db\ActiveRecord
     const ACTION_TYPE_HOSTING_SETUP = 'hosting_setup';
     const ACTION_TYPE_PAYMENT = 'payment';
     const ACTION_TYPE_FEE = 'fee';
+    const ACTION_TYPE_UPGRADE = 'upgrade';
 
     /**
      * {@inheritdoc}
@@ -115,7 +116,8 @@ class OrderItems extends \yii\db\ActiveRecord
             self::ACTION_TYPE_PENALTY => 'penalty',
             self::ACTION_TYPE_HOSTING_SETUP => 'hosting_setup',
             self::ACTION_TYPE_PAYMENT => 'payment',
-            self::ACTION_TYPE_FEE => 'fee'
+            self::ACTION_TYPE_FEE => 'fee',
+            self::ACTION_TYPE_UPGRADE => 'upgrade',
         ];
     }
 
@@ -215,5 +217,18 @@ class OrderItems extends \yii\db\ActiveRecord
     public function setActionTypeToFee()
     {
         $this->action_type = self::ACTION_TYPE_FEE;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isActionTypeUpgrade()
+    {
+        return $this->action_type === self::ACTION_TYPE_UPGRADE;
+    }
+
+    public function setActionTypeToUpgrade()
+    {
+        $this->action_type = self::ACTION_TYPE_UPGRADE;
     }
 }

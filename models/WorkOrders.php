@@ -38,6 +38,7 @@ class WorkOrders extends \yii\db\ActiveRecord
 {
     public $attachmentFile;
     public $ticket_action;
+    public $custom_email;
 
     // Constantes de Estado...
     const STATUS_DRAFT = 0;
@@ -72,7 +73,8 @@ class WorkOrders extends \yii\db\ActiveRecord
             
             // Validaciones de longitud y formato
             [['code'], 'string', 'max' => 50],
-            [['title'], 'string', 'max' => 255],
+            [['title', 'custom_email'], 'string', 'max' => 255],
+            [['custom_email'], 'email'],
             [['currency'], 'string', 'max' => 3],
             [['currency'], 'in', 'range' => ['COP', 'USD', 'EUR']],
 
@@ -185,6 +187,7 @@ class WorkOrders extends \yii\db\ActiveRecord
             'attachmentFile'      => 'Archivo Adjunto (Opcional)',
             'has_service_contract'=> 'Contrato de Servicios (Evita vencimiento)',
             'is_preapproved'      => 'Pre-Aprobar Orden de Trabajo',
+            'custom_email'        => 'Correo de Reenvío / Alternativo',
         ];
     }
 

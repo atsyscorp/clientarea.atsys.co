@@ -139,6 +139,8 @@ $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
                                             Extra)</span>
                                     <?php elseif ($item->action_type == 'renew'): ?>
                                         <span class="badge badge-success badge-outline badge-xs mt-2">Renovación</span>
+                                    <?php elseif ($item->action_type == 'upgrade'): ?>
+                                        <span class="badge badge-info badge-outline badge-xs mt-2">Mejora de Plan (Upgrade)</span>
                                     <?php endif; ?>
                                 </td>
 

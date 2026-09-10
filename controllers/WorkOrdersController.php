@@ -326,7 +326,7 @@ class WorkOrdersController extends Controller
     }
 
     /**
-     * Enviar PDF por Email al Cliente
+     * Enviar PDF por Email al Cliente o a una dirección alternativa
      */
     public function actionSend($id)
     {
@@ -335,24 +335,41 @@ class WorkOrdersController extends Controller
         }
 
         $model = $this->findModel($id);
-        $clientEmail = $model->customer->email;
+        
+        $recipientEmail = Yii::$app->request->post('recipient_email', Yii::$app->request->get('recipient_email', $model->customer->email ?? ''));
+        $recipientEmail = trim($recipientEmail);
+        $customMessage = trim((string)Yii::$app->request->post('custom_message', ''));
 
-        // 1. Generar el PDF en memoria (String)
-        $pdf = $this->createPdfObject($model, Pdf::DEST_STRING);
-        $pdfContent = $pdf->render();
+        if (empty($recipientEmail)) {
+            Yii::$app->session->setFlash('error', 'Debes ingresar una dirección de correo válida.');
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
 
-        // 2. Enviar el correo con adjunto
-        try {
-            Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], ['model' => $model])
-                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
-                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
-                ->setTo($clientEmail)
-                ->setSubject("Nueva Orden de Trabajo: " . $model->title)
-                ->attachContent($pdfContent, [
-                    'fileName' => $model->code . '.pdf',
-                    'contentType' => 'application/pdf'
-                ])
-                ->send();
+        $validator = new \yii\validators\EmailValidator();
+        if (!$validator->validate($recipientEmail, $error)) {
+            Yii::$app->session->setFlash('error', 'La dirección de correo ingresada no es válida: ' . $error);
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+
+        $send = $this->pdfAndEmailOrder($model, $recipientEmail, $customMessage);
+        if ($send === true) {
+            // Registrar en la bitácora interna de la orden para trazabilidad
+            try {
+                $update = new WorkOrderUpdates();
+                $update->work_order_id = $model->id;
+                $update->created_by = Yii::$app->user->id;
+                $msgLog = "📧 Orden enviada por correo a: <strong>" . Html::encode($recipientEmail) . "</strong>";
+                if (!empty($customMessage)) {
+                    $msgLog .= "<br><span class='text-xs opacity-75'>Nota adjunta: " . Html::encode($customMessage) . "</span>";
+                }
+                $update->description = $msgLog;
+                $update->is_visible = 0; // Bitácora interna de seguimiento
+                $update->allow_reply = 0;
+                $update->notify_email = 0;
+                $update->save(false);
+            } catch (\Throwable $e) {
+                Yii::error("No se pudo registrar la actualización de envío en bitácora: " . $e->getMessage());
+            }
 
             // Cambiar estado a pendiente si estaba en borrador
             if ($model->status == \app\models\WorkOrders::STATUS_DRAFT) {
@@ -360,10 +377,9 @@ class WorkOrdersController extends Controller
                 $model->save(false);
             }
 
-            Yii::$app->session->setFlash('success', 'La orden ha sido enviada por correo correctamente.');
-
-        } catch (\Exception $e) {
-            Yii::$app->session->setFlash('error', 'Error al enviar: ' . $e->getMessage());
+            Yii::$app->session->setFlash('success', 'La orden ha sido enviada por correo a ' . Html::encode($recipientEmail) . ' correctamente.');
+        } else {
+            Yii::$app->session->setFlash('error', 'Error al enviar: ' . $send);
         }
 
         return $this->redirect(['view', 'id' => $model->id]);
@@ -373,24 +389,68 @@ class WorkOrdersController extends Controller
      * Método privado para reutilizar la lógica pesada de PDF y Correo
      * en cualquier parte del controlador sin duplicar código.
      */
-    private function pdfAndEmailOrder($model)
+    private function pdfAndEmailOrder($model, $overrideEmail = null, $customMessage = null)
     {
         try {
+            $targetEmail = !empty($overrideEmail) ? trim($overrideEmail) : ($model->customer->email ?? null);
+            if (empty($targetEmail)) {
+                return 'No se ha configurado ninguna dirección de correo destino para esta orden.';
+            }
+
             // 1. Generar PDF en memoria (String)
             $pdf = $this->createPdfObject($model, Pdf::DEST_STRING);
             $pdfContent = $pdf->render();
 
-            // 2. Enviar Correo
-            Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], ['model' => $model])
+            $isUserRegistered = !empty($model->customer && $model->customer->user_id);
+
+            // 2. Enviar Correo al cliente
+            $subject = "Nueva Orden de Trabajo: " . $model->title;
+            Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], [
+                'model' => $model,
+                'customMessage' => $customMessage,
+                'isUserRegistered' => $isUserRegistered,
+            ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                 ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
-                ->setTo($model->customer->email)
-                ->setSubject("Nueva Orden de Trabajo: " . $model->title)
+                ->setTo($targetEmail)
+                ->setSubject($subject)
                 ->attachContent($pdfContent, [
                     'fileName' => $model->code . '.pdf',
                     'contentType' => 'application/pdf'
                 ])
                 ->send();
+
+            // 3. Enviar copia al administrador como evidencia (evita que BCC sea filtrado por SMTP)
+            try {
+                $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+                $adminEmails = !empty($adminEmail)
+                    ? array_map('trim', explode(',', $adminEmail))
+                    : ['gerencia@atsys.co'];
+
+                $adminEmailsToSend = array_filter($adminEmails, fn($e) => strcasecmp($e, $targetEmail) !== 0);
+
+                if (!empty($adminEmailsToSend)) {
+                    $isResend = !empty($customMessage) || !empty($overrideEmail);
+                    $adminSubject = '[Copia Admin] ' . ($isResend ? 'Orden Reenviada: ' : 'Nueva Orden de Trabajo: ') . $model->title . " ({$model->code})";
+
+                    Yii::$app->mailer->compose(['html' => 'work_order_notification-html'], [
+                        'model' => $model,
+                        'customMessage' => $customMessage,
+                        'isUserRegistered' => $isUserRegistered,
+                    ])
+                        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
+                        ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                        ->setTo($adminEmailsToSend)
+                        ->setSubject($adminSubject)
+                        ->attachContent($pdfContent, [
+                            'fileName' => $model->code . '.pdf',
+                            'contentType' => 'application/pdf'
+                        ])
+                        ->send();
+                }
+            } catch (\Throwable $adminMailEx) {
+                Yii::error('Error enviando copia de orden al administrador: ' . $adminMailEx->getMessage());
+            }
 
             return true;
         } catch (\Throwable $e) {
@@ -454,9 +514,11 @@ class WorkOrdersController extends Controller
                     $model->save(false);
                     Yii::$app->session->setFlash('success', 'Orden creada y pre-aprobada exitosamente (sin envío de email de confirmación).');
                 } else {
-                    $send = $this->pdfAndEmailOrder($model);
+                    $overrideEmail = !empty($model->custom_email) ? trim($model->custom_email) : null;
+                    $send = $this->pdfAndEmailOrder($model, $overrideEmail);
                     if ($send === true) {
-                        Yii::$app->session->setFlash('success', 'Orden creada y enviada al cliente exitosamente.');
+                        $sentTo = $overrideEmail ?: ($model->customer->email ?? 'cliente');
+                        Yii::$app->session->setFlash('success', 'Orden creada y enviada a ' . Html::encode($sentTo) . ' exitosamente.');
                     } else {
                         Yii::$app->session->setFlash('warning', 'La orden se guardó, pero hubo un error enviando el email: ' . $send);
                     }
@@ -625,9 +687,11 @@ class WorkOrdersController extends Controller
 
                 if ($model->save()) {
                     if ($ticketAction === 'send') {
-                        $send = $this->pdfAndEmailOrder($model);
+                        $overrideEmail = !empty($model->custom_email) ? trim($model->custom_email) : null;
+                        $send = $this->pdfAndEmailOrder($model, $overrideEmail);
                         if ($send === true) {
-                            Yii::$app->session->setFlash('success', 'Orden actualizada y enviada al cliente exitosamente.');
+                            $sentTo = $overrideEmail ?: ($model->customer->email ?? 'cliente');
+                            Yii::$app->session->setFlash('success', 'Orden actualizada y enviada a ' . Html::encode($sentTo) . ' exitosamente.');
                         } else {
                             Yii::$app->session->setFlash('warning', 'La orden se actualizó, pero hubo un error enviando el email: ' . $send);
                         }

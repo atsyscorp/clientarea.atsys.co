@@ -74,6 +74,44 @@ class Virtualmin extends Component
         );
     }
 
+    // Crear una nueva cuenta aislada dinámicamente con credenciales de servidor
+    public function createAccountDinamic($user, $pass, $host, $domain, $password, $username, $plan = 'default')
+    {
+        return $this->sendCommandDynamic($user, $pass, $host, 'create-domain', [
+            'domain' => $domain,
+            'user' => $username,
+            'pass' => $password,
+            'plan' => $plan,
+            'features-from-plan' => '' // Aplica las características del plan (FPM, SSL, etc.)
+        ]);
+    }
+
+    // Cambiar plan de hosting de un dominio en Virtualmin (Upgrade / Downgrade)
+    public function changePlanDynamic($user, $pass, $host, $domain, $plan)
+    {
+        return $this->sendCommandDynamic($user, $pass, $host, 'modify-domain', [
+            'domain' => $domain,
+            'plan' => $plan,
+            'apply-plan' => '' // Aplica de inmediato las nuevas cuotas y límites del plan
+        ]);
+    }
+
+    // Desuspender cuenta dinámicamente
+    public function unsuspendAccount($user, $pass, $host, $domain)
+    {
+        return $this->sendCommandDynamic($user, $pass, $host, 'enable-domain', [
+            'domain' => $domain
+        ]);
+    }
+
+    // Suspender cuenta dinámicamente
+    public function suspendAccountDynamic($user, $pass, $host, $domain)
+    {
+        return $this->sendCommandDynamic($user, $pass, $host, 'disable-domain', [
+            'domain' => $domain
+        ]);
+    }
+
     // Crear una nueva cuenta aislada (con PHP-FPM)
     public function createAccount($domain, $password, $plan = 'default')
     {

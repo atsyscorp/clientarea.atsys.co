@@ -163,6 +163,25 @@ class CronController extends Controller
                 ->setSubject($subject)
                 ->send();
 
+            // Enviar copia al administrador como evidencia
+            $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+            $adminEmails = !empty($adminEmail)
+                ? array_map('trim', explode(',', $adminEmail))
+                : ['gerencia@atsys.co'];
+
+            $adminEmailsToSend = array_filter($adminEmails, fn($e) => strcasecmp($e, $customer->email) !== 0);
+            if (!empty($adminEmailsToSend)) {
+                Yii::$app->mailer->compose(['html' => 'overdue_hosting-html'], [
+                    'business_name' => $customer->business_name,
+                    'servicesData' => $servicesData
+                ])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                    ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                    ->setTo($adminEmailsToSend)
+                    ->setSubject('[Copia Admin] ' . $subject . ' (' . $customer->email . ')')
+                    ->send();
+            }
+
         } catch (\Throwable $e) {
             echo "Error enviando email: " . $e->getMessage() . "\n";
             Yii::error("Error enviando email suspensión agrupado: " . $e->getMessage());
@@ -219,7 +238,7 @@ class CronController extends Controller
 
         // 1. Recordatorios preventivos (Servicios Activos que venzan en los próximos 91 días)
         $services = CustomerServices::find()
-            ->with(['customer'])
+            ->with(['customer', 'product'])
             ->where(['status' => 1])
             ->andWhere(['>=', 'next_due_date', date('Y-m-d')]) // Que no estén vencidos aún
             ->andWhere(['<=', 'next_due_date', date('Y-m-d', strtotime('+91 days'))])
@@ -257,11 +276,12 @@ class CronController extends Controller
                     'date_long' => Yii::$app->formatter->asDate($service->next_due_date, 'long')
                 ];
 
-                // Notificación en plataforma (individual sigue siendo útil para que el cliente las vea separadas)
-                $notifTitle = $daysLeft == 0 ? "🚨 Servicio vence HOY: {$service->domain}" : "📅 Servicio por vencer: {$service->domain}";
+                // Notificación en plataforma (menciona el producto para que no se confundan servicios del mismo dominio)
+                $prodName = $service->product ? $service->product->name : 'Servicio';
+                $notifTitle = $daysLeft == 0 ? "🚨 {$prodName} vence HOY: {$service->domain}" : "📅 {$prodName} por vencer: {$service->domain}";
                 $notifBody = $daysLeft == 0
-                    ? "Tu servicio {$service->domain} vence el día de hoy (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando de inmediato."
-                    : "Tu servicio {$service->domain} vence en {$daysLeft} días (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando hoy.";
+                    ? "Tu servicio {$prodName} ({$service->domain}) vence el día de hoy (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando de inmediato."
+                    : "Tu servicio {$prodName} ({$service->domain}) vence en {$daysLeft} días (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando hoy.";
 
                 Notifications::notifyCustomer(
                     $service->customer_id,
@@ -347,31 +367,71 @@ class CronController extends Controller
 
             $multiple = count($servicesData) > 1;
 
+            // Identificar si todos los servicios corresponden al mismo dominio para un asunto más descriptivo
+            $domains = array_unique(array_filter(array_map(function($d) {
+                return isset($d['model']) && !empty($d['model']->domain) ? $d['model']->domain : ($d['domain'] ?? null);
+            }, $servicesData)));
+            $domainSuffix = (count($domains) === 1) ? " (" . reset($domains) . ")" : "";
+
+            // Verificar si todos los servicios vencen en la misma fecha o en fechas diferentes
+            $dates = array_unique(array_filter(array_map(function($d) {
+                $m = $d['model'] ?? null;
+                return (is_object($m) && !empty($m->next_due_date)) ? substr($m->next_due_date, 0, 10) : null;
+            }, $servicesData)));
+            $sameDueDate = count($dates) <= 1;
+
             if ($minDaysLeft == 0) {
-                $subject = $multiple ? "🚨 HOY vencen " . count($servicesData) . " de tus servicios" : "🚨 HOY vence tu servicio: {$servicesData[0]['model']->domain}";
+                $subject = $multiple 
+                    ? "🚨 HOY vencen " . count($servicesData) . " de tus servicios{$domainSuffix}" 
+                    : "🚨 HOY vence tu servicio: {$servicesData[0]['model']->domain}";
                 $color = "#dc2626"; // Rojo
-                $msgIntro = $multiple ? "Tienes servicios que vencen el día de hoy. Por favor renueva de inmediato para evitar la suspensión." : "Tu servicio vence el día de hoy. Por favor renueva de inmediato para evitar la suspensión.";
+                $msgIntro = $multiple 
+                    ? ($sameDueDate 
+                        ? "Tienes " . count($servicesData) . " servicios activos en tu cuenta que vencen el día de hoy. Por favor realiza tu renovación de inmediato para evitar la suspensión y corte de tus servicios."
+                        : "Tienes " . count($servicesData) . " servicios activos en tu cuenta próximos a vencer, y el primero de ellos vence el día de hoy. Por favor renueva de inmediato para evitar la suspensión.")
+                    : "Tu servicio vence el día de hoy. Por favor realiza tu renovación de inmediato para evitar la suspensión.";
             } elseif ($minDaysLeft <= 5) {
-                $subject = $multiple ? "🚨 ÚLTIMO AVISO: Tienes servicios por vencer en {$minDaysLeft} días" : "🚨 ÚLTIMO AVISO: Tu servicio vence en {$minDaysLeft} días";
+                $subject = $multiple 
+                    ? "🚨 ÚLTIMO AVISO: Tienes " . count($servicesData) . " servicios por vencer en {$minDaysLeft} días{$domainSuffix}" 
+                    : "🚨 ÚLTIMO AVISO: Tu servicio vence en {$minDaysLeft} días";
                 $color = "#dc2626"; // Rojo
-                $msgIntro = $multiple ? "Es urgente que renueves para evitar la suspensión y desconexión de tus servicios." : "Es urgente que renueves para evitar la suspensión y desconexión de tu sitio.";
+                $msgIntro = $multiple 
+                    ? ($sameDueDate
+                        ? "Es urgente que renueves tus servicios para evitar la suspensión y desconexión de tu sitio web y correos. Todos vencen en la misma fecha y puedes renovarlos conjuntamente."
+                        : "Es urgente que renueves tus servicios para evitar la suspensión y desconexión de tu sitio web y correos. A continuación verás la fecha individual de cada uno.")
+                    : "Es urgente que renueves para evitar la suspensión y desconexión de tu sitio.";
             } elseif ($minDaysLeft <= 15) {
-                $subject = $multiple ? "⚠️ Recordatorio: Tienes servicios que vencen pronto" : "⚠️ Recordatorio: {$servicesData[0]['model']->domain} vence pronto";
+                $subject = $multiple 
+                    ? "⚠️ Recordatorio: Tienes " . count($servicesData) . " servicios que vencen pronto{$domainSuffix}" 
+                    : "⚠️ Recordatorio: {$servicesData[0]['model']->domain} vence pronto";
                 $color = "#d97706"; // Naranja
+                $msgIntro = $multiple
+                    ? ($sameDueDate
+                        ? "Te recordamos que tienes " . count($servicesData) . " servicios contratados que vencen el mismo día. Puedes renovarlos a tiempo desde tu área de clientes en un solo pago."
+                        : "Te recordamos que tienes " . count($servicesData) . " servicios contratados con diferentes fechas de vencimiento próximas. Te presentamos a continuación el detalle de cada uno para que puedas programar su renovación.")
+                    : "Te recordamos que tu servicio vence pronto. Puedes renovarlo desde tu área de clientes.";
             } elseif ($minDaysLeft <= 30) {
-                $subject = $multiple ? "📅 Próximo vencimiento de tus servicios ({$minDaysLeft} días)" : "📅 Próximo vencimiento: {$servicesData[0]['model']->domain} ({$minDaysLeft} días)";
+                $subject = $multiple 
+                    ? "📅 Próximo vencimiento de tus servicios en {$minDaysLeft} días{$domainSuffix}" 
+                    : "📅 Próximo vencimiento: {$servicesData[0]['model']->domain} ({$minDaysLeft} días)";
                 $color = "#2563eb"; // Azul
-                $msgIntro = "Este es un aviso preventivo para programar tu renovación.";
+                $msgIntro = $multiple
+                    ? ($sameDueDate
+                        ? "Este es un aviso preventivo: tus servicios vencen el mismo día y puedes programar su renovación conjunta con tranquilidad."
+                        : "Este es un aviso preventivo para que conozcas las próximas fechas de vencimiento de tus servicios y puedas programar su renovación.")
+                    : "Este es un aviso preventivo para programar la renovación de tus servicios con tranquilidad.";
             } else {
-                $subject = $multiple ? "📅 Aviso Preventivo: Renovación en {$minDaysLeft} días" : "📅 Aviso Preventivo: {$servicesData[0]['model']->domain} vence en {$minDaysLeft} días";
+                $subject = $multiple 
+                    ? "📅 Aviso Preventivo: Renovación en {$minDaysLeft} días{$domainSuffix}" 
+                    : "📅 Aviso Preventivo: {$servicesData[0]['model']->domain} vence en {$minDaysLeft} días";
                 $color = "#0284c7"; // Azul celeste informativo
                 $msgIntro = "Te enviamos este aviso con anticipación para que puedas planificar la renovación de tus servicios y agendarlos en tu calendario.";
             }
 
             $renewLink = "https://clientarea.atsys.co/customer-services/";
-            $bccEmail = Yii::$app->params['renewalAlertBccEmail'] ?? (Yii::$app->params['adminEmail'] ?? null);
 
-            $mail = Yii::$app->mailer->compose([
+            // 1. Enviar correo al cliente
+            Yii::$app->mailer->compose([
                 'html' => 'renewal_alert-html'
             ], [
                 'daysLeft' => $minDaysLeft,
@@ -383,14 +443,34 @@ class CronController extends Controller
             ])
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
-                ->setTo($customer->email);
-
-            if (!empty($bccEmail)) {
-                $mail->setBcc($bccEmail);
-            }
-
-            $mail->setSubject($subject)
+                ->setTo($customer->email)
+                ->setSubject($subject)
                 ->send();
+
+            // 2. Enviar copia al administrador como evidencia (evita que BCC sea filtrado por SMTP)
+            $adminEmail = Yii::$app->params['renewalAlertBccEmail'] ?? (Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co');
+            $adminEmails = !empty($adminEmail)
+                ? array_map('trim', explode(',', $adminEmail))
+                : ['gerencia@atsys.co'];
+
+            $adminEmailsToSend = array_filter($adminEmails, fn($e) => strcasecmp($e, $customer->email) !== 0);
+            if (!empty($adminEmailsToSend)) {
+                Yii::$app->mailer->compose([
+                    'html' => 'renewal_alert-html'
+                ], [
+                    'daysLeft' => $minDaysLeft,
+                    'business_name' => $customer->business_name,
+                    'msgIntro' => $msgIntro,
+                    'servicesData' => $servicesData,
+                    'renewLink' => $renewLink,
+                    'color' => $color
+                ])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                    ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                    ->setTo($adminEmailsToSend)
+                    ->setSubject('[Copia Admin] ' . $subject . ' (' . $customer->email . ')')
+                    ->send();
+            }
 
         } catch (\Throwable $e) {
             Yii::error("Error enviando recordatorio agrupado: " . $e->getMessage());

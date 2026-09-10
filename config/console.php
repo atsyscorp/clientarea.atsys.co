@@ -7,9 +7,11 @@ $db = require __DIR__ . '/db.php';
 
 $config = [
     'id' => 'atsys-clientarea-console',
+    'name' => 'Área de clientes ATSYS',
     'language' => 'es-CO',
     'timeZone' => 'America/Bogota',
     'basePath' => dirname(__DIR__),
+
     'bootstrap' => [
         'log',
         'queue',
@@ -20,7 +22,7 @@ $config = [
     'controllerNamespace' => 'app\commands',
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
-        '@npm'   => '@vendor/npm-asset',
+        '@npm' => '@vendor/npm-asset',
         '@tests' => '@app/tests',
     ],
     'components' => [

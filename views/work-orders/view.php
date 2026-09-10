@@ -97,14 +97,10 @@ if ($model->is_request == 1) {
             <?= Html::a('<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg> Descargar PDF', ['pdf', 'id' => $model->id], ['class' => 'btn btn-outline btn-sm', 'target' => '_blank']) ?>
 
             <?php if ($isAdmin): ?>
-                <?= Html::a(
-                    '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg> Enviar al Cliente',
-                    ['send', 'id' => $model->id],
-                    [
-                        'class' => 'btn btn-primary btn-sm text-white',
-                        'data' => ['confirm' => '¿Enviar esta orden por correo al cliente? Se adjuntará el PDF.', 'method' => 'post']
-                    ]
-                ) ?>
+                <button type="button" onclick="document.getElementById('send_order_modal').showModal()" class="btn btn-primary btn-sm text-white shadow-sm gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+                    Enviar por Correo
+                </button>
             <?php endif; ?>
         </div>
     </div>
@@ -923,3 +919,76 @@ JS;
     <?php endif; ?>
 
 </div>
+
+<?php if ($isAdmin): ?>
+    <!-- Modal: Enviar / Reenviar Orden por Correo -->
+    <dialog id="send_order_modal" class="modal">
+        <div class="modal-box max-w-lg">
+            <h3 class="font-bold text-lg text-primary flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+                Enviar Orden de Trabajo por Correo
+            </h3>
+            
+            <p class="text-xs text-base-content/70 mt-1 mb-4">
+                Se generará y adjuntará automáticamente el documento oficial en formato <strong>PDF</strong>.
+            </p>
+
+            <?php
+            $hasRegisteredUser = !empty($model->customer && $model->customer->user_id);
+            ?>
+
+            <?php if (!$hasRegisteredUser): ?>
+                <div class="alert alert-warning text-xs p-3 rounded-lg mb-4 flex items-start gap-2 shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5 mt-0.5" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    <div>
+                        <span class="font-bold block">Cliente sin usuario en el portal</span>
+                        El cliente <strong><?= Html::encode($model->customer->business_name ?? 'asociado') ?></strong> no tiene cuenta registrada para acceder al portal. Puedes ingresar cualquier dirección de correo electrónico a la que desees reenviar la propuesta con su PDF adjunto.
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="alert alert-info bg-info/10 border border-info/20 text-xs p-3 rounded-lg mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-info shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>El cliente tiene usuario registrado en el portal. Puedes enviar a su correo o especificar un correo alternativo.</span>
+                </div>
+            <?php endif; ?>
+
+            <?= Html::beginForm(['send', 'id' => $model->id], 'post') ?>
+                
+                <div class="form-control w-full mb-3">
+                    <label class="label pb-1">
+                        <span class="label-text font-bold text-xs">Correo Electrónico Destino <span class="text-error">*</span></span>
+                    </label>
+                    <input type="email" name="recipient_email" required 
+                        value="<?= Html::encode($model->customer->email ?? '') ?>" 
+                        class="input input-bordered input-sm w-full font-mono text-sm" 
+                        placeholder="ejemplo@empresa.com" />
+                    <label class="label pt-1">
+                        <span class="label-text-alt opacity-70">Puedes modificar la dirección de correo para reenviarlo a otra persona.</span>
+                    </label>
+                </div>
+
+                <div class="form-control w-full mb-4">
+                    <label class="label pb-1">
+                        <span class="label-text font-bold text-xs">Mensaje adicional o instrucciones (Opcional)</span>
+                    </label>
+                    <textarea name="custom_message" rows="3" 
+                        class="textarea textarea-bordered textarea-sm w-full text-xs" 
+                        placeholder="Ej: Estimado cliente, le reenviamos la propuesta económica con los requerimientos acordados..."></textarea>
+                </div>
+
+                <div class="modal-action flex justify-between items-center mt-6 pt-3 border-t border-base-200">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('send_order_modal').close()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-sm text-white gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+                        Enviar Orden Ahora
+                    </button>
+                </div>
+            <?= Html::endForm() ?>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>cerrar</button>
+        </form>
+    </dialog>
+<?php endif; ?>

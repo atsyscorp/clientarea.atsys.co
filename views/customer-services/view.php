@@ -123,6 +123,79 @@ $server = $model->server ?? ($product ? $product->server : null);
                 </div>
             </div>
         </div>
+
+        <!-- Plan & Storage capacity card -->
+        <div class="card bg-base-100 shadow-xl border border-base-200">
+            <div class="card-body p-6 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start border-b border-base-200 pb-3 mb-4">
+                        <h2 class="card-title text-lg flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-secondary">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-13.5 0a3 3 0 01-3-3m0 0a3 3 0 013-3h13.5a3 3 0 013 3m-13.5 0h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6" />
+                            </svg>
+                            Almacenamiento y Plan
+                        </h2>
+                        <span id="disk-status-badge" class="badge badge-ghost text-xs">Consultando...</span>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- Plan actual info -->
+                        <div class="bg-base-200 p-3 rounded-lg flex justify-between items-center text-sm">
+                            <div>
+                                <span class="text-xs opacity-60 block">Plan Actual</span>
+                                <span class="font-bold text-primary"><?= Html::encode($product->name) ?></span>
+                                <?php if (!empty($product->server_package)): ?>
+                                    <span class="text-xs opacity-60 font-mono">(<?= Html::encode($product->server_package) ?>)</span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs opacity-60 block">Ciclo</span>
+                                <span class="badge badge-sm badge-outline"><?= ucfirst($product->billing_cycle ?? 'Anual') ?></span>
+                            </div>
+                        </div>
+
+                        <!-- Barra de uso de disco -->
+                        <div>
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <span class="font-semibold">Espacio en Disco Usado:</span>
+                                <span class="font-mono font-bold" id="disk-metric-text">
+                                    <span class="loading loading-spinner loading-xs"></span>
+                                </span>
+                            </div>
+                            <progress id="disk-progress-bar" class="progress progress-primary w-full h-3" value="0" max="100"></progress>
+                            <div class="flex justify-between items-center text-[11px] opacity-60 mt-1">
+                                <span>0 MB</span>
+                                <span id="disk-percent-label">Calculando...</span>
+                                <span id="disk-quota-max">Cuota</span>
+                            </div>
+                        </div>
+
+                        <!-- Banner de advertencia dinámica si está lleno -->
+                        <div id="disk-alert-container" class="hidden">
+                            <div id="disk-alert-box" class="alert p-3 rounded-lg text-xs flex items-start gap-2 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                <div>
+                                    <div class="font-bold" id="disk-alert-title">Aviso de Espacio</div>
+                                    <div id="disk-alert-desc">Tu espacio está próximo al límite. Te recomendamos ampliar la capacidad de tu plan.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="text-xs opacity-60 leading-relaxed">
+                            Si tu hosting se queda sin espacio, tu sitio web y tus cuentas de correo electrónico podrían experimentar interrupciones o rebotes. Puedes liberar archivos o aumentar a un plan superior.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <?= Html::a(
+                        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg> Aumentar Capacidad / Mejorar Plan',
+                        ['upgrade', 'id' => $model->id],
+                        ['class' => 'btn btn-primary btn-block btn-sm shadow-md gap-2 text-white font-bold']
+                    ) ?>
+                </div>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -139,4 +212,90 @@ function togglePasswordVisibility() {
         icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />';
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const statsUrl = '<?= \yii\helpers\Url::to(['get-stats', 'id' => $model->id]) ?>';
+    
+    fetch(statsUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.metrics) {
+                const m = data.metrics;
+                const diskVal = parseFloat(m.disk) || 0;
+                const usedFmt = m.used_formatted || '0 MB';
+                const quotaFmt = m.quota_formatted || 'Ilimitado';
+
+                // 1. Textos métricos
+                const metricEl = document.getElementById('disk-metric-text');
+                if (metricEl) {
+                    metricEl.innerText = `${usedFmt} de ${quotaFmt} (${diskVal.toFixed(1)}%)`;
+                }
+
+                const quotaMaxEl = document.getElementById('disk-quota-max');
+                if (quotaMaxEl) {
+                    quotaMaxEl.innerText = quotaFmt;
+                }
+
+                const percentLabel = document.getElementById('disk-percent-label');
+                if (percentLabel) {
+                    percentLabel.innerText = `${diskVal.toFixed(1)}%`;
+                }
+
+                // 2. Barra de progreso y colores
+                const bar = document.getElementById('disk-progress-bar');
+                const badge = document.getElementById('disk-status-badge');
+                if (bar) {
+                    bar.value = Math.min(100, Math.max(0, diskVal));
+                    bar.className = 'progress w-full h-3 ';
+
+                    if (diskVal >= 90) {
+                        bar.className += 'progress-error';
+                        if (badge) {
+                            badge.className = 'badge badge-error text-white text-xs font-bold';
+                            badge.innerText = diskVal >= 98 ? 'Lleno (100%)' : 'Crítico (>90%)';
+                        }
+                    } else if (diskVal >= 75) {
+                        bar.className += 'progress-warning';
+                        if (badge) {
+                            badge.className = 'badge badge-warning text-xs font-bold';
+                            badge.innerText = 'Espacio Alto';
+                        }
+                    } else {
+                        bar.className += 'progress-success';
+                        if (badge) {
+                            badge.className = 'badge badge-success text-white text-xs font-bold';
+                            badge.innerText = 'Saludable';
+                        }
+                    }
+                }
+
+                // 3. Alerta si está al límite
+                const alertContainer = document.getElementById('disk-alert-container');
+                const alertBox = document.getElementById('disk-alert-box');
+                const alertTitle = document.getElementById('disk-alert-title');
+                const alertDesc = document.getElementById('disk-alert-desc');
+
+                if (diskVal >= 80 && alertContainer && alertBox) {
+                    alertContainer.classList.remove('hidden');
+                    if (diskVal >= 95) {
+                        alertBox.className = 'alert alert-error p-3 rounded-lg text-xs flex items-start gap-2 shadow-sm text-white';
+                        if (alertTitle) alertTitle.innerText = '🚨 Capacidad Casi Agotada (' + diskVal.toFixed(0) + '%)';
+                        if (alertDesc) alertDesc.innerText = 'Tu almacenamiento está lleno o a punto de bloquearse. Te recomendamos aumentar el plan de hosting inmediatamente para evitar rebote de correos o caídas.';
+                    } else {
+                        alertBox.className = 'alert alert-warning p-3 rounded-lg text-xs flex items-start gap-2 shadow-sm';
+                        if (alertTitle) alertTitle.innerText = '⚠️ Capacidad Alta (' + diskVal.toFixed(0) + '%)';
+                        if (alertDesc) alertDesc.innerText = 'Has superado el 80% del almacenamiento asignado. Te sugerimos mejorar tu plan para evitar problemas futuros.';
+                    }
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Error obteniendo métricas de disco:', err);
+            const metricEl = document.getElementById('disk-metric-text');
+            if (metricEl) metricEl.innerText = 'No disponible';
+            const badge = document.getElementById('disk-status-badge');
+            if (badge) badge.innerText = 'Sin conexión';
+        });
+});
 </script>
+

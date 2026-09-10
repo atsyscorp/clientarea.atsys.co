@@ -479,6 +479,63 @@ class OrdersController extends Controller
                         Yii::error("Fallo al guardar dominio en BD local: " . json_encode($newService->getErrors()));
                     }
                 }
+
+                // --- LÓGICA DE MEJORA DE PLAN DE HOSTING (UPGRADE) ---
+                if ($item->action_type == 'upgrade') {
+                    $targetProduct = Products::findOne($item->service_id);
+                    $domain = $item->domain_name;
+
+                    if ($targetProduct) {
+                        // Buscar el servicio existente para este cliente y dominio
+                        $service = CustomerServices::find()->where([
+                            'customer_id' => $order->customer_id,
+                            'domain' => $domain,
+                        ])->one();
+
+                        if ($service) {
+                            $oldProduct = $service->product;
+                            $oldProductName = $oldProduct ? $oldProduct->name : 'Plan anterior';
+                            $service->product_id = $targetProduct->id;
+
+                            // Si estaba vencido o falta menos de 30 días, extender fecha de vencimiento por un año
+                            $dueDate = $service->next_due_date ? strtotime($service->next_due_date) : time();
+                            if ($dueDate < time() || ($dueDate - time()) <= (30 * 86400)) {
+                                $cycle = $targetProduct->billing_cycle ?? 'yearly';
+                                $baseDate = max(time(), $dueDate);
+                                $service->next_due_date = date('Y-m-d', strtotime(($cycle == 'monthly' ? '+1 month' : '+1 year'), $baseDate));
+                            }
+                            $service->status = 1; // Activo
+
+                            // Ejecutar cambio de paquete en el servidor remoto físico
+                            $server = $service->server ?? ($targetProduct->server ?? ($oldProduct ? $oldProduct->server : null));
+                            if ($server && !empty($targetProduct->server_package)) {
+                                try {
+                                    if ($server->type == 'virtualmin') {
+                                        Yii::$app->virtualmin->changePlanDynamic(
+                                            $server->username,
+                                            $server->auth_token,
+                                            $server->hostname,
+                                            $service->domain,
+                                            $targetProduct->server_package
+                                        );
+                                    } elseif ($server->type == 'cyberpanel') {
+                                        \app\components\CyberPanel::changePackage(
+                                            $server->id,
+                                            $service->domain,
+                                            $targetProduct->server_package
+                                        );
+                                    }
+                                } catch (\Exception $e) {
+                                    Yii::error("Fallo aplicando cambio de plan en servidor [{$server->type}] para {$service->domain}: " . $e->getMessage(), __METHOD__);
+                                }
+                            }
+
+                            if ($service->save(false)) {
+                                self::sendUpgradeConfirmationEmail($service, $oldProductName, $targetProduct);
+                            }
+                        }
+                    }
+                }
             }
 
             // ENVIAR CONFIRMACIÓN AL CLIENTE
@@ -545,6 +602,28 @@ class OrdersController extends Controller
                 ->send();
         } catch (\Throwable $e) {
             Yii::error("Error reactivación email: " . $e->getMessage());
+        }
+    }
+
+    public static function sendUpgradeConfirmationEmail($service, $oldProductName, $newProduct)
+    {
+        try {
+            $clientEmail = $service->customer->email ?? null;
+            if (!$clientEmail) return;
+
+            Yii::$app->mailer->compose(['html' => 'upgrade_confirmation-html'], [
+                'service' => $service,
+                'oldProductName' => $oldProductName,
+                'newProduct' => $newProduct,
+                'customer' => $service->customer
+            ])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
+                ->setTo($clientEmail)
+                ->setSubject('¡Plan de Hosting Actualizado con Éxito! - ' . $service->domain)
+                ->send();
+        } catch (\Throwable $e) {
+            Yii::error("Error enviando email confirmación upgrade servicio ID {$service->id}: " . $e->getMessage());
         }
     }
 

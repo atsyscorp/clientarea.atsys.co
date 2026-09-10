@@ -127,6 +127,10 @@ class CustomerServicesController extends \yii\web\Controller
         $ram = rand(40, 58);
         $bandwidth = rand(10, 30);
         $disk = 0;
+        $usedBytes = 0;
+        $quotaBytes = 0;
+        $usedFormatted = '0 MB';
+        $quotaFormatted = 'Ilimitado';
         $errorDebug = null;
         $rawValues = null;
 
@@ -155,16 +159,31 @@ class CustomerServicesController extends \yii\web\Controller
                             $values = $domainData['values'];
                             $rawValues = $values; // Lo guardamos para debug en producción
                             
-                            $quotaRaw = is_array($values['byte_quota'] ?? null) ? $values['byte_quota'][0] : ($values['byte_quota'] ?? 0);
-                            $usedRaw = is_array($values['byte_uquota'] ?? null) ? $values['byte_uquota'][0] : ($values['byte_uquota'] ?? 0);
-                            
-                            $quota = (float)$quotaRaw;
-                            $used = (float)$usedRaw;
-                            
-                            if ($quota > 0) {
-                                $disk = ($used / $quota) * 100;
+                            $quotaVal = null;
+                            $usedVal = null;
+
+                            if (!empty($values['server_byte_quota'][0])) {
+                                $quotaVal = $values['server_byte_quota'][0];
+                                $usedVal = $values['server_byte_quota_used'][0] ?? '0';
+                            } elseif (!empty($values['server_quota'][0])) {
+                                $quotaVal = $values['server_quota'][0];
+                                $usedVal = $values['server_quota_used'][0] ?? '0';
+                            } elseif (!empty($values['byte_quota'][0])) {
+                                $quotaVal = $values['byte_quota'][0];
+                                $usedVal = $values['byte_uquota'][0] ?? ($values['byte_quota_used'][0] ?? '0');
+                            }
+
+                            $quotaBytes = $quotaVal !== null ? $this->convertToBytes($quotaVal) : 0;
+                            $usedBytes = $usedVal !== null ? $this->convertToBytes($usedVal) : 0;
+
+                            if ($quotaBytes > 0) {
+                                $disk = round(($usedBytes / $quotaBytes) * 100, 2);
+                                $quotaFormatted = self::formatBytes($quotaBytes);
+                                $usedFormatted = self::formatBytes($usedBytes);
                             } else {
-                                $disk = 0; // Ilimitado
+                                $disk = 0;
+                                $quotaFormatted = 'Ilimitado';
+                                $usedFormatted = self::formatBytes($usedBytes);
                             }
                         } else {
                             $errorDebug = "No se encontraron values en la data del dominio.";
@@ -179,23 +198,79 @@ class CustomerServicesController extends \yii\web\Controller
                 }
             } else {
                 $disk = 64.22; // Fallback intencional cuando no es VM
+                $usedFormatted = '3.21 GB';
+                $quotaFormatted = '5.00 GB';
+                $usedBytes = 3446816768;
+                $quotaBytes = 5368709120;
             }
         } catch (\Exception $e) {
             $errorDebug = "Excepción en código PHP: " . $e->getMessage();
         }
         
+        $isNearLimit = ($disk >= 80 && $disk < 95);
+        $isCritical = ($disk >= 95);
+
         return [
             'success' => true,
             'metrics' => [
                 'cpu' => $cpu,
                 'ram' => $ram,
                 'disk' => $disk,
+                'used_bytes' => $usedBytes,
+                'quota_bytes' => $quotaBytes,
+                'used_formatted' => $usedFormatted,
+                'quota_formatted' => $quotaFormatted,
+                'is_near_limit' => $isNearLimit,
+                'is_critical' => $isCritical,
                 'bandwidth' => $bandwidth,
                 'timestamp' => date('H:i:s'),
                 'debug' => $errorDebug,
                 'raw_values' => $rawValues
             ]
         ];
+    }
+
+    /**
+     * Convierte strings de Virtualmin (ej. "3 GiB", "500 MiB") a bytes para calculo preciso.
+     */
+    private function convertToBytes($sizeString)
+    {
+        $sizeString = trim((string)$sizeString);
+        if (preg_match('/^([\d\.]+)\s*(GiB|MiB|KiB|TiB|GB|MB|KB|TB|bytes|B)?$/i', $sizeString, $matches)) {
+            $value = (float) $matches[1];
+            $unit = strtoupper($matches[2] ?? '');
+            switch ($unit) {
+                case 'TIB':
+                case 'TB':
+                    return $value * 1024 * 1024 * 1024 * 1024;
+                case 'GIB':
+                case 'GB':
+                    return $value * 1024 * 1024 * 1024;
+                case 'MIB':
+                case 'MB':
+                    return $value * 1024 * 1024;
+                case 'KIB':
+                case 'KB':
+                    return $value * 1024;
+                default:
+                    return $value;
+            }
+        }
+        return (float) $sizeString;
+    }
+
+    /**
+     * Formatea bytes a una representación legible (KB, MB, GB).
+     */
+    public static function formatBytes($bytes, $precision = 2)
+    {
+        if ($bytes <= 0) return '0 MB';
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+        $bytes /= pow(1024, $pow);
+        return round($bytes, $precision) . ' ' . $units[$pow];
     }
 
 
@@ -441,6 +516,133 @@ class CustomerServicesController extends \yii\web\Controller
         } catch (\Throwable $e) {
             Yii::error("Error enviando email activación servicio ID {$service->id}: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Muestra la comparativa de planes superiores y permite generar la orden de upgrade
+     */
+    public function actionUpgrade($id)
+    {
+        $model = $this->findModel($id);
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+        
+        if (!$isAdmin) {
+            $user = Yii::$app->user->identity;
+            $customerId = $user->getRealCustomerId();
+            if ($model->customer_id !== $customerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para gestionar este servicio.');
+            }
+        }
+
+        if (!$model->product || $model->product->type !== 'hosting') {
+            Yii::$app->session->setFlash('error', 'Solo los servicios de hosting pueden actualizarse de plan.');
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+
+        // Obtener todos los planes de hosting activos distintos al actual
+        $availablePlans = Products::find()
+            ->where(['status' => 1, 'type' => 'hosting'])
+            ->andWhere(['!=', 'id', $model->product_id])
+            ->orderBy(['price' => SORT_ASC])
+            ->all();
+
+        // Calcular días restantes de servicio
+        $now = time();
+        $dueTime = $model->next_due_date ? strtotime($model->next_due_date) : $now;
+        $daysRemaining = max(0, (int)ceil(($dueTime - $now) / 86400));
+        $isNearOrExpired = ($daysRemaining <= 30);
+
+        // Precios base del producto actual
+        $currentProduct = $model->product;
+        $currentPrice = $currentProduct->price_renewal > 0 ? (float)$currentProduct->price_renewal : (float)$currentProduct->price;
+
+        // Procesar solicitud POST (Confirmación de Upgrade)
+        if ($this->request->isPost) {
+            $targetProductId = (int)$this->request->post('target_product_id');
+            $targetProduct = Products::findOne(['id' => $targetProductId, 'status' => 1, 'type' => 'hosting']);
+
+            if (!$targetProduct) {
+                Yii::$app->session->setFlash('error', 'El plan seleccionado no es válido.');
+                return $this->redirect(['upgrade', 'id' => $model->id]);
+            }
+
+            // Calcular costo de la mejora
+            $targetPrice = $targetProduct->price_renewal > 0 ? (float)$targetProduct->price_renewal : (float)$targetProduct->price;
+            $priceDiff = max(0, $targetPrice - $currentPrice);
+
+            if ($isNearOrExpired) {
+                // Si faltan 30 días o menos, se cobra la renovación completa del nuevo plan y se renueva por 1 año
+                $upgradeCost = $targetPrice;
+            } else {
+                // Prorrateo de la diferencia por los días restantes del ciclo anual (base 365 días)
+                $upgradeCost = round(($priceDiff * $daysRemaining) / 365, 2);
+                if ($upgradeCost <= 0 && $priceDiff > 0) {
+                    $upgradeCost = round($priceDiff * 0.10, 2); // 10% mínimo simbólico si faltan muy pocos días
+                }
+            }
+
+            // 1. Evitar órdenes duplicadas pendientes
+            $existingOrder = Orders::find()
+                ->joinWith('orderItems')
+                ->where(['customer_id' => $model->customer_id, 'status' => 0])
+                ->andWhere(['order_items.service_id' => $targetProduct->id])
+                ->andWhere(['order_items.action_type' => OrderItems::ACTION_TYPE_UPGRADE])
+                ->andWhere(['order_items.domain_name' => $model->domain])
+                ->one();
+
+            if ($existingOrder) {
+                Yii::$app->session->setFlash('info', 'Ya existe una orden de mejora pendiente para este plan.');
+                return $this->redirect(['orders/view', 'id' => $existingOrder->id]);
+            }
+
+            // 2. Crear la Orden (Transacción)
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                $order = new Orders();
+                $order->code = 'UPG-' . date('Ymd') . '-' . rand(100, 999);
+                $order->customer_id = $model->customer_id;
+                $order->subtotal = $upgradeCost;
+                $order->total = $upgradeCost;
+                $order->status = 0; // Pendiente
+                $order->created_at = date('Y-m-d H:i:s');
+
+                if (!$order->save()) {
+                    throw new \Exception('Error creando orden de mejora: ' . json_encode($order->getErrors()));
+                }
+
+                $item = new OrderItems();
+                $item->order_id = $order->id;
+                $item->service_id = $targetProduct->id;
+                $item->service_name = "Mejora de Hosting: {$currentProduct->name} → {$targetProduct->name}";
+                $item->domain_name = $model->domain;
+                $item->unit_price = $upgradeCost;
+                $item->total = $upgradeCost;
+                $item->action_type = OrderItems::ACTION_TYPE_UPGRADE;
+
+                if (!$item->save()) {
+                    throw new \Exception('Error creando ítem de mejora: ' . json_encode($item->getErrors()));
+                }
+
+                $transaction->commit();
+
+                Yii::$app->session->setFlash('success', "Orden de mejora generada con éxito. Por favor procede al pago.");
+                return $this->redirect(['orders/view', 'id' => $order->id]);
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::error("Error en actionUpgrade: " . $e->getMessage());
+                Yii::$app->session->setFlash('error', 'Error al procesar la mejora: ' . $e->getMessage());
+                return $this->redirect(['upgrade', 'id' => $model->id]);
+            }
+        }
+
+        return $this->render('upgrade', [
+            'model' => $model,
+            'availablePlans' => $availablePlans,
+            'currentPrice' => $currentPrice,
+            'daysRemaining' => $daysRemaining,
+            'isNearOrExpired' => $isNearOrExpired,
+        ]);
     }
 
     /**
