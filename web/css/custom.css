@@ -1,4 +1,4 @@
-.marquee-container{
+.marquee-container {
   position: absolute;
   top: 0;
   left: 0;
@@ -6,7 +6,8 @@
   width: 100%;
   overflow: hidden;
 }
-.marquee-container .marquee-wrapper{
+
+.marquee-container .marquee-wrapper {
   aspect-ratio: 3027 / 1754;
   width: 500%;
   position: absolute;
@@ -14,12 +15,61 @@
   left: -5%;
   transform: translate(-50%, -50%);
 }
-.marquee-container .marquee-wrapper .marquee-animation{
+
+.marquee-container .marquee-wrapper .marquee-animation {
   width: 500%;
   height: 100%;
   display: flex;
 }
-.marquee-container .marquee-wrapper .marquee-animation svg{
-  filter:opacity(0.15);
-  margin-right:0;
+
+.marquee-container .marquee-wrapper .marquee-animation svg {
+  filter: opacity(0.15);
+  margin-right: 0;
+}
+
+/* Espaciado y renderizado tipográfico para mensajes de tickets */
+.chat-bubble .ticket-message-content p,
+.chat-bubble p {
+  margin-bottom: 0.75rem;
+}
+
+.chat-bubble .ticket-message-content p:last-child,
+.chat-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+/* Evitar colapso de párrafos vacíos cuando se pulsa doble Enter */
+.chat-bubble p:empty,
+.chat-bubble p>br:only-child {
+  min-height: 1.25rem;
+  display: block;
+}
+
+.chat-bubble p:empty::before {
+  content: "\00a0";
+}
+
+/* Soporte para listas con viñetas y números dentro de las respuestas */
+.chat-bubble ul {
+  list-style-type: disc;
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.chat-bubble ol {
+  list-style-type: decimal;
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.chat-bubble li {
+  margin-bottom: 0.25rem;
+}
+
+.chat-bubble blockquote {
+  border-left: 3px solid currentColor;
+  opacity: 0.85;
+  padding-left: 0.75rem;
+  margin: 0.5rem 0 0.75rem 0;
+  font-style: italic;
 }

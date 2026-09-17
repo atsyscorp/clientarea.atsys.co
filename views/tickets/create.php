@@ -35,7 +35,9 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 
 // B. Inicializamos el editor sobre el ID 'tickets-message'
 $js = <<<'JS'
-document.addEventListener("DOMContentLoaded", function() {
+function initCreateTicketEditor() {
+    if (typeof tinymce === 'undefined') return;
+
     const getCsrf = () => {
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         const param = document.querySelector('meta[name="csrf-param"]')?.getAttribute('content');
@@ -54,10 +56,19 @@ document.addEventListener("DOMContentLoaded", function() {
         toolbar: 'bold italic underline | bullist numlist | link image | removeformat | fullscreen | blockquote', // Herramientas limpias
         skin: isDarkMode ? 'oxide-dark' : 'oxide',
         content_css: isDarkMode ? 'dark' : 'default',
+        content_style: `
+            body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 1.5; }
+            p { margin: 0 0 0.75rem 0; }
+            p:last-child { margin-bottom: 0; }
+            ul { list-style-type: disc; margin-left: 1.25rem; margin-bottom: 0.75rem; }
+            ol { list-style-type: decimal; margin-left: 1.25rem; margin-bottom: 0.75rem; }
+            li { margin-bottom: 0.25rem; }
+            blockquote { border-left: 3px solid #ccc; margin: 0.5rem 0; padding-left: 0.75rem; font-style: italic; }
+        `,
         branding: false, // Quitar marca "Powered by TinyMCE"
         setup: function (editor) {
             // Esto asegura que el valor se guarde en el textarea al enviar el formulario
-            editor.on('change', function () {
+            editor.on('change keyup NodeChange', function () {
                 editor.save();
             });
 
@@ -150,7 +161,22 @@ document.addEventListener("DOMContentLoaded", function() {
             xhr.send(formData);
         })
     });
-});
+
+    const createForm = document.getElementById('create-ticket-form');
+    if (createForm) {
+        createForm.addEventListener('submit', function () {
+            if (typeof tinymce !== 'undefined') {
+                tinymce.triggerSave();
+            }
+        });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initCreateTicketEditor);
+} else {
+    initCreateTicketEditor();
+}
 JS;
 $this->registerJs($js, \yii\web\View::POS_END);
 ?>
@@ -257,7 +283,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     'class' => 'textarea textarea-bordered w-full h-32 focus:textarea-primary text-base',
                     'placeholder' => 'Por favor detalla lo que sucede...'
                 ],
-            ])->label('Descripción Detallada') ?>
+            ])->textarea()->label('Descripción Detallada') ?>
 
             <div class="form-control w-full md:w-auto mb-4">
                 <label class="btn btn-outline btn-primary gap-2 w-full md:w-auto cursor-pointer">
@@ -267,18 +293,30 @@ $this->registerJs($js, \yii\web\View::POS_END);
                             d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                     </svg>
 
-                    <span id="file-name-create">Adjuntar archivo (Opcional)</span>
+                    <span id="create-file-btn-text">Adjuntar archivos (Opcional)</span>
 
-                    <?= Html::fileInput('Tickets[attachmentFile]', null, [
+                    <?= Html::fileInput('Tickets[attachmentFiles][]', null, [
                         'class' => 'hidden',
-                        'accept' => '.jpg,.jpeg,.png,.pdf,.zip,.rar',
-                        'onchange' => "
-                            let name = this.files[0] ? this.files[0].name : 'Adjuntar archivo';
-                            if(name.length > 25) name = name.substring(0, 22) + '...';
-                            document.getElementById('file-name-create').innerText = name;
-                        "
+                        'id' => 'create-attachment-input',
+                        'multiple' => true,
+                        'onchange' => "handleCreateFilesSelected(this)"
                     ]) ?>
                 </label>
+                <label class="label pb-0 justify-center md:justify-start">
+                    <span class="label-text-alt text-base-content/60">Máx: 50MB por archivo • Múltiples permitidos</span>
+                </label>
+
+                <!-- Previsualización de archivos seleccionados -->
+                <div id="create-files-preview-container" class="hidden mt-2 flex flex-col gap-1 max-w-md">
+                    <div class="flex items-center justify-between text-xs font-semibold text-base-content/70 mb-1">
+                        <span id="create-files-count">0 archivos seleccionados</span>
+                        <button type="button" onclick="clearCreateFiles()" class="text-error hover:underline text-xs flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            Quitar
+                        </button>
+                    </div>
+                    <div id="create-files-chips" class="flex flex-wrap gap-1.5"></div>
+                </div>
             </div>
 
             <div class="card-actions justify-end mt-6 pt-4 border-t border-base-200">
@@ -341,4 +379,73 @@ $this->registerJs($js, \yii\web\View::POS_END);
         const currentVal = document.getElementById('tickets-customer_id').value;
         toggleEmailField(currentVal);
     });
+
+    function formatCreateFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        else return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function handleCreateFilesSelected(input) {
+        const previewContainer = document.getElementById('create-files-preview-container');
+        const chipsContainer = document.getElementById('create-files-chips');
+        const btnText = document.getElementById('create-file-btn-text');
+        const countText = document.getElementById('create-files-count');
+
+        if (!previewContainer || !chipsContainer) return;
+        chipsContainer.innerHTML = '';
+        const files = input.files;
+        const maxSizeBytes = 50 * 1024 * 1024; // 50MB
+
+        if (!files || files.length === 0) {
+            if (btnText) btnText.innerText = 'Adjuntar archivos (Opcional)';
+            previewContainer.classList.add('hidden');
+            return;
+        }
+
+        let hasOversized = false;
+        let oversizedNames = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.size > maxSizeBytes) {
+                hasOversized = true;
+                oversizedNames.push('• ' + file.name + ' (' + formatCreateFileSize(file.size) + ')');
+            }
+        }
+
+        if (hasOversized) {
+            alert('El siguiente archivo supera el límite máximo permitido de 50MB:\n\n' + oversizedNames.join('\n') + '\n\nPor favor selecciona archivos de hasta 50MB cada uno.');
+            input.value = '';
+            if (btnText) btnText.innerText = 'Adjuntar archivos (Opcional)';
+            previewContainer.classList.add('hidden');
+            return;
+        }
+
+        if (btnText) btnText.innerText = files.length === 1 ? '1 archivo listo' : files.length + ' archivos listos';
+        if (countText) countText.innerText = files.length === 1 ? '1 archivo seleccionado' : files.length + ' archivos seleccionados';
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const chip = document.createElement('div');
+            chip.className = 'badge badge-sm badge-outline gap-1 py-2 px-2.5 max-w-full text-xs font-normal';
+            chip.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5 text-primary shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></svg>' +
+                '<span class="truncate max-w-[150px]" title="' + file.name + '">' + file.name + '</span>' +
+                '<span class="opacity-60 text-[10px]">(' + formatCreateFileSize(file.size) + ')</span>';
+            chipsContainer.appendChild(chip);
+        }
+
+        previewContainer.classList.remove('hidden');
+    }
+
+    function clearCreateFiles() {
+        const input = document.getElementById('create-attachment-input');
+        if (input) input.value = '';
+        const btnText = document.getElementById('create-file-btn-text');
+        if (btnText) btnText.innerText = 'Adjuntar archivos (Opcional)';
+        const previewContainer = document.getElementById('create-files-preview-container');
+        if (previewContainer) previewContainer.classList.add('hidden');
+        const chipsContainer = document.getElementById('create-files-chips');
+        if (chipsContainer) chipsContainer.innerHTML = '';
+    }
 </script>

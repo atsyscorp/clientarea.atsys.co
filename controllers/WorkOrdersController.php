@@ -817,12 +817,26 @@ class WorkOrdersController extends Controller
                             ? array_map('trim', explode(',', $adminEmail))
                             : ['gerencia@atsys.co'];
 
+                        $attachmentHtml = '';
+                        if (!empty($update->attachment_url)) {
+                            $attachmentHtml = "
+                                <div style='margin: 16px 0; padding: 12px 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #134C42; border-radius: 4px;'>
+                                    <p style='margin: 0 0 8px 0; font-size: 14px; color: #333333;'>
+                                        📎 <strong>Este avance incluye un archivo adjunto:</strong>
+                                    </p>
+                                    <a href='" . Html::encode($update->attachment_url) . "' target='_blank' style='background-color: #134C42; color: #ffffff; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 13px; display: inline-block;'>
+                                        Ver Documento Adjunto &rarr;
+                                    </a>
+                                </div>";
+                        }
+
                         $mail = Yii::$app->mailer->compose(['html' => 'admin-notification'], [
                             'title' => '🚀 Nuevo Avance en tu Proyecto',
                             'content' => "<p>Se ha registrado un nuevo avance en la orden <strong>{$workOrder->code}</strong>:</p>
                                           <blockquote style='background:#f9f9f9; padding:10px; border-left:3px solid #134C42;'>
                                             " . nl2br($update->description) . "
                                           </blockquote>
+                                          " . $attachmentHtml . "
                                           " . (($update->allow_reply == 1) ? '<p>Este avance incluye una solicitud de respuesta de tu parte. Por favor, ingresa a la orden de trabajo para ver los detalles y responder.</p><br><br>' : '') . "
                                           <p><a href='https://clientarea.atsys.co/work-orders/view?id={$workOrder->id}' style='background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;'>Ver en el área de clientes</a></p>",
                             'color' => '#134C42'

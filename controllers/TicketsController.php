@@ -232,17 +232,25 @@ class TicketsController extends \yii\web\Controller
                 $reply->sender_type = $isAdmin ? 'admin' : 'customer';
                 $reply->user_id = Yii::$app->user->id;
 
-                // Lógica de Archivos Adjuntos
-                $reply->attachmentFile = UploadedFile::getInstance($reply, 'attachmentFile');
-                if ($reply->attachmentFile) {
-                    $folderPath = Yii::getAlias('@webroot/uploads/tickets/' . $ticket->id . '/');
-                    if (!file_exists($folderPath)) {
-                        mkdir($folderPath, 0777, true);
+                // Lógica de Archivos Adjuntos: Múltiples archivos subidos a Google Drive (con respaldo local)
+                $files = UploadedFile::getInstances($reply, 'attachmentFiles');
+                if (empty($files)) {
+                    $singleFile = UploadedFile::getInstance($reply, 'attachmentFile');
+                    if ($singleFile) {
+                        $files = [$singleFile];
                     }
-                    $fileName = time() . '_' . $reply->attachmentFile->baseName . '.' . $reply->attachmentFile->extension;
-                    $filePath = $folderPath . $fileName;
-                    if ($reply->attachmentFile->saveAs($filePath)) {
-                        $reply->attachment = 'uploads/tickets/' . $ticket->id . '/' . $fileName;
+                }
+
+                if (!empty($files)) {
+                    $uploadedUrls = [];
+                    foreach ($files as $file) {
+                        $uploadUrl = Yii::$app->googleDrive->upload($file, $ticket->ticket_code, 'tickets');
+                        if ($uploadUrl) {
+                            $uploadedUrls[] = $uploadUrl . '#filename=' . rawurlencode($file->name);
+                        }
+                    }
+                    if (!empty($uploadedUrls)) {
+                        $reply->attachment = implode("\n", $uploadedUrls);
                     }
                 }
 
@@ -317,10 +325,20 @@ class TicketsController extends \yii\web\Controller
                             }
                         }
 
-                        if ($reply->attachment) {
-                            $mailer->attach(Yii::getAlias('@webroot/') . $reply->attachment, [
-                                'fileName' => basename(Yii::getAlias('@webroot/') . $reply->attachment),
-                            ]);
+                        if (!empty($reply->attachment)) {
+                            // Solo adjuntar archivos directamente si existen localmente en disco
+                            $lines = preg_split('/[\r\n]+/', trim($reply->attachment));
+                            foreach ($lines as $attLine) {
+                                $attLine = trim($attLine);
+                                if (!preg_match('#^https?://#i', $attLine) && !empty($attLine)) {
+                                    $localPath = Yii::getAlias('@webroot/') . ltrim($attLine, '/');
+                                    if (is_file($localPath)) {
+                                        $mailer->attach($localPath, [
+                                            'fileName' => basename($localPath),
+                                        ]);
+                                    }
+                                }
+                            }
                         }
 
                         $mailer->send();
@@ -464,8 +482,14 @@ class TicketsController extends \yii\web\Controller
                 $customer = \app\models\Customers::findOne(['id' => $this->request->post('Tickets')['customer_id']]);
             }
 
-            // 1. Capturamos el archivo desde el modelo Tickets
-            $model->attachmentFile = \yii\web\UploadedFile::getInstance($model, 'attachmentFile');
+            // 1. Capturamos los archivos desde el modelo Tickets (múltiples o individual)
+            $model->attachmentFiles = \yii\web\UploadedFile::getInstances($model, 'attachmentFiles');
+            if (empty($model->attachmentFiles)) {
+                $singleFile = \yii\web\UploadedFile::getInstance($model, 'attachmentFile');
+                if ($singleFile) {
+                    $model->attachmentFiles = [$singleFile];
+                }
+            }
 
             // INICIO TRANSACCIÓN
             $transaction = Yii::$app->db->beginTransaction();
@@ -490,16 +514,17 @@ class TicketsController extends \yii\web\Controller
                         $reply->user_id = Yii::$app->user->id;
                     }
 
-                    if ($model->attachmentFile) {
-                        $uploadPath = Yii::getAlias('@webroot/uploads/tickets/' . $model->id . '/');
-                        if (!file_exists($uploadPath)) {
-                            mkdir($uploadPath, 0777, true);
+                    // Subir los adjuntos del mensaje inicial a Google Drive
+                    if (!empty($model->attachmentFiles)) {
+                        $uploadedUrls = [];
+                        foreach ($model->attachmentFiles as $file) {
+                            $uploadUrl = Yii::$app->googleDrive->upload($file, $model->ticket_code, 'tickets');
+                            if ($uploadUrl) {
+                                $uploadedUrls[] = $uploadUrl . '#filename=' . rawurlencode($file->name);
+                            }
                         }
-
-                        $fileName = time() . '_' . $model->attachmentFile->baseName . '.' . $model->attachmentFile->extension;
-
-                        if ($model->attachmentFile->saveAs($uploadPath . $fileName)) {
-                            $reply->attachment = 'uploads/tickets/' . $model->id . '/' . $fileName;
+                        if (!empty($uploadedUrls)) {
+                            $reply->attachment = implode("\n", $uploadedUrls);
                         }
                     }
 

@@ -52,6 +52,29 @@ $formatMessage = function($text, $dark = false) {
         <?= $reply ? $formatMessage($reply->message) : '' ?>
     </div>
 
+    <?php 
+    $attachments = ($reply && method_exists($reply, 'getAttachmentList')) ? $reply->getAttachmentList() : []; 
+    if (!empty($attachments)): 
+    ?>
+        <div style="margin-top: 15px; padding: 12px 16px; background-color: #f1f5f9; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #334155;">
+                📎 <?= (count($attachments) === 1) ? 'Archivo adjunto:' : 'Archivos adjuntos (' . count($attachments) . '):' ?>
+            </p>
+            <div style="margin: 0; padding-left: 5px; font-size: 13px;">
+                <?php foreach ($attachments as $att): ?>
+                    <div style="margin-bottom: 6px;">
+                        <a href="<?= Html::encode($att['url']) ?>" target="_blank" style="color: #134C42; font-weight: bold; text-decoration: underline;">
+                            <?= Html::encode($att['name']) ?>
+                        </a>
+                        <span style="font-size: 11px; color: #64748b; margin-left: 6px;">
+                            (<?= !empty($att['is_drive']) ? 'Abrir en Google Drive' : 'Ver archivo' ?> ↗)
+                        </span>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <?php if ($ticket): ?>
         <?php 
             $rateUrl = Yii::$app->urlManager->createAbsoluteUrl(['feedback/rate', 'ticket_id' => $ticket->ticket_code]);

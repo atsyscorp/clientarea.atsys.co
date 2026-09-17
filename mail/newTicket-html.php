@@ -89,4 +89,28 @@ $formatMessage = function($text, $dark = false) {
     <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4F46E5; font-size: 14px; line-height: 1.6; color: #333;">
         <?= $formatMessage($message) ?>
     </div>
+
+    <?php 
+    $firstReply = $ticket ? $ticket->getTicketReplies()->orderBy(['id' => SORT_ASC])->one() : null;
+    $attachments = ($firstReply && method_exists($firstReply, 'getAttachmentList')) ? $firstReply->getAttachmentList() : [];
+    if (!empty($attachments)): 
+    ?>
+        <div style="margin-top: 15px; padding: 12px 16px; background-color: #f1f5f9; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #334155;">
+                📎 <?= (count($attachments) === 1) ? 'Archivo adjunto:' : 'Archivos adjuntos (' . count($attachments) . '):' ?>
+            </p>
+            <div style="margin: 0; padding-left: 5px; font-size: 13px;">
+                <?php foreach ($attachments as $att): ?>
+                    <div style="margin-bottom: 6px;">
+                        <a href="<?= Html::encode($att['url']) ?>" target="_blank" style="color: #4F46E5; font-weight: bold; text-decoration: underline;">
+                            <?= Html::encode($att['name']) ?>
+                        </a>
+                        <span style="font-size: 11px; color: #64748b; margin-left: 6px;">
+                            (<?= !empty($att['is_drive']) ? 'Abrir en Google Drive' : 'Ver archivo' ?> ↗)
+                        </span>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>

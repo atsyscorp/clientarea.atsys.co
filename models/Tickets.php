@@ -54,6 +54,9 @@ class Tickets extends \yii\db\ActiveRecord
     // Propiedad virtual para adjuntar archivo, funciona solo al crear el ticket
     public $attachmentFile;
 
+    // Propiedad virtual para múltiples archivos adjuntos al crear el ticket
+    public $attachmentFiles = [];
+
     // Propiedad virtual para capturar los delegados mencionados
     public $mentioned_delegates = [];
 
@@ -152,11 +155,18 @@ class Tickets extends \yii\db\ActiveRecord
                 return $('#select-customer').val() == '9999';
             }"],
 
-            // Adjuntar archivo
+            // Adjuntar archivo(s)
             [['attachmentFile'], 'file', 
                 'skipOnEmpty' => true, 
-                'extensions' => 'png, jpg, jpeg, pdf, zip, rar', 
-                'maxSize' => 1024 * 1024 * 10, // 10MB
+                'maxSize' => 1024 * 1024 * 50, // 50MB
+                'tooBig' => 'El archivo "{file}" supera el tamaño máximo permitido de 50MB.',
+                'checkExtensionByMimeType' => false,
+            ],
+            [['attachmentFiles'], 'file', 
+                'skipOnEmpty' => true, 
+                'maxFiles' => 10,
+                'maxSize' => 1024 * 1024 * 50, // 50MB
+                'tooBig' => 'El archivo "{file}" supera el tamaño máximo permitido de 50MB.',
                 'checkExtensionByMimeType' => false,
             ],
 

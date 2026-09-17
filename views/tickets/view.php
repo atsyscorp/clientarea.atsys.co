@@ -46,7 +46,7 @@ $formatMessage = function ($text, $dark = false) {
         $conf->set('HTML.TargetBlank', true);
         $conf->set('AutoFormat.Linkify', true);
         $conf->set('HTML.Allowed', 'p,b,strong,i,em,u,ul,ol,li,table,thead,tbody,th,td,img[src|alt|width|height],br,span[style|class|data-email],div,h1,h2,h3,h4,h5,h6,a[href|target]');
-        
+
         $def = $conf->getHTMLDefinition(true);
         if ($def) {
             $def->addAttribute('span', 'data-email', 'Text');
@@ -58,6 +58,46 @@ $formatMessage = function ($text, $dark = false) {
 
     return str_replace('<a ', '<a class="' . $cssClass . '" ', $cleanHtml);
 };
+
+// Estilos tipográficos para el contenido de los mensajes dentro de las burbujas de chat
+$this->registerCss("
+    .chat-bubble .ticket-message-content p,
+    .chat-bubble p {
+        margin-bottom: 0.75rem;
+    }
+    .chat-bubble .ticket-message-content p:last-child,
+    .chat-bubble p:last-child {
+        margin-bottom: 0;
+    }
+    .chat-bubble p:empty,
+    .chat-bubble p > br:only-child {
+        min-height: 1.25rem;
+        display: block;
+    }
+    .chat-bubble p:empty::before {
+        content: '\\00a0';
+    }
+    .chat-bubble ul {
+        list-style-type: disc;
+        margin-left: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+    .chat-bubble ol {
+        list-style-type: decimal;
+        margin-left: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+    .chat-bubble li {
+        margin-bottom: 0.25rem;
+    }
+    .chat-bubble blockquote {
+        border-left: 3px solid currentColor;
+        opacity: 0.85;
+        padding-left: 0.75rem;
+        margin: 0.5rem 0 0.75rem 0;
+        font-style: italic;
+    }
+");
 
 // --- LOGICA DE VISUALIZACIÓN ---
 
@@ -87,7 +127,8 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 
 // B. Inicializamos el editor
 $js = <<<'JS'
-document.addEventListener("DOMContentLoaded", function() {
+function initViewTicketEditor() {
+    if (typeof tinymce === 'undefined') return;
 
     const currentHtmlTheme = document.documentElement.getAttribute('data-theme');
     const isDarkMode = currentHtmlTheme === 'dark';
@@ -107,11 +148,20 @@ document.addEventListener("DOMContentLoaded", function() {
         language: 'es',
         skin: isDarkMode ? 'oxide-dark' : 'oxide',
         content_css: isDarkMode ? 'dark' : 'default',
+        content_style: `
+            body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 1.5; }
+            p { margin: 0 0 0.75rem 0; }
+            p:last-child { margin-bottom: 0; }
+            ul { list-style-type: disc; margin-left: 1.25rem; margin-bottom: 0.75rem; }
+            ol { list-style-type: decimal; margin-left: 1.25rem; margin-bottom: 0.75rem; }
+            li { margin-bottom: 0.25rem; }
+            blockquote { border-left: 3px solid #ccc; margin: 0.5rem 0; padding-left: 0.75rem; font-style: italic; }
+        `,
         plugins: 'lists link autolink fullscreen image code',
         toolbar: 'bold italic underline | bullist numlist | link image | removeformat | fullscreen | blockquote',
         branding: false,
         setup: function (editor) {
-            editor.on('change', function () {
+            editor.on('change keyup NodeChange', function () {
                 editor.save();
             });
 
@@ -204,7 +254,21 @@ document.addEventListener("DOMContentLoaded", function() {
         })
     });
 
-});
+    const replyForm = document.getElementById('ticket-reply-form');
+    if (replyForm) {
+        replyForm.addEventListener('submit', function () {
+            if (typeof tinymce !== 'undefined') {
+                tinymce.triggerSave();
+            }
+        });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initViewTicketEditor);
+} else {
+    initViewTicketEditor();
+}
 JS;
 $this->registerJs($js, \yii\web\View::POS_END);
 
@@ -215,16 +279,22 @@ $this->registerJs($js, \yii\web\View::POS_END);
     <div class="lg:col-span-2 flex flex-col gap-4">
 
         <?php if (!empty($model->merged_into_id) && $model->mergedIntoTicket): ?>
-            <div class="alert alert-warning shadow-md mb-2 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 rounded-2xl p-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <div
+                class="alert alert-warning shadow-md mb-2 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 rounded-2xl p-4">
+                <svg xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-6 w-6 text-amber-600 dark:text-amber-400" fill="none"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <div>
                     <h3 class="font-bold text-sm">Este ticket fue fusionado</h3>
                     <div class="text-xs mt-0.5 opacity-90">
-                        Las conversaciones de este ticket han sido unificadas dentro del ticket 
-                        <a href="<?= \yii\helpers\Url::to(['view', 'id' => $model->merged_into_id]) ?>" class="font-bold underline text-primary">
-                            #<?= Html::encode($model->mergedIntoTicket->ticket_code) ?> - <?= Html::encode($model->mergedIntoTicket->subject) ?>
+                        Las conversaciones de este ticket han sido unificadas dentro del ticket
+                        <a href="<?= \yii\helpers\Url::to(['view', 'id' => $model->merged_into_id]) ?>"
+                            class="font-bold underline text-primary">
+                            #<?= Html::encode($model->mergedIntoTicket->ticket_code) ?> -
+                            <?= Html::encode($model->mergedIntoTicket->subject) ?>
                         </a>.
                     </div>
                 </div>
@@ -246,7 +316,11 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     <div class="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                         <?php if ($isSenderBlacklisted): ?>
                             <div class="badge badge-error font-bold p-4 gap-1.5 shadow-sm text-xs">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                    stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                </svg>
                                 <span>REMITENTE BLOQUEADO</span>
                             </div>
                         <?php endif; ?>
@@ -309,41 +383,51 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 <?php
                 $existingFeedback = \app\models\ServiceFeedback::find()
                     ->where(['ticket_id' => $model->ticket_code])
-                    ->orWhere(['ticket_id' => (string)$model->id])
+                    ->orWhere(['ticket_id' => (string) $model->id])
                     ->one();
                 ?>
 
                 <?php if ($model->status === 'closed'): ?>
                     <?php if ($existingFeedback): ?>
-                        <div class="alert alert-success shadow-sm bg-success/10 border border-success/20 text-success-content p-4 rounded-2xl mb-4">
+                        <div
+                            class="alert alert-success shadow-sm bg-success/10 border border-success/20 text-success-content p-4 rounded-2xl mb-4">
                             <div class="flex items-center gap-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-success shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-success shrink-0" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 <div>
                                     <h4 class="font-bold text-sm">¡Gracias por evaluar este servicio!</h4>
                                     <p class="text-xs opacity-80 mt-0.5">
-                                        Calificaste la atención con <?= $existingFeedback->getRatingStarsHtml() ?> 
+                                        Calificaste la atención con <?= $existingFeedback->getRatingStarsHtml() ?>
                                         (<?= Yii::$app->formatter->asDatetime($existingFeedback->created_at, 'php:d M Y, h:i a') ?>).
                                     </p>
                                 </div>
                             </div>
                         </div>
                     <?php else: ?>
-                        <div class="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-5 rounded-2xl mb-6 shadow-sm">
+                        <div
+                            class="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-5 rounded-2xl mb-6 shadow-sm">
                             <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                    <div
+                                        class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg"
+                                            class="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none"
+                                            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                                         </svg>
                                     </div>
                                     <div>
                                         <h4 class="font-bold text-base text-base-content">Este ticket ha sido cerrado</h4>
-                                        <p class="text-xs text-base-content/70 mt-0.5">¿Cómo calificas la atención y la solución brindada por nuestro equipo?</p>
+                                        <p class="text-xs text-base-content/70 mt-0.5">¿Cómo calificas la atención y la solución
+                                            brindada por nuestro equipo?</p>
                                     </div>
                                 </div>
-                                <a href="<?= \yii\helpers\Url::to(['/feedback/rate', 'ticket_id' => $model->ticket_code]) ?>" class="btn btn-primary gap-2 rounded-xl shadow-md shrink-0 w-full md:w-auto">
+                                <a href="<?= \yii\helpers\Url::to(['/feedback/rate', 'ticket_id' => $model->ticket_code]) ?>"
+                                    class="btn btn-primary gap-2 rounded-xl shadow-md shrink-0 w-full md:w-auto">
                                     ⭐ Calificar Atención
                                 </a>
                             </div>
@@ -352,105 +436,132 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 <?php endif; ?>
 
                 <?php if (!$isAdmin && ($isSenderBlacklisted || $isCurrentUserBlocked)): ?>
-                    <div class="alert alert-error shadow-sm bg-error/10 border border-error/20 text-error-content p-4 rounded-2xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    <div
+                        class="alert alert-error shadow-sm bg-error/10 border border-error/20 text-error-content p-4 rounded-2xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                         </svg>
                         <div>
                             <h4 class="font-bold text-sm">Acceso a respuestas restringido</h4>
-                            <p class="text-xs opacity-90 mt-0.5">Tu cuenta o la dirección de correo electrónico asociada a este ticket se encuentra bloqueada para enviar respuestas.</p>
+                            <p class="text-xs opacity-90 mt-0.5">Tu cuenta o la dirección de correo electrónico asociada a
+                                este ticket se encuentra bloqueada para enviar respuestas.</p>
                         </div>
                     </div>
                 <?php elseif ($model->isLocked() && !$isAdmin): ?>
                     <div class="alert alert-neutral shadow-sm bg-base-200 border-base-300 text-base-content/70">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         <span>Este ticket se encuentra cerrado.</span>
                     </div>
                 <?php elseif (!$model->canCustomerReply($isAdmin)): ?>
-                    <div class="alert alert-warning shadow-sm bg-warning/10 border border-warning/20 text-warning-content p-4 rounded-2xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    <div
+                        class="alert alert-warning shadow-sm bg-warning/10 border border-warning/20 text-warning-content p-4 rounded-2xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                            </path>
                         </svg>
                         <div>
                             <h4 class="font-bold text-sm">Límite de respuestas consecutivas alcanzado</h4>
-                            <p class="text-xs opacity-90 mt-0.5">Has enviado 3 respuestas sin recibir atención o respuesta de nuestro equipo. Por favor espera a que un agente responda o ponga en proceso tu ticket para poder enviar más mensajes.</p>
+                            <p class="text-xs opacity-90 mt-0.5">Has enviado 3 respuestas sin recibir atención o respuesta
+                                de nuestro equipo. Por favor espera a que un agente responda o ponga en proceso tu ticket
+                                para poder enviar más mensajes.</p>
                         </div>
                     </div>
                 <?php else: ?>
 
-                <?php $form = ActiveForm::begin([
-                    'action' => ['reply', 'id' => $model->id],
-                    'options' => ['enctype' => 'multipart/form-data']
-                ]); ?>
+                    <?php $form = ActiveForm::begin([
+                        'id' => 'ticket-reply-form',
+                        'action' => ['reply', 'id' => $model->id],
+                        'options' => ['enctype' => 'multipart/form-data']
+                    ]); ?>
 
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text font-bold">
-                            <?php if ($model->status === 'closed'): ?>
-                                <span class="text-warning flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                                        class="w-4 h-4">
-                                        <path fill-rule="evenodd"
-                                            d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    Responder reabrirá este ticket
-                                </span>
-                            <?php else: ?>
-                                <?= (Yii::$app->user->identity->isAdmin) ? 'Responder al cliente' : 'Agregar respuesta' ?>
-                            <?php endif; ?>
-                        </span>
-                    </label>
-
-                    <?= Html::textarea('TicketReplies[message]', '', [
-                        'class' => 'textarea textarea-bordered h-24 w-full focus:textarea-primary text-base',
-                        'placeholder' => 'Escribe tu respuesta aquí...',
-                        'id' => 'ticket-message-editor',
-                        'required' => true
-                    ]) ?>
-                </div>
-
-                <div class="flex flex-col md:flex-row justify-between items-start mt-4 gap-4">
-
-                    <div class="form-control w-full md:w-auto">
-                        <label class="btn btn-outline btn-primary gap-2 w-full md:w-auto cursor-pointer">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-5 h-5">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-                            </svg>
-                            <span id="file-name-display">Adjuntar archivo</span>
-
-                            <?= Html::fileInput('TicketReplies[attachmentFile]', null, [
-                                'class' => 'hidden',
-                                'accept' => '.jpg,.jpeg,.png,.pdf,.zip,.rar',
-                                'onchange' => "
-                                        let name = this.files[0] ? this.files[0].name : 'Adjuntar archivo';
-                                        if(name.length > 20) name = name.substring(0, 17) + '...';
-                                        document.getElementById('file-name-display').innerText = name;
-                                    "
-                            ]) ?>
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-bold">
+                                <?php if ($model->status === 'closed'): ?>
+                                    <span class="text-warning flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                            class="w-4 h-4">
+                                            <path fill-rule="evenodd"
+                                                d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                        Responder reabrirá este ticket
+                                    </span>
+                                <?php else: ?>
+                                    <?= (Yii::$app->user->identity->isAdmin) ? 'Responder al cliente' : 'Agregar respuesta' ?>
+                                <?php endif; ?>
+                            </span>
                         </label>
-                        <label class="label pb-0 justify-center md:justify-start">
-                            <span class="label-text-alt text-base-content/50">Max: 10MB</span>
-                        </label>
+
+                        <?= Html::textarea('TicketReplies[message]', '', [
+                            'class' => 'textarea textarea-bordered h-24 w-full focus:textarea-primary text-base',
+                            'placeholder' => 'Escribe tu respuesta aquí...',
+                            'id' => 'ticket-message-editor',
+                        ]) ?>
                     </div>
 
-                    <div class="w-full md:w-auto text-right">
-                        <button type="submit" class="btn btn-primary gap-2 text-white px-8 shadow-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-5 h-5">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                            </svg>
-                            Enviar Respuesta
-                        </button>
-                    </div>
-                </div>
+                    <div class="flex flex-col md:flex-row justify-between items-start mt-4 gap-4">
 
-                <?php ActiveForm::end(); ?>
+                        <div class="form-control w-full md:w-auto">
+                            <label class="btn btn-outline btn-primary gap-2 w-full md:w-auto cursor-pointer">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                    stroke="currentColor" class="w-5 h-5">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                                </svg>
+                                <span id="reply-file-btn-text">Adjuntar archivos</span>
+
+                                <?= Html::fileInput('TicketReplies[attachmentFiles][]', null, [
+                                    'class' => 'hidden',
+                                    'id' => 'reply-attachment-input',
+                                    'multiple' => true,
+                                    'onchange' => "handleReplyFilesSelected(this)"
+                                ]) ?>
+                            </label>
+                            <label class="label pb-0 justify-center md:justify-start">
+                                <span class="label-text-alt text-base-content/60">Máx: 50MB por archivo • Múltiples
+                                    permitidos</span>
+                            </label>
+
+                            <!-- Previsualización de archivos seleccionados -->
+                            <div id="reply-files-preview-container" class="hidden mt-2 flex flex-col gap-1 max-w-md">
+                                <div
+                                    class="flex items-center justify-between text-xs font-semibold text-base-content/70 mb-1">
+                                    <span id="reply-files-count">0 archivos seleccionados</span>
+                                    <button type="button" onclick="clearReplyFiles()"
+                                        class="text-error hover:underline text-xs flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                            stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        Quitar
+                                    </button>
+                                </div>
+                                <div id="reply-files-chips" class="flex flex-wrap gap-1.5"></div>
+                            </div>
+                        </div>
+
+                        <div class="w-full md:w-auto text-right">
+                            <button type="submit" class="btn btn-primary gap-2 text-white px-8 shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                    stroke="currentColor" class="w-5 h-5">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                                </svg>
+                                Enviar Respuesta
+                            </button>
+                        </div>
+                    </div>
+
+                    <?php ActiveForm::end(); ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -502,10 +613,15 @@ $this->registerJs($js, \yii\web\View::POS_END);
         <?php elseif ($isAdmin): ?>
             <div class="card bg-base-100 shadow-xl border border-base-200">
                 <div class="card-body p-5">
-                    <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Acciones de Bloqueo</h3>
+                    <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Acciones de Bloqueo
+                    </h3>
                     <?php if ($model->isLocked()): ?>
                         <div class="badge badge-warning gap-1 mb-3 p-3 font-semibold text-xs w-full justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                            </svg>
                             Respuestas bloqueadas para cliente
                         </div>
                         <?= Html::a(
@@ -534,11 +650,14 @@ $this->registerJs($js, \yii\web\View::POS_END);
             <div class="card bg-base-100 shadow-xl border border-base-200 mb-4">
                 <div class="card-body p-5">
                     <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Administración</h3>
-                    
+
                     <?php if (!$model->merged_into_id): ?>
-                        <button type="button" onclick="document.getElementById('single_merge_modal').showModal()" class="btn btn-outline btn-secondary btn-block gap-2 mb-2 shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
+                        <button type="button" onclick="document.getElementById('single_merge_modal').showModal()"
+                            class="btn btn-outline btn-secondary btn-block gap-2 mb-2 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
                             </svg>
                             Fusionar Ticket
                         </button>
@@ -561,9 +680,14 @@ $this->registerJs($js, \yii\web\View::POS_END);
             <?php if ($isSenderBlacklisted): ?>
                 <div class="card bg-base-100 shadow-xl border border-base-200 border-l-4 border-warning mb-4">
                     <div class="card-body p-5">
-                        <h3 class="card-title text-xs uppercase text-warning font-bold tracking-wider mb-2">Restricción de SPAM</h3>
+                        <h3 class="card-title text-xs uppercase text-warning font-bold tracking-wider mb-2">Restricción de SPAM
+                        </h3>
                         <div class="alert alert-warning text-xs p-3 rounded-lg mb-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
                             <span>Este remitente está en la lista negra.</span>
                         </div>
                         <?= Html::a(
@@ -591,8 +715,13 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     <h3 class="card-title text-xs uppercase text-error font-bold tracking-wider mb-2">Zona de Peligro</h3>
                     <div class="flex flex-col gap-2">
                         <?php if (!$isSenderBlacklisted && !empty($model->email)): ?>
-                            <button type="button" onclick="document.getElementById('block_sender_modal').showModal()" class="btn btn-outline btn-error btn-sm justify-start w-full gap-2 font-bold">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                            <button type="button" onclick="document.getElementById('block_sender_modal').showModal()"
+                                class="btn btn-outline btn-error btn-sm justify-start w-full gap-2 font-bold">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                    stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                </svg>
                                 Bloquear Remitente (SPAM)
                             </button>
                         <?php endif; ?>
@@ -613,13 +742,14 @@ $this->registerJs($js, \yii\web\View::POS_END);
             </div>
         <?php endif; ?>
 
-        <?php 
-        $relatedWorkOrders = $model->workOrders; 
-        if (!empty($relatedWorkOrders)): 
-        ?>
+        <?php
+        $relatedWorkOrders = $model->workOrders;
+        if (!empty($relatedWorkOrders)):
+            ?>
             <div class="card bg-base-100 shadow-xl border border-base-200 mb-4">
                 <div class="card-body p-5">
-                    <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Órdenes de Trabajo</h3>
+                    <h3 class="card-title text-xs uppercase font-bold tracking-wider mb-2 opacity-50">Órdenes de Trabajo
+                    </h3>
                     <div class="flex flex-col gap-2">
                         <?php foreach ($relatedWorkOrders as $wo): ?>
                             <div class="flex justify-between items-center bg-base-200/50 p-2 rounded-lg border border-base-300">
@@ -629,7 +759,8 @@ $this->registerJs($js, \yii\web\View::POS_END);
                                         ['work-orders/view', 'id' => $wo->id],
                                         ['class' => 'font-bold link link-primary text-sm']
                                     ) ?>
-                                    <span class="block text-xs opacity-65 truncate" title="<?= Html::encode($wo->title) ?>"><?= Html::encode($wo->title) ?></span>
+                                    <span class="block text-xs opacity-65 truncate"
+                                        title="<?= Html::encode($wo->title) ?>"><?= Html::encode($wo->title) ?></span>
                                 </div>
                                 <div class="shrink-0">
                                     <?= $wo->getStatusHtml() ?>
@@ -694,7 +825,8 @@ $this->registerJs($js, \yii\web\View::POS_END);
                                     <td class="text-right pr-0 pt-3">
                                         <div class="flex flex-col gap-1 items-end">
                                             <?php foreach (array_map('trim', explode(',', $model->cc_emails)) as $ccEmail): ?>
-                                                <span class="badge badge-sm badge-neutral font-semibold select-all"><?= Html::encode($ccEmail) ?></span>
+                                                <span
+                                                    class="badge badge-sm badge-neutral font-semibold select-all"><?= Html::encode($ccEmail) ?></span>
                                             <?php endforeach; ?>
                                         </div>
                                     </td>
@@ -712,218 +844,233 @@ $this->registerJs($js, \yii\web\View::POS_END);
 </div>
 
 <?php if ($isAdmin && !$isSenderBlacklisted && !empty($model->email)): ?>
-<dialog id="block_sender_modal" class="modal">
-    <div class="modal-box max-w-md">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-full bg-error/20 flex items-center justify-center text-error shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+    <dialog id="block_sender_modal" class="modal">
+        <div class="modal-box max-w-md">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-error/20 flex items-center justify-center text-error shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                        stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-base-content">Bloquear Remitente</h3>
+                    <p class="text-xs text-base-content/60">Restringir creación y respuestas de tickets</p>
+                </div>
             </div>
-            <div>
-                <h3 class="font-bold text-lg text-base-content">Bloquear Remitente</h3>
-                <p class="text-xs text-base-content/60">Restringir creación y respuestas de tickets</p>
-            </div>
-        </div>
 
-        <p class="text-sm text-base-content/80 mb-4">
-            ¿Confirmas que deseas agregar a <span class="font-bold text-error select-all"><?= Html::encode($model->email) ?></span> a la lista negra de SPAM?
-        </p>
+            <p class="text-sm text-base-content/80 mb-4">
+                ¿Confirmas que deseas agregar a <span
+                    class="font-bold text-error select-all"><?= Html::encode($model->email) ?></span> a la lista negra de
+                SPAM?
+            </p>
 
-        <?php $blockForm = ActiveForm::begin([
-            'action' => ['block-sender', 'id' => $model->id],
-            'method' => 'post',
-            'options' => ['class' => 'space-y-4']
-        ]); ?>
+            <?php $blockForm = ActiveForm::begin([
+                'action' => ['block-sender', 'id' => $model->id],
+                'method' => 'post',
+                'options' => ['class' => 'space-y-4']
+            ]); ?>
 
-        <div class="form-control">
-            <label class="label pb-1">
-                <span class="label-text text-xs font-semibold">Motivo del Bloqueo (Opcional):</span>
-            </label>
-            <?= Html::textInput('reason', 'Bloqueado desde ticket #' . $model->ticket_code, [
-                'class' => 'input input-bordered input-sm w-full focus:input-error text-sm',
-                'placeholder' => 'Ej: Spam recurrente, solicitudes indebidas, etc.'
-            ]) ?>
-        </div>
-
-        <div class="form-control mt-2">
-            <label class="label cursor-pointer justify-start gap-3 py-1">
-                <?= Html::checkbox('lock_ticket', true, [
-                    'class' => 'checkbox checkbox-error checkbox-sm'
-                ]) ?>
-                <span class="label-text text-xs">Cerrar y bloquear respuestas de este ticket</span>
-            </label>
-        </div>
-
-        <?php 
-        $hasLinkedUser = !empty($model->email) && \app\models\User::find()->where(['email' => $model->email])->exists();
-        if ($hasLinkedUser): 
-        ?>
             <div class="form-control">
+                <label class="label pb-1">
+                    <span class="label-text text-xs font-semibold">Motivo del Bloqueo (Opcional):</span>
+                </label>
+                <?= Html::textInput('reason', 'Bloqueado desde ticket #' . $model->ticket_code, [
+                    'class' => 'input input-bordered input-sm w-full focus:input-error text-sm',
+                    'placeholder' => 'Ej: Spam recurrente, solicitudes indebidas, etc.'
+                ]) ?>
+            </div>
+
+            <div class="form-control mt-2">
                 <label class="label cursor-pointer justify-start gap-3 py-1">
-                    <?= Html::checkbox('deactivate_user', false, [
+                    <?= Html::checkbox('lock_ticket', true, [
                         'class' => 'checkbox checkbox-error checkbox-sm'
                     ]) ?>
-                    <span class="label-text text-xs">Desactivar también la cuenta de usuario vinculada</span>
+                    <span class="label-text text-xs">Cerrar y bloquear respuestas de este ticket</span>
                 </label>
             </div>
-        <?php endif; ?>
 
-        <div class="modal-action mt-6">
-            <button type="button" onclick="document.getElementById('block_sender_modal').close()" class="btn btn-ghost btn-sm">Cancelar</button>
-            <button type="submit" class="btn btn-error btn-sm gap-1 shadow-md">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                Confirmar Bloqueo
-            </button>
+            <?php
+            $hasLinkedUser = !empty($model->email) && \app\models\User::find()->where(['email' => $model->email])->exists();
+            if ($hasLinkedUser):
+                ?>
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3 py-1">
+                        <?= Html::checkbox('deactivate_user', false, [
+                            'class' => 'checkbox checkbox-error checkbox-sm'
+                        ]) ?>
+                        <span class="label-text text-xs">Desactivar también la cuenta de usuario vinculada</span>
+                    </label>
+                </div>
+            <?php endif; ?>
+
+            <div class="modal-action mt-6">
+                <button type="button" onclick="document.getElementById('block_sender_modal').close()"
+                    class="btn btn-ghost btn-sm">Cancelar</button>
+                <button type="submit" class="btn btn-error btn-sm gap-1 shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                        stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    Confirmar Bloqueo
+                </button>
+            </div>
+
+            <?php ActiveForm::end(); ?>
         </div>
-
-        <?php ActiveForm::end(); ?>
-    </div>
-</dialog>
+    </dialog>
 <?php endif; ?>
 
 <?php if ($isAdmin && !$model->merged_into_id): ?>
-<?php
-// Candidatos a ticket destino: del mismo cliente (o del mismo remitente si el
+    <?php
+    // Candidatos a ticket destino: del mismo cliente (o del mismo remitente si el
 // ticket no está asociado a un cliente), sin fusionar y distintos de este.
-$mergeQuery = \app\models\Tickets::find()
-    ->where(['merged_into_id' => null])
-    ->andWhere(['<>', 'id', $model->id]);
+    $mergeQuery = \app\models\Tickets::find()
+        ->where(['merged_into_id' => null])
+        ->andWhere(['<>', 'id', $model->id]);
 
-if (!empty($model->customer_id)) {
-    $mergeQuery->andWhere(['customer_id' => $model->customer_id]);
-} elseif (!empty($model->email)) {
-    $mergeQuery->andWhere(['email' => $model->email]);
-}
+    if (!empty($model->customer_id)) {
+        $mergeQuery->andWhere(['customer_id' => $model->customer_id]);
+    } elseif (!empty($model->email)) {
+        $mergeQuery->andWhere(['email' => $model->email]);
+    }
 
-$mergeCandidates = $mergeQuery->orderBy(['updated_at' => SORT_DESC])->limit(50)->all();
-?>
-<dialog id="single_merge_modal" class="modal">
-    <div class="modal-box max-w-lg">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Cerrar">✕</button>
-        </form>
+    $mergeCandidates = $mergeQuery->orderBy(['updated_at' => SORT_DESC])->limit(50)->all();
+    ?>
+    <dialog id="single_merge_modal" class="modal">
+        <div class="modal-box max-w-lg">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Cerrar">✕</button>
+            </form>
 
-        <h3 class="font-bold text-lg text-secondary flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
-            </svg>
-            Fusionar Ticket
-        </h3>
+            <h3 class="font-bold text-lg text-secondary flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                    stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
+                </svg>
+                Fusionar Ticket
+            </h3>
 
-        <p class="py-2 text-sm text-base-content/70">
-            Este ticket <span class="font-bold text-base-content">#<?= Html::encode($model->ticket_code) ?></span>
-            se unificará dentro del ticket destino que elijas. Sus mensajes y adjuntos se
-            consolidarán allí y este quedará cerrado.
-        </p>
+            <p class="py-2 text-sm text-base-content/70">
+                Este ticket <span class="font-bold text-base-content">#<?= Html::encode($model->ticket_code) ?></span>
+                se unificará dentro del ticket destino que elijas. Sus mensajes y adjuntos se
+                consolidarán allí y este quedará cerrado.
+            </p>
 
-        <?php if (!empty($mergeCandidates)): ?>
-            <div class="form-control w-full mt-3">
-                <label class="label pb-1" for="single-merge-target-select">
-                    <span class="label-text font-bold text-sm">Ticket destino:</span>
+            <?php if (!empty($mergeCandidates)): ?>
+                <div class="form-control w-full mt-3">
+                    <label class="label pb-1" for="single-merge-target-select">
+                        <span class="label-text font-bold text-sm">Ticket destino:</span>
+                    </label>
+                    <select id="single-merge-target-select" class="select select-bordered w-full">
+                        <?php foreach ($mergeCandidates as $candidate): ?>
+                            <option value="<?= (int) $candidate->id ?>">
+                                <?= Html::encode($candidate->ticket_code . ' — ' . $candidate->subject) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="divider text-xs opacity-50 my-3">o</div>
+            <?php endif; ?>
+
+            <div class="form-control w-full">
+                <label class="label pb-1" for="single-merge-target-code">
+                    <span class="label-text font-bold text-sm">
+                        <?= empty($mergeCandidates) ? 'Código del ticket destino:' : 'Indicar otro código de ticket:' ?>
+                    </span>
                 </label>
-                <select id="single-merge-target-select" class="select select-bordered w-full">
-                    <?php foreach ($mergeCandidates as $candidate): ?>
-                        <option value="<?= (int) $candidate->id ?>">
-                            <?= Html::encode($candidate->ticket_code . ' — ' . $candidate->subject) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <input type="text" id="single-merge-target-code" class="input input-bordered w-full"
+                    placeholder="Ej: TKT-12345" aria-label="Código del ticket destino">
+                <label class="label pt-1">
+                    <span class="label-text-alt text-xs text-base-content/60">
+                        Si escribes un código aquí, se usará en lugar de la selección de arriba.
+                    </span>
+                </label>
             </div>
 
-            <div class="divider text-xs opacity-50 my-3">o</div>
-        <?php endif; ?>
+            <p id="single-merge-error" class="text-sm text-error mt-3 hidden" role="alert"></p>
 
-        <div class="form-control w-full">
-            <label class="label pb-1" for="single-merge-target-code">
-                <span class="label-text font-bold text-sm">
-                    <?= empty($mergeCandidates) ? 'Código del ticket destino:' : 'Indicar otro código de ticket:' ?>
-                </span>
-            </label>
-            <input type="text" id="single-merge-target-code"
-                   class="input input-bordered w-full"
-                   placeholder="Ej: TKT-12345"
-                   aria-label="Código del ticket destino">
-            <label class="label pt-1">
-                <span class="label-text-alt text-xs text-base-content/60">
-                    Si escribes un código aquí, se usará en lugar de la selección de arriba.
-                </span>
-            </label>
+            <div class="modal-action mt-6">
+                <button type="button" class="btn btn-ghost btn-sm"
+                    onclick="document.getElementById('single_merge_modal').close()">Cancelar</button>
+                <button type="button" id="single-merge-submit" class="btn btn-secondary btn-sm gap-2 shadow-md"
+                    onclick="submitSingleMerge()">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
+                    </svg>
+                    Confirmar Fusión
+                </button>
+            </div>
         </div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
 
-        <p id="single-merge-error" class="text-sm text-error mt-3 hidden" role="alert"></p>
+    <script>
+        function submitSingleMerge() {
+            const codeInput = document.getElementById('single-merge-target-code');
+            const select = document.getElementById('single-merge-target-select');
+            const errorBox = document.getElementById('single-merge-error');
+            const submitBtn = document.getElementById('single-merge-submit');
 
-        <div class="modal-action mt-6">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('single_merge_modal').close()">Cancelar</button>
-            <button type="button" id="single-merge-submit" class="btn btn-secondary btn-sm gap-2 shadow-md" onclick="submitSingleMerge()">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m-3-13.5L18 7.5m0 0L13.5 12M18 7.5H4.5" />
-                </svg>
-                Confirmar Fusión
-            </button>
-        </div>
-    </div>
-    <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
-</dialog>
+            const showError = (msg) => {
+                errorBox.textContent = msg;
+                errorBox.classList.remove('hidden');
+            };
+            errorBox.classList.add('hidden');
 
-<script>
-function submitSingleMerge() {
-    const codeInput = document.getElementById('single-merge-target-code');
-    const select    = document.getElementById('single-merge-target-select');
-    const errorBox  = document.getElementById('single-merge-error');
-    const submitBtn = document.getElementById('single-merge-submit');
+            // El código escrito manda sobre la selección; el backend resuelve ambos.
+            const typed = codeInput ? codeInput.value.trim() : '';
+            const target = typed !== '' ? typed : (select ? select.value : '');
 
-    const showError = (msg) => {
-        errorBox.textContent = msg;
-        errorBox.classList.remove('hidden');
-    };
-    errorBox.classList.add('hidden');
+            if (!target) {
+                showError('Elige un ticket destino o escribe su código.');
+                return;
+            }
 
-    // El código escrito manda sobre la selección; el backend resuelve ambos.
-    const typed  = codeInput ? codeInput.value.trim() : '';
-    const target = typed !== '' ? typed : (select ? select.value : '');
+            const formData = new FormData();
+            formData.append('target_id', target);
+            formData.append('source_ids[]', '<?= (int) $model->id ?>');
 
-    if (!target) {
-        showError('Elige un ticket destino o escribe su código.');
-        return;
-    }
+            const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrfParamMeta = document.querySelector('meta[name="csrf-param"]');
+            if (csrfTokenMeta && csrfParamMeta) {
+                formData.append(csrfParamMeta.getAttribute('content'), csrfTokenMeta.getAttribute('content'));
+            }
 
-    const formData = new FormData();
-    formData.append('target_id', target);
-    formData.append('source_ids[]', '<?= (int) $model->id ?>');
+            submitBtn.disabled = true;
+            submitBtn.classList.add('loading');
 
-    const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
-    const csrfParamMeta = document.querySelector('meta[name="csrf-param"]');
-    if (csrfTokenMeta && csrfParamMeta) {
-        formData.append(csrfParamMeta.getAttribute('content'), csrfTokenMeta.getAttribute('content'));
-    }
-
-    submitBtn.disabled = true;
-    submitBtn.classList.add('loading');
-
-    fetch('<?= \yii\helpers\Url::to(['/tickets/merge']) ?>', {
-        method: 'POST',
-        body: formData,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.reload();
-        } else {
-            submitBtn.disabled = false;
-            submitBtn.classList.remove('loading');
-            showError(data.message || 'No se pudo fusionar el ticket.');
+            fetch('<?= \yii\helpers\Url::to(['/tickets/merge']) ?>', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('loading');
+                        showError(data.message || 'No se pudo fusionar el ticket.');
+                    }
+                })
+                .catch(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('loading');
+                    showError('Error de conexión al fusionar.');
+                });
         }
-    })
-    .catch(() => {
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('loading');
-        showError('Error de conexión al fusionar.');
-    });
-}
-</script>
+    </script>
 <?php endif; ?>
 
 <?php
@@ -1035,3 +1182,77 @@ document.addEventListener("DOMContentLoaded", function() {
 JS;
 $this->registerJs($jsPolling, \yii\web\View::POS_END);
 ?>
+
+<script>
+function formatAttachmentSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    else return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function handleReplyFilesSelected(input) {
+    const previewContainer = document.getElementById('reply-files-preview-container');
+    const chipsContainer = document.getElementById('reply-files-chips');
+    const btnText = document.getElementById('reply-file-btn-text');
+    const countText = document.getElementById('reply-files-count');
+
+    if (!previewContainer || !chipsContainer) return;
+    chipsContainer.innerHTML = '';
+    const files = input.files;
+    const maxSizeBytes = 50 * 1024 * 1024; // 50MB
+
+    if (!files || files.length === 0) {
+        if (btnText) btnText.innerText = 'Adjuntar archivos';
+        previewContainer.classList.add('hidden');
+        return;
+    }
+
+    let hasOversized = false;
+    let oversizedNames = [];
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.size > maxSizeBytes) {
+            hasOversized = true;
+            oversizedNames.push('• ' + file.name + ' (' + formatAttachmentSize(file.size) + ')');
+        }
+    }
+
+    if (hasOversized) {
+        alert('El siguiente archivo supera el límite máximo permitido de 50MB:\n\n' + oversizedNames.join('\n') + '\n\nPor favor selecciona archivos de hasta 50MB cada uno.');
+        input.value = '';
+        if (btnText) btnText.innerText = 'Adjuntar archivos';
+        previewContainer.classList.add('hidden');
+        return;
+    }
+
+    if (btnText) btnText.innerText = files.length === 1 ? '1 archivo listo' : files.length + ' archivos listos';
+    if (countText) countText.innerText = files.length === 1 ? '1 archivo seleccionado' : files.length + ' archivos seleccionados';
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const chip = document.createElement('div');
+        chip.className = 'badge badge-sm badge-outline gap-1 py-2 px-2.5 max-w-full text-xs font-normal';
+        chip.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5 text-primary shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></svg>' +
+            '<span class="truncate max-w-[150px]" title="' + file.name + '">' + file.name + '</span>' +
+            '<span class="opacity-60 text-[10px]">(' + formatAttachmentSize(file.size) + ')</span>';
+        chipsContainer.appendChild(chip);
+    }
+
+    previewContainer.classList.remove('hidden');
+}
+
+function clearReplyFiles() {
+    const input = document.getElementById('reply-attachment-input');
+    if (input) input.value = '';
+    const btnText = document.getElementById('reply-file-btn-text');
+    if (btnText) btnText.innerText = 'Adjuntar archivos';
+    const previewContainer = document.getElementById('reply-files-preview-container');
+    if (previewContainer) previewContainer.classList.add('hidden');
+    const chipsContainer = document.getElementById('reply-files-chips');
+    if (chipsContainer) chipsContainer.innerHTML = '';
+}
+
+window.handleReplyFilesSelected = handleReplyFilesSelected;
+window.clearReplyFiles = clearReplyFiles;
+</script>
