@@ -68,6 +68,49 @@ use yii\widgets\ActiveForm;
         </div>
     </div>
 
+    <?php if (!Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin): ?>
+        <?php
+        $usersList = \yii\helpers\ArrayHelper::map(
+            \app\models\User::find()
+                ->select(['id', 'username', 'email', 'role'])
+                ->where(['status' => \app\models\User::STATUS_ACTIVE])
+                ->orderBy(['username' => SORT_ASC])
+                ->all(),
+            'id',
+            function ($user) {
+                $roleLabel = ($user->role == \app\models\User::ROLE_ADMIN) ? ' [Admin]' : (($user->role == \app\models\User::ROLE_SUBACCOUNT) ? ' [Subcuenta]' : ' [Cliente]');
+                return $user->username . ' (' . $user->email . ')' . $roleLabel;
+            }
+        );
+        ?>
+        <div class="card w-full bg-base-100 shadow-xl border border-primary/20 bg-primary/5">
+            <div class="card-body">
+                <h2 class="card-title text-primary border-b border-base-200 pb-2 mb-2">
+                    <i class="fas fa-user-check mr-2"></i> Asignación de Usuario (Cuenta de Acceso)
+                </h2>
+                <p class="text-xs text-base-content/60 mb-3">
+                    Selecciona la cuenta de usuario que administrará y tendrá acceso como titular de este perfil de cliente.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div class="md:col-span-8">
+                        <?= $form->field($model, 'user_id')->dropDownList(
+                            $usersList,
+                            [
+                                'prompt' => '-- Sin usuario vinculado (Opcional) --',
+                                'class' => 'select select-bordered w-full'
+                            ]
+                        )->label('Usuario Designado') ?>
+                    </div>
+                    <div class="md:col-span-4 flex items-end pb-1">
+                        <span class="text-xs text-base-content/50">
+                            <i class="fas fa-info-circle mr-1"></i> Puedes crear el usuario primero en el módulo de Usuarios o asignarlo posteriormente.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="card w-full bg-base-100 shadow-xl border border-base-200">
         <div class="card-body">
             <h2 class="card-title text-primary border-b border-base-200 pb-2 mb-4">

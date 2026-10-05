@@ -351,6 +351,7 @@ $colorClass = $model->getProgressColorClass();
                                 <th>% Cumplido</th>
                                 <th>Fecha Límite</th>
                                 <th>Estado</th>
+                                <th>Evidencias</th>
                                 <?php if ($isAdmin): ?><th>Acciones</th><?php endif; ?>
                             </tr>
                         </thead>
@@ -383,8 +384,45 @@ $colorClass = $model->getProgressColorClass();
                                         echo "<span class='badge {$s[1]}'>{$s[0]}</span>";
                                         ?>
                                     </td>
+                                    <td>
+                                        <?php
+                                        $filesCount = count($task->files);
+                                        $filesData = array_map(function($f) {
+                                            return [
+                                                'id' => $f->id,
+                                                'title' => $f->title,
+                                                'url' => $f->file_url,
+                                                'size' => $f->getFormattedSize(),
+                                                'ext' => $f->getFileExtension(),
+                                                'isDrive' => $f->isDriveFile(),
+                                                'date' => date('d/m/Y H:i', strtotime($f->created_at)),
+                                                'deleteUrl' => \yii\helpers\Url::to(['delete-task-file', 'id' => $f->id]),
+                                            ];
+                                        }, $task->files);
+                                        $jsonFiles = htmlspecialchars(json_encode($filesData), ENT_QUOTES, 'UTF-8');
+                                        $jsonTaskTitle = htmlspecialchars(json_encode($task->title), ENT_QUOTES, 'UTF-8');
+                                        ?>
+                                        <?php if ($filesCount > 0): ?>
+                                            <button type="button" onclick='openTaskFilesModal(<?= $task->id ?>, <?= $jsonTaskTitle ?>, <?= $jsonFiles ?>)' class="btn btn-xs btn-outline btn-info gap-1 font-medium hover:text-white" title="Ver <?= $filesCount ?> archivo(s) de evidencia">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.373L8.557 18.315a1.5 1.5 0 11-2.122-2.122L16.5 6.12" /></svg>
+                                                <?= $filesCount ?> archivo<?= $filesCount > 1 ? 's' : '' ?>
+                                            </button>
+                                        <?php else: ?>
+                                            <?php if ($isAdmin): ?>
+                                                <button type="button" onclick='openTaskFilesModal(<?= $task->id ?>, <?= $jsonTaskTitle ?>, [])' class="btn btn-xs btn-ghost text-base-content/50 hover:text-primary gap-1" title="Subir evidencia a este hito">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                                                    Adjuntar
+                                                </button>
+                                            <?php else: ?>
+                                                <span class="text-xs text-base-content/40 italic">Sin evidencias</span>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                    </td>
                                     <?php if ($isAdmin): ?>
-                                        <td class="flex gap-1">
+                                        <td class="flex items-center gap-1">
+                                            <button type="button" onclick='openSendTaskModal(<?= $task->id ?>, <?= htmlspecialchars(json_encode($task->title), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars(json_encode($model->customer->email ?? ''), ENT_QUOTES, 'UTF-8') ?>)' class="btn btn-ghost btn-xs text-info flex items-center gap-1" title="Enviar notificación de este hito por correo electrónico">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> Correo
+                                            </button>
                                             <button type="button" onclick='openEditTaskModal(<?= $task->id ?>, <?= htmlspecialchars(json_encode($task->title), ENT_QUOTES, 'UTF-8') ?>, <?= $task->weight_percentage ?>, <?= $task->progress_percentage ?>, <?= $task->status ?>, "<?= $task->due_date ?>", <?= htmlspecialchars(json_encode($task->description), ENT_QUOTES, 'UTF-8') ?>)' class="btn btn-ghost btn-xs text-primary">Editar</button>
                                             <?= Html::a('Eliminar', ['delete-task', 'id' => $task->id], [
                                                 'class' => 'btn btn-ghost btn-xs text-error',
@@ -413,11 +451,29 @@ $colorClass = $model->getProgressColorClass();
             </div>
 
             <?php if ($isAdmin): ?>
+                <?php
+                $uploadMaxStr = ini_get('upload_max_filesize') ?: '2M';
+                $val = (int)$uploadMaxStr;
+                $unit = strtolower(substr(trim($uploadMaxStr), -1));
+                if ($unit === 'g') $maxBytesVal = $val * 1024 * 1024 * 1024;
+                elseif ($unit === 'm') $maxBytesVal = $val * 1024 * 1024;
+                elseif ($unit === 'k') $maxBytesVal = $val * 1024;
+                else $maxBytesVal = $val;
+                ?>
                 <div class="bg-base-200/50 p-5 rounded-xl border border-base-200">
-                    <h4 class="font-bold mb-3 text-sm text-primary">Adjuntar documento(s) o anexo(s) al contrato</h4>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
+                        <h4 class="font-bold text-sm text-primary">Adjuntar documento(s) o anexo(s) al contrato</h4>
+                        <span class="text-xs text-base-content/60">
+                            Límite por archivo: <span class="badge badge-sm badge-outline font-semibold"><?= Html::encode($uploadMaxStr) ?></span>
+                        </span>
+                    </div>
                     <?php $formDoc = ActiveForm::begin([
                         'action' => ['upload-document', 'id' => $model->id],
-                        'options' => ['enctype' => 'multipart/form-data', 'id' => 'form-upload-docs'],
+                        'options' => [
+                            'enctype' => 'multipart/form-data', 
+                            'id' => 'form-upload-docs',
+                            'onsubmit' => 'return handleDocFormSubmit(this)'
+                        ],
                     ]); ?>
 
                     <div id="doc-rows-container" class="space-y-3">
@@ -428,7 +484,7 @@ $colorClass = $model->getProgressColorClass();
                             </div>
                             <div class="form-control flex-1">
                                 <label class="label"><span class="label-text font-bold text-xs">Archivo</span></label>
-                                <input type="file" name="docFiles[]" required class="file-input file-input-bordered file-input-sm w-full" />
+                                <input type="file" name="docFiles[]" required onchange="handleDocFileChange(this)" class="file-input file-input-bordered file-input-sm w-full" />
                             </div>
                             <div class="flex items-center gap-1">
                                 <button type="button" onclick="removeDocRow(this)" class="btn btn-square btn-ghost btn-sm text-error hidden remove-doc-btn" title="Eliminar fila">
@@ -442,7 +498,7 @@ $colorClass = $model->getProgressColorClass();
                         <button type="button" onclick="addDocRow()" class="btn btn-outline btn-sm btn-primary">
                             + Agregar otro documento / anexo
                         </button>
-                        <button type="submit" class="btn btn-primary text-white btn-sm px-6 font-bold shadow">
+                        <button type="submit" id="btn-submit-docs" class="btn btn-primary text-white btn-sm px-6 font-bold shadow">
                             Subir Documento(s)
                         </button>
                     </div>
@@ -499,13 +555,19 @@ $colorClass = $model->getProgressColorClass();
     
     <?php $formTask = ActiveForm::begin([
         'action' => ['add-task', 'id' => $model->id],
+        'options' => ['enctype' => 'multipart/form-data'],
     ]); ?>
 
     <?= $formTask->field($newTask, 'title')->textInput(['required' => true, 'class' => 'input input-bordered w-full', 'placeholder' => 'ej: Fase 1 - Entrega de Prototipo']) ?>
     
     <div class="grid grid-cols-2 gap-4 mt-3">
-        <?= $formTask->field($newTask, 'weight_percentage')->textInput(['type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('Peso en Contrato (%)') ?>
-        <?= $formTask->field($newTask, 'progress_percentage')->textInput(['type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('% de Avance Actual') ?>
+        <div>
+            <?= $formTask->field($newTask, 'weight_percentage')->textInput(['type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('Peso en Contrato (%)') ?>
+            <span class="text-[11px] text-base-content/60 block -mt-1 mb-1">Dejar en 0 si es un hito de evidencia o informativo (no altera el avance global).</span>
+        </div>
+        <div>
+            <?= $formTask->field($newTask, 'progress_percentage')->textInput(['type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('% de Avance Actual') ?>
+        </div>
     </div>
 
     <div class="grid grid-cols-2 gap-4 mt-3">
@@ -518,6 +580,30 @@ $colorClass = $model->getProgressColorClass();
     </div>
 
     <?= $formTask->field($newTask, 'description')->textarea(['rows' => 3, 'class' => 'textarea textarea-bordered w-full', 'placeholder' => 'Detalles o entregables esperados de este hito...']) ?>
+
+    <div class="form-control mt-3">
+        <label class="label pb-1">
+            <span class="label-text font-bold text-xs flex items-center gap-1.5 text-base-content">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-primary"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.373L8.557 18.315a1.5 1.5 0 11-2.122-2.122L16.5 6.12" /></svg>
+                Archivos o Evidencias de Respaldo (opcional)
+            </span>
+        </label>
+        <input type="file" name="taskEvidenceFiles[]" multiple class="file-input file-input-bordered file-input-sm w-full" />
+        <span class="text-xs text-base-content/60 mt-1">Puedes adjuntar entregables, informes o capturas (Google Drive / Local).</span>
+    </div>
+
+    <div class="form-control mt-4 p-3 bg-base-200/50 rounded-lg border border-base-200">
+        <label class="label cursor-pointer justify-start gap-3 p-0">
+            <?= $formTask->field($newTask, 'notify_email', ['options' => ['class' => 'm-0']])->checkbox(['id' => 'add-task-notify-email', 'class' => 'checkbox checkbox-primary checkbox-sm'], false)->label(false) ?>
+            <span class="label-text text-sm font-semibold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-primary"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                Notificar al cliente por correo electrónico
+            </span>
+        </label>
+        <span class="text-xs text-base-content/60 mt-1 block pl-7">
+            Se enviará una notificación con el detalle del hito al correo electrónico del cliente.
+        </span>
+    </div>
 
     <div class="modal-action">
         <button type="button" onclick="closeAddTaskModal()" class="btn btn-ghost">Cancelar</button>
@@ -539,13 +625,19 @@ $colorClass = $model->getProgressColorClass();
     <?php $formEditTask = ActiveForm::begin([
         'action' => ['update-task', 'id' => 0],
         'id' => 'form-edit-task',
+        'options' => ['enctype' => 'multipart/form-data'],
     ]); ?>
 
     <?= $formEditTask->field($newTask, 'title')->textInput(['id' => 'edit-task-title', 'required' => true, 'class' => 'input input-bordered w-full']) ?>
     
     <div class="grid grid-cols-2 gap-4 mt-3">
-        <?= $formEditTask->field($newTask, 'weight_percentage')->textInput(['id' => 'edit-task-weight', 'type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('Peso en Contrato (%)') ?>
-        <?= $formEditTask->field($newTask, 'progress_percentage')->textInput(['id' => 'edit-task-progress', 'type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('% de Avance Actual') ?>
+        <div>
+            <?= $formEditTask->field($newTask, 'weight_percentage')->textInput(['id' => 'edit-task-weight', 'type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('Peso en Contrato (%)') ?>
+            <span class="text-[11px] text-base-content/60 block -mt-1 mb-1">Dejar en 0 si es un hito de evidencia o informativo (no altera el avance global).</span>
+        </div>
+        <div>
+            <?= $formEditTask->field($newTask, 'progress_percentage')->textInput(['id' => 'edit-task-progress', 'type' => 'number', 'step' => '0.1', 'class' => 'input input-bordered w-full'])->label('% de Avance Actual') ?>
+        </div>
     </div>
 
     <div class="grid grid-cols-2 gap-4 mt-3">
@@ -559,6 +651,30 @@ $colorClass = $model->getProgressColorClass();
 
     <?= $formEditTask->field($newTask, 'description')->textarea(['id' => 'edit-task-desc', 'rows' => 3, 'class' => 'textarea textarea-bordered w-full']) ?>
 
+    <div class="form-control mt-3">
+        <label class="label pb-1">
+            <span class="label-text font-bold text-xs flex items-center gap-1.5 text-base-content">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-primary"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.373L8.557 18.315a1.5 1.5 0 11-2.122-2.122L16.5 6.12" /></svg>
+                Adjuntar Nuevas Evidencias (opcional)
+            </span>
+        </label>
+        <input type="file" name="taskEvidenceFiles[]" multiple class="file-input file-input-bordered file-input-sm w-full" />
+        <span class="text-xs text-base-content/60 mt-1">Los archivos seleccionados se sumarán a los ya existentes de este hito.</span>
+    </div>
+
+    <div class="form-control mt-4 p-3 bg-base-200/50 rounded-lg border border-base-200">
+        <label class="label cursor-pointer justify-start gap-3 p-0">
+            <?= $formEditTask->field($newTask, 'notify_email', ['options' => ['class' => 'm-0']])->checkbox(['id' => 'edit-task-notify-email', 'class' => 'checkbox checkbox-primary checkbox-sm'], false)->label(false) ?>
+            <span class="label-text text-sm font-semibold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-primary"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                Notificar al cliente por correo electrónico
+            </span>
+        </label>
+        <span class="text-xs text-base-content/60 mt-1 block pl-7">
+            Envía el avance actualizado y estado del hito directamente al correo del cliente.
+        </span>
+    </div>
+
     <div class="modal-action">
         <button type="button" onclick="closeEditTaskModal()" class="btn btn-ghost">Cancelar</button>
         <button type="submit" class="btn btn-primary text-white font-bold">Guardar Cambios</button>
@@ -570,7 +686,108 @@ $colorClass = $model->getProgressColorClass();
     <button type="button" onclick="closeEditTaskModal()">close</button>
   </form>
 </dialog>
+
+<!-- Modal para Enviar Hito por Correo -->
+<dialog id="dialog-send-task-email" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg text-primary flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+      Enviar Hito por Correo Electrónico
+    </h3>
+    <p class="text-xs text-base-content/70 mt-1 mb-4">
+      Hito: <strong id="send-task-title-text" class="text-base-content"></strong>
+    </p>
+
+    <div class="alert alert-info bg-info/10 border border-info/20 text-xs p-3 rounded-lg mb-4 flex items-start gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-info shrink-0 mt-0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div>
+            <span class="font-bold block">Copia de respaldo garantizada:</span>
+            Recibirás automáticamente una <strong>[Copia Admin]</strong> en tu correo para respaldo y reenvío directo si el cliente no lo encuentra.
+        </div>
+    </div>
+
+    <?= Html::beginForm(['send-task-email', 'id' => 0], 'post', ['id' => 'form-send-task-email']) ?>
+        <div class="form-control w-full mb-3">
+            <label class="label pb-1">
+                <span class="label-text font-bold text-xs">Correo Electrónico Destinatario <span class="text-error">*</span></span>
+            </label>
+            <input type="email" name="target_email" id="send-task-target-email" class="input input-bordered input-sm w-full" required>
+            <span class="text-xs text-base-content/60 mt-1">Por defecto es el correo del cliente. Puedes modificarlo o ingresar una dirección alternativa.</span>
+        </div>
+
+        <div class="form-control w-full mb-4">
+            <label class="label pb-1">
+                <span class="label-text font-bold text-xs">Mensaje personalizado (opcional)</span>
+            </label>
+            <textarea name="custom_message" class="textarea textarea-bordered textarea-sm w-full" rows="3" placeholder="Mensaje adicional o aclaración para el cliente..."></textarea>
+        </div>
+
+        <div class="modal-action">
+            <button type="button" onclick="closeSendTaskModal()" class="btn btn-ghost btn-sm">Cancelar</button>
+            <button type="submit" class="btn btn-primary text-white btn-sm font-bold">Enviar Correo</button>
+        </div>
+    <?= Html::endForm() ?>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button type="button" onclick="closeSendTaskModal()">close</button>
+  </form>
+</dialog>
 <?php endif; ?>
+
+<!-- Modal para Ver y Descargar Archivos / Evidencias del Hito (Accesible para Clientes y Admins) -->
+<dialog id="dialog-task-files" class="modal">
+  <div class="modal-box max-w-2xl">
+    <div class="flex items-start justify-between border-b border-base-200 pb-3 mb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-info/10 text-info flex items-center justify-center shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.373L8.557 18.315a1.5 1.5 0 11-2.122-2.122L16.5 6.12" /></svg>
+        </div>
+        <div>
+          <h3 class="font-bold text-lg text-base-content">Archivos y Evidencias del Hito</h3>
+          <p class="text-xs text-base-content/70 mt-0.5">
+            Hito: <span id="task-files-modal-title" class="font-bold text-primary"></span>
+          </p>
+        </div>
+      </div>
+      <button type="button" onclick="closeTaskFilesModal()" class="btn btn-ghost btn-sm btn-circle">✕</button>
+    </div>
+
+    <!-- Lista de Archivos Dinámica -->
+    <div id="task-files-container" class="space-y-3 mb-6 max-h-80 overflow-y-auto pr-1">
+      <!-- Se puebla dinámicamente vía JS -->
+    </div>
+
+    <?php if ($isAdmin): ?>
+    <!-- Sección de Carga Directa para Administradores -->
+    <div class="bg-base-200/50 p-4 rounded-xl border border-base-200 mb-4">
+      <h4 class="font-bold text-xs text-primary mb-2 flex items-center gap-1.5 uppercase tracking-wider">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Cargar Nuevas Evidencias a este Hito
+      </h4>
+      <?= Html::beginForm(['upload-task-file', 'id' => 0], 'post', [
+          'id' => 'form-upload-task-file',
+          'enctype' => 'multipart/form-data',
+          'class' => 'flex flex-col sm:flex-row gap-2 items-center'
+      ]) ?>
+        <input type="file" name="taskEvidenceFiles[]" multiple required class="file-input file-input-bordered file-input-sm w-full flex-1" />
+        <button type="submit" class="btn btn-primary text-white btn-sm font-bold w-full sm:w-auto">
+          Subir Evidencias
+        </button>
+      <?= Html::endForm() ?>
+      <span class="text-[11px] text-base-content/60 mt-1.5 block">
+        Los archivos se guardarán en Google Drive (carpeta del contrato e hito) o almacenamiento local seguro.
+      </span>
+    </div>
+    <?php endif; ?>
+
+    <div class="modal-action mt-2">
+      <button type="button" onclick="closeTaskFilesModal()" class="btn btn-ghost btn-sm">Cerrar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button type="button" onclick="closeTaskFilesModal()">close</button>
+  </form>
+</dialog>
 
 <!-- Script para control limpio de Pestañas (Tabs), Modal y Réplica de Filas de Documentos -->
 <script>
@@ -602,6 +819,10 @@ function switchContractTab(panelId, btnElement) {
 function openAddTaskModal() {
     var dialog = document.getElementById('dialog-add-task');
     if (dialog) {
+        var notifyCb = document.getElementById('add-task-notify-email');
+        if (notifyCb) {
+            notifyCb.checked = true;
+        }
         if (typeof dialog.showModal === 'function') {
             dialog.showModal();
         } else {
@@ -632,6 +853,10 @@ function openEditTaskModal(id, title, weight, progress, status, dueDate, desc) {
         document.getElementById('edit-task-status').value = status || 0;
         document.getElementById('edit-task-date').value = dueDate || '';
         document.getElementById('edit-task-desc').value = desc || '';
+        var editNotifyCb = document.getElementById('edit-task-notify-email');
+        if (editNotifyCb) {
+            editNotifyCb.checked = true;
+        }
         
         if (typeof dialog.showModal === 'function') {
             dialog.showModal();
@@ -652,6 +877,187 @@ function closeEditTaskModal() {
     }
 }
 
+function openSendTaskModal(id, title, email) {
+    var dialog = document.getElementById('dialog-send-task-email');
+    if (dialog) {
+        var baseUrl = '<?= \yii\helpers\Url::to(['send-task-email', 'id' => '__id__']) ?>';
+        document.getElementById('form-send-task-email').action = baseUrl.replace('__id__', id);
+        document.getElementById('send-task-title-text').innerText = title || '';
+        document.getElementById('send-task-target-email').value = email || '';
+        if (typeof dialog.showModal === 'function') {
+            dialog.showModal();
+        } else {
+            dialog.classList.add('modal-open');
+        }
+    }
+}
+
+function closeSendTaskModal() {
+    var dialog = document.getElementById('dialog-send-task-email');
+    if (dialog) {
+        if (typeof dialog.close === 'function') {
+            dialog.close();
+        } else {
+            dialog.classList.remove('modal-open');
+        }
+    }
+}
+
+var currentAdmin = <?= $isAdmin ? 'true' : 'false' ?>;
+
+function openTaskFilesModal(taskId, taskTitle, files) {
+    var dialog = document.getElementById('dialog-task-files');
+    if (!dialog) return;
+
+    var titleEl = document.getElementById('task-files-modal-title');
+    if (titleEl) {
+        titleEl.textContent = taskTitle || 'Hito';
+    }
+
+    var uploadForm = document.getElementById('form-upload-task-file');
+    if (uploadForm) {
+        var baseUploadUrl = '<?= \yii\helpers\Url::to(['upload-task-file', 'id' => '__id__']) ?>';
+        uploadForm.action = baseUploadUrl.replace('__id__', taskId);
+    }
+
+    var container = document.getElementById('task-files-container');
+    if (container) {
+        container.innerHTML = '';
+        if (!files || files.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 bg-base-100 rounded-xl border border-dashed border-base-300">
+                    <svg class="w-10 h-10 mx-auto text-base-content/30 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <p class="text-sm text-base-content/70 font-medium">Aún no hay archivos de evidencia adjuntos a este hito.</p>
+                    <span class="text-xs text-base-content/50">${currentAdmin ? 'Puedes utilizar el formulario de abajo para subir actas, imágenes o informes.' : 'Las evidencias aparecerán aquí una vez que sean registradas por el equipo técnico.'}</span>
+                </div>
+            `;
+        } else {
+            files.forEach(function(file) {
+                var fileCard = document.createElement('div');
+                fileCard.className = 'flex items-center justify-between p-3 bg-base-100 rounded-xl border border-base-200 hover:border-base-300 transition-colors shadow-sm';
+
+                var driveBadge = file.isDrive ? '<span class="badge badge-xs badge-info font-semibold">Google Drive</span>' : '<span class="badge badge-xs badge-ghost">Local</span>';
+                
+                var downloadIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.5V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>`;
+                var externalIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.5V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>`;
+                
+                var actionBtn = `
+                    <a href="${encodeURI(file.url)}" target="_blank" download class="btn btn-sm btn-outline btn-primary gap-1 font-semibold">
+                        ${file.isDrive ? externalIcon : downloadIcon}
+                        <span>${file.isDrive ? 'Abrir' : 'Descargar'}</span>
+                    </a>
+                `;
+
+                var deleteBtn = '';
+                if (currentAdmin && file.deleteUrl) {
+                    deleteBtn = `
+                        <a href="${file.deleteUrl}" data-confirm="¿Está seguro de eliminar este archivo de evidencia?" data-method="post" class="btn btn-sm btn-ghost text-error btn-square" title="Eliminar archivo">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        </a>
+                    `;
+                }
+
+                // File icon based on extension
+                var extBadge = file.ext ? file.ext.toUpperCase() : 'FILE';
+                var iconColor = 'bg-primary/10 text-primary';
+                if (['PDF'].includes(extBadge)) iconColor = 'bg-error/10 text-error';
+                else if (['ZIP', 'RAR', '7Z', 'TAR'].includes(extBadge)) iconColor = 'bg-warning/10 text-warning';
+                else if (['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF'].includes(extBadge)) iconColor = 'bg-success/10 text-success';
+                else if (['DOC', 'DOCX', 'XLS', 'XLSX'].includes(extBadge)) iconColor = 'bg-info/10 text-info';
+
+                fileCard.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden mr-3">
+                        <div class="w-10 h-10 rounded-lg ${iconColor} flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                            ${extBadge.slice(0, 4)}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm text-base-content truncate" title="${file.title}">
+                                ${file.title}
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-base-content/60 mt-0.5">
+                                <span>${file.size}</span>
+                                <span>•</span>
+                                <span>${file.date}</span>
+                                <span>•</span>
+                                ${driveBadge}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        ${actionBtn}
+                        ${deleteBtn}
+                    </div>
+                `;
+                container.appendChild(fileCard);
+            });
+        }
+    }
+
+    if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+    } else {
+        dialog.classList.add('modal-open');
+    }
+}
+
+function closeTaskFilesModal() {
+    var dialog = document.getElementById('dialog-task-files');
+    if (dialog) {
+        if (typeof dialog.close === 'function') {
+            dialog.close();
+        } else {
+            dialog.classList.remove('modal-open');
+        }
+    }
+}
+
+var maxUploadBytes = <?= (int)($maxBytesVal ?? 2097152) ?>;
+var maxUploadFormatted = '<?= Html::encode($uploadMaxStr ?? '2M') ?>';
+
+function handleDocFileChange(input) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+
+    // Validar tamaño máximo permitido
+    if (maxUploadBytes > 0 && file.size > maxUploadBytes) {
+        var fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        alert('El archivo "' + file.name + '" (' + fileSizeMB + ' MB) supera el límite máximo permitido por el servidor (' + maxUploadFormatted + '). Por favor comprímalo o suba un archivo de menor peso.');
+        input.value = '';
+        return;
+    }
+
+    // Autocompletar el título del documento si está vacío
+    var row = input.closest('.doc-row');
+    if (row) {
+        var titleInput = row.querySelector('input[type="text"]');
+        if (titleInput && !titleInput.value.trim()) {
+            var cleanName = file.name.replace(/\.[^/.]+$/, "");
+            titleInput.value = cleanName;
+        }
+    }
+}
+
+function handleDocFormSubmit(form) {
+    var fileInputs = form.querySelectorAll('input[type="file"]');
+    for (var i = 0; i < fileInputs.length; i++) {
+        var input = fileInputs[i];
+        if (input.files && input.files[0]) {
+            var file = input.files[0];
+            if (maxUploadBytes > 0 && file.size > maxUploadBytes) {
+                alert('El archivo "' + file.name + '" excede el límite máximo permitido de ' + maxUploadFormatted + '.');
+                return false;
+            }
+        }
+    }
+
+    var submitBtn = document.getElementById('btn-submit-docs');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loading loading-spinner loading-xs mr-2"></span>Subiendo...';
+    }
+    return true;
+}
+
 function addDocRow() {
     var container = document.getElementById('doc-rows-container');
     if (!container) return;
@@ -666,7 +1072,10 @@ function addDocRow() {
     var textInput = newRow.querySelector('input[type="text"]');
     var fileInput = newRow.querySelector('input[type="file"]');
     if (textInput) textInput.value = '';
-    if (fileInput) fileInput.value = '';
+    if (fileInput) {
+        fileInput.value = '';
+        fileInput.onchange = function() { handleDocFileChange(this); };
+    }
 
     container.appendChild(newRow);
     updateRemoveDocButtons();

@@ -36,7 +36,18 @@ $hasRegisteredUser = isset($isUserRegistered) ? $isUserRegistered : (!empty($mod
         </div>
     <?php endif; ?>
 
-    <div style='background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 14px 18px; border-radius: 6px; margin: 20px 0; font-size: 13px;'>
-        <strong>Importante:</strong> Esta orden tendrá una vigencia de cinco (5) días, transcurrido el plazo se eliminará y no hay manera de restaurarla. Si se requiere la misma orden, debe generarse una nueva.
-    </div>
+    <?php if ($model->has_service_contract): ?>
+        <div style="background-color: #f0fdf4; border: 1px solid #86efac; color: #166534; padding: 14px 18px; border-radius: 6px; margin: 20px 0; font-size: 13px;">
+            <strong>Contrato de Servicio:</strong> Esta orden de trabajo está vinculada a un contrato de servicios activo y no está sujeta a fecha límite de vencimiento.
+        </div>
+    <?php else: ?>
+        <?php
+        $days = $model->getExpirationDays();
+        $expDateStr = $model->getExpirationDate('long');
+        ?>
+        <div style="background-color: #fef2f2; border: 1px solid #f87171; color: #991b1b; padding: 14px 18px; border-radius: 6px; margin: 20px 0; font-size: 13px; line-height: 1.5;">
+            <strong>⏳ Recordatorio de Vigencia:</strong> Esta propuesta tiene una vigencia de <strong><?= $days ?> días calendario</strong><?= !empty($expDateStr) ? ' (válida hasta el <strong>' . Html::encode($expDateStr) . '</strong>)' : '' ?>. 
+            Transcurrido dicho plazo sin recibir aprobación, la orden expirará automáticamente. Si requieres reactivarla con posterioridad, deberás solicitar una nueva cotización.
+        </div>
+    <?php endif; ?>
 </div>

@@ -60,6 +60,9 @@ class Tickets extends \yii\db\ActiveRecord
     // Propiedad virtual para capturar los delegados mencionados
     public $mentioned_delegates = [];
 
+    // Propiedad virtual para capturar el usuario asignado al crear el ticket
+    public $user_id;
+
     /**
      * {@inheritdoc}
      */
@@ -119,8 +122,8 @@ class Tickets extends \yii\db\ActiveRecord
             [['is_locked'], 'boolean'],
             [['priority'], 'default', 'value' => 'medium'],
             [['source'], 'default', 'value' => 'web'],
-            [['customer_id'], 'integer'],
-            [['mentioned_delegates'], 'safe'],
+            [['customer_id', 'user_id'], 'integer'],
+            [['mentioned_delegates', 'user_id'], 'safe'],
             
             // ELIMINÉ 'subject' DE REQUIRED PORQUE EL EMAIL ES CONDICIONAL
             // Y SI ES UN CLIENTE REGISTRADO, EL EMAIL YA LO TIENES EN LA RELACIÓN.
@@ -206,6 +209,7 @@ class Tickets extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'customer_id' => 'Cliente',
+            'user_id' => 'Usuario / Solicitante',
             'email' => 'Email',
             'subject' => 'Asunto',
             'status' => 'Estado',
@@ -608,6 +612,16 @@ class Tickets extends \yii\db\ActiveRecord
                 ) : $this->email;
             }
         }
+    }
+
+    /**
+     * Obtiene el usuario titular o delegado asignado/creador del ticket (a partir del primer mensaje registrado).
+     * @return User|null
+     */
+    public function getCreatorUser()
+    {
+        $firstReply = $this->getTicketReplies()->orderBy(['id' => SORT_ASC])->one();
+        return $firstReply ? $firstReply->user : null;
     }
 
     public static function getDepartmentList()

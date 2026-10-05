@@ -113,6 +113,29 @@ class WorkOrders extends \yii\db\ActiveRecord
                 $this->code = 'OT'.(($this->is_request == 1) ? 'R' : '').'-' . date('Y') . '-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
             }
 
+            // Asignar proyecto predeterminado si es un nuevo registro y no se ha especificado
+            if ($this->isNewRecord && empty($this->project_id) && !empty($this->customer_id)) {
+                $defProj = Projects::findOne(['customer_id' => $this->customer_id, 'is_default' => 1])
+                        ?: Projects::findOne(['customer_id' => $this->customer_id]);
+                if (!$defProj) {
+                    $cust = Customers::findOne($this->customer_id);
+                    if ($cust) {
+                        $defProj = new Projects();
+                        $defProj->customer_id = $cust->id;
+                        $defProj->name = 'Proyecto Principal - ' . (!empty($cust->trade_name) ? $cust->trade_name : $cust->business_name);
+                        $defProj->business_name = $cust->business_name;
+                        $defProj->document_number = $cust->document_number;
+                        $defProj->address = $cust->address;
+                        $defProj->is_default = 1;
+                        $defProj->status = Projects::STATUS_ACTIVE;
+                        $defProj->save(false);
+                    }
+                }
+                if ($defProj) {
+                    $this->project_id = $defProj->id;
+                }
+            }
+
             // Si se completa la OT, asegurar que el porcentaje sea 100% si no se especificó otro
             if ($this->status == self::STATUS_COMPLETED && $this->progress_percentage < 100) {
                 $this->progress_percentage = 100.00;
@@ -231,27 +254,140 @@ class WorkOrders extends \yii\db\ActiveRecord
     public function request() {
 
         $this->is_request = 1;
-        $this->customer_id = Yii::$app->user->identity->getRealCustomerId();
-        $this->save(false);
+        if (empty($this->customer_id) && Yii::$app->user && !Yii::$app->user->isGuest) {
+            $this->customer_id = Yii::$app->user->identity->getRealCustomerId();
+        }
+
+        if (empty($this->project_id) && !empty($this->customer_id)) {
+            $defProj = Projects::findOne(['customer_id' => $this->customer_id, 'is_default' => 1])
+                    ?: Projects::findOne(['customer_id' => $this->customer_id]);
+            if (!$defProj) {
+                $cust = Customers::findOne($this->customer_id);
+                if ($cust) {
+                    $defProj = new Projects();
+                    $defProj->customer_id = $cust->id;
+                    $defProj->name = 'Proyecto Principal - ' . (!empty($cust->trade_name) ? $cust->trade_name : $cust->business_name);
+                    $defProj->business_name = $cust->business_name;
+                    $defProj->document_number = $cust->document_number;
+                    $defProj->address = $cust->address;
+                    $defProj->is_default = 1;
+                    $defProj->status = Projects::STATUS_ACTIVE;
+                    $defProj->save(false);
+                }
+            }
+            if ($defProj) {
+                $this->project_id = $defProj->id;
+            }
+        }
+
+        if (!$this->save(false)) {
+            return false;
+        }
 
         // Enviar notificacion a admin
-        Yii::$app->mailer->compose([
-            'html' => 'work_order_request-html',
-        ],[
-            'id' => $this->id,
-            'code' => $this->code,
-            'title' => $this->title,
-            'requirements' => $this->requirements,
-            'customer' => $this->customer,
-            'attachment_url' => $this->attachment_url,
-        ])
-        ->setFrom([
-            Yii::$app->params['senderEmail'] => Yii::$app->name
-        ])
-        ->setTo(Yii::$app->params['adminEmail'])
-        ->setSubject("Nueva solicitud de orden de trabajo: " . $this->code)
-        ->send();
+        try {
+            Yii::$app->mailer->compose([
+                'html' => 'work_order_request-html',
+            ],[
+                'id' => $this->id,
+                'code' => $this->code,
+                'title' => $this->title,
+                'requirements' => $this->requirements,
+                'customer' => $this->customer,
+                'attachment_url' => $this->attachment_url,
+            ])
+            ->setFrom([
+                Yii::$app->params['senderEmail'] => Yii::$app->name
+            ])
+            ->setTo(Yii::$app->params['adminEmail'])
+            ->setSubject("Nueva solicitud de orden de trabajo: " . $this->code)
+            ->send();
+        } catch (\Exception $e) {
+            Yii::error("Error enviando email de notificación de solicitud OT: " . $e->getMessage(), __METHOD__);
+        }
 
         return true;
+    }
+
+    /**
+     * Retorna el número de días de vigencia configurados para las órdenes de trabajo.
+     * @return int
+     */
+    public static function getExpirationDaysLimit()
+    {
+        $days = (int)(Yii::$app->params['work_order_expiration_days'] ?? 5);
+        return $days > 0 ? $days : 5;
+    }
+
+    /**
+     * Retorna el número de días de vigencia aplicables a esta orden.
+     * @return int
+     */
+    public function getExpirationDays()
+    {
+        return self::getExpirationDaysLimit();
+    }
+
+    /**
+     * Retorna la fecha exacta de vencimiento si aplica vigencia.
+     * Si la orden tiene contrato de servicios, retorna null (no vence).
+     * @param string|null $format Formato para Yii::$app->formatter->asDate (ej. 'long' o 'php:Y-m-d')
+     * @return string|null
+     */
+    public function getExpirationDate($format = null)
+    {
+        if ($this->has_service_contract) {
+            return null;
+        }
+
+        $baseTimestamp = !empty($this->created_at) ? strtotime($this->created_at) : time();
+        $days = $this->getExpirationDays();
+        $expirationTimestamp = strtotime("+{$days} days", $baseTimestamp);
+
+        if ($format !== null) {
+            return Yii::$app->formatter->asDate($expirationTimestamp, $format);
+        }
+
+        return date('Y-m-d H:i:s', $expirationTimestamp);
+    }
+
+    /**
+     * Determina si la orden de trabajo ha superado su fecha límite de vigencia.
+     * Aplica para órdenes pendientes, sin contrato de servicios y que no son solicitudes borrador.
+     * @return bool
+     */
+    public function isExpired()
+    {
+        if ($this->has_service_contract || $this->status != self::STATUS_PENDING || $this->is_request == 1) {
+            return false;
+        }
+
+        $expirationDate = $this->getExpirationDate();
+        if (!$expirationDate) {
+            return false;
+        }
+
+        return strtotime($expirationDate) < time();
+    }
+
+    /**
+     * Retorna los días restantes antes del vencimiento.
+     * Retorna 0 o un valor negativo si ya expiró.
+     * Retorna null si la orden no tiene vencimiento (ej. tiene contrato de servicio).
+     * @return int|null
+     */
+    public function getDaysRemaining()
+    {
+        if ($this->has_service_contract) {
+            return null;
+        }
+
+        $expirationDate = $this->getExpirationDate();
+        if (!$expirationDate) {
+            return null;
+        }
+
+        $diff = strtotime($expirationDate) - time();
+        return (int)ceil($diff / 86400);
     }
 }

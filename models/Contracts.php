@@ -220,26 +220,30 @@ class Contracts extends ActiveRecord
         }
 
         $tasks = $this->tasks;
+        $hasWeightedTasks = false;
+        $totalWeight = 0;
+        $weightedProgress = 0;
+
         if (!empty($tasks)) {
-            $totalWeight = 0;
-            $weightedProgress = 0;
             foreach ($tasks as $task) {
                 $w = floatval($task->weight_percentage);
                 $p = floatval($task->progress_percentage);
+                // Solo hitos con peso estrictamente mayor a 0 influyen en el avance ponderado.
+                // Hitos con peso 0 (evidencias, informativos o administrativos) no manipulan el avance global.
                 if ($w > 0) {
+                    $hasWeightedTasks = true;
                     $totalWeight += $w;
                     $weightedProgress += ($p * $w) / 100;
-                } else {
-                    $weightedProgress += $p;
-                    $totalWeight += 100;
                 }
             }
+        }
 
-            if ($totalWeight > 0) {
-                $finalProgress = ($weightedProgress / ($totalWeight > 100 ? $totalWeight : 100)) * 100;
-                $this->progress_percentage = min(100, max(0, round($finalProgress, 2)));
-            }
+        if ($hasWeightedTasks && $totalWeight > 0) {
+            $denom = $totalWeight > 100 ? $totalWeight : 100;
+            $finalProgress = ($weightedProgress / $denom) * 100;
+            $this->progress_percentage = min(100, max(0, round($finalProgress, 2)));
         } else {
+            // Si no hay tareas con peso asignado, verificar si hay órdenes de trabajo (OTs) vinculadas
             $workOrders = $this->workOrders;
             if (!empty($workOrders)) {
                 $totalWO = count($workOrders);
@@ -251,18 +255,17 @@ class Contracts extends ActiveRecord
                         // Derivar del estado de la OT si no tiene % explícito
                         if ($wo->status == WorkOrders::STATUS_COMPLETED) {
                             $accumulatedProgress += 100;
-                        } elseif ($wo->status == WorkOrders::STATUS_APPROVED) {
-                            $accumulatedProgress += 50;
-                        } elseif ($wo->status == WorkOrders::STATUS_PARTIAL) {
+                        } elseif ($wo->status == WorkOrders::STATUS_APPROVED || $wo->status == WorkOrders::STATUS_PARTIAL) {
                             $accumulatedProgress += 50;
                         }
                     }
                 }
                 $this->progress_percentage = min(100, max(0, round($accumulatedProgress / $totalWO, 2)));
             }
+            // Si no hay tareas con peso ni órdenes de trabajo, se mantiene intacto el porcentaje actual del contrato
         }
 
-        // Si llega a 100 y estaba activo, sugerir o actualizar a completado si aplica
+        // Guardar el porcentaje actualizado
         $this->save(false, ['progress_percentage', 'updated_at']);
     }
 }

@@ -123,6 +123,188 @@ class GoogleDriveService extends Component
     }
 
     /**
+     * Sube un archivo local existente en el disco del servidor directamente a Google Drive.
+     * @param string $filePath Ruta absoluta en el servidor
+     * @param string $fileName Nombre con el que se guardará en Drive
+     * @param string|null $subfolderName Subcarpeta en Drive (ej: código del contrato)
+     * @return string|null Enlace web de visualización en Drive
+     */
+    public function uploadLocalFile($filePath, $fileName, $subfolderName = null)
+    {
+        if (!file_exists($filePath)) {
+            Yii::error("Local file does not exist: {$filePath}", __METHOD__);
+            return null;
+        }
+
+        if (empty($this->clientId) || empty($this->clientSecret) || empty($this->refreshToken)) {
+            Yii::warning("Google Drive credentials not configured.", __METHOD__);
+            return null;
+        }
+
+        try {
+            $accessToken = $this->getAccessToken();
+            if (!$accessToken) {
+                Yii::error("Failed to obtain Google Access Token.", __METHOD__);
+                return null;
+            }
+
+            $parentFolderId = $this->folderId;
+            if (!empty($subfolderName) && !empty($parentFolderId)) {
+                $cacheKey = $parentFolderId . '_' . $subfolderName;
+                if (isset($this->_folderCache[$cacheKey])) {
+                    $parentFolderId = $this->_folderCache[$cacheKey];
+                } else {
+                    $subFolderId = $this->findFolder($subfolderName, $parentFolderId, $accessToken);
+                    if (!$subFolderId) {
+                        $subFolderId = $this->createFolder($subfolderName, $parentFolderId, $accessToken);
+                    }
+                    if ($subFolderId) {
+                        $this->_folderCache[$cacheKey] = $subFolderId;
+                        $parentFolderId = $subFolderId;
+                    }
+                }
+            }
+
+            $fileSize = filesize($filePath);
+            $mimeType = FileHelper::getMimeType($filePath) ?: 'application/octet-stream';
+
+            // Si el archivo supera 5MB, usar subida resumible
+            if ($fileSize > 5 * 1024 * 1024) {
+                return $this->uploadResumableFromPath($filePath, $fileName, $mimeType, $fileSize, $parentFolderId, $accessToken);
+            }
+
+            $metadata = [
+                'name' => $fileName,
+                'parents' => !empty($parentFolderId) ? [$parentFolderId] : []
+            ];
+
+            $boundary = '-------' . md5(time());
+            $multipartData = "--{$boundary}\r\n" .
+                "Content-Type: application/json; charset=UTF-8\r\n\r\n" .
+                json_encode($metadata) . "\r\n" .
+                "--{$boundary}\r\n" .
+                "Content-Type: {$mimeType}\r\n\r\n" .
+                file_get_contents($filePath) . "\r\n" .
+                "--{$boundary}--";
+
+            $headers = [
+                "Authorization: Bearer {$accessToken}",
+                "Content-Type: multipart/related; boundary={$boundary}",
+                "Content-Length: " . strlen($multipartData)
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $multipartData);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            $result = json_decode($response, true);
+            if ($httpCode >= 200 && $httpCode < 300 && isset($result['id'])) {
+                $fileId = $result['id'];
+                $this->makeFilePublic($fileId, $accessToken);
+                return $result['webViewLink'] ?? "https://drive.google.com/file/d/{$fileId}/view?usp=drivesdk";
+            }
+
+            Yii::error("Google Drive upload API failed (HTTP {$httpCode}): " . $response, __METHOD__);
+        } catch (\Exception $e) {
+            Yii::error("Exception during uploadLocalFile: " . $e->getMessage(), __METHOD__);
+        }
+
+        return null;
+    }
+
+    /**
+     * Sube un archivo desde ruta local usando Resumable Upload
+     */
+    private function uploadResumableFromPath($filePath, $fileName, $mimeType, $fileSize, $parentFolderId, $accessToken)
+    {
+        try {
+            $metadata = [
+                'name' => $fileName,
+                'parents' => !empty($parentFolderId) ? [$parentFolderId] : []
+            ];
+
+            $initHeaders = [
+                "Authorization: Bearer {$accessToken}",
+                "Content-Type: application/json; charset=UTF-8",
+                "X-Upload-Content-Type: {$mimeType}",
+                "X-Upload-Content-Length: {$fileSize}"
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($metadata));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $initHeaders);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HEADER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            curl_close($ch);
+
+            if ($httpCode !== 200) {
+                Yii::error("Failed to initiate resumable upload: " . substr($response, $headerSize), __METHOD__);
+                return null;
+            }
+
+            $headers = substr($response, 0, $headerSize);
+            if (!preg_match('/location:\s*(https?:\/\/[^\r\n]+)/i', $headers, $matches)) {
+                return null;
+            }
+            $uploadSessionUrl = trim($matches[1]);
+
+            $fp = fopen($filePath, 'rb');
+            if (!$fp) return null;
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $uploadSessionUrl);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+            curl_setopt($ch, CURLOPT_INFILE, $fp);
+            curl_setopt($ch, CURLOPT_INFILESIZE, $fileSize);
+            curl_setopt($ch, CURLOPT_UPLOAD, 1);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Content-Type: {$mimeType}",
+                "Content-Length: {$fileSize}"
+            ]);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 300);
+
+            $putResponse = curl_exec($ch);
+            $putHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if (is_resource($fp)) {
+                fclose($fp);
+            }
+
+            $result = json_decode($putResponse, true);
+            if (($putHttpCode === 200 || $putHttpCode === 201) && isset($result['id'])) {
+                $fileId = $result['id'];
+                $this->makeFilePublic($fileId, $accessToken);
+                return $result['webViewLink'] ?? "https://drive.google.com/file/d/{$fileId}/view?usp=drivesdk";
+            }
+        } catch (\Exception $e) {
+            Yii::error("Exception in uploadResumableFromPath: " . $e->getMessage(), __METHOD__);
+        }
+        return null;
+    }
+
+    /**
      * Sube un archivo a Google Drive usando Resumable Upload (para archivos grandes hasta 50MB+)
      */
     private function uploadResumable($file, $parentFolderId, $accessToken)
@@ -378,8 +560,9 @@ class GoogleDriveService extends Component
             FileHelper::createDirectory($uploadsDir, 0777);
         }
 
-        $prefix = ($safeCategory === 'tickets') ? 'tkt_' : 'wo_';
-        $filename = uniqid($prefix, true) . '.' . $file->extension;
+        $prefix = ($safeCategory === 'tickets') ? 'tkt_' : (($safeCategory === 'contracts') ? 'doc_' : 'wo_');
+        $ext = !empty($file->extension) ? '.' . $file->extension : '';
+        $filename = uniqid($prefix, true) . $ext;
         $filepath = $uploadsDir . '/' . $filename;
 
         if ($file->saveAs($filepath)) {
@@ -390,7 +573,7 @@ class GoogleDriveService extends Component
             return Yii::$app->request->hostInfo . $webPath . $filename;
         }
 
-        Yii::error("Failed to save local file upload.");
+        Yii::error("Failed to save local file upload to '{$filepath}'. Dir writable: " . (is_writable($uploadsDir) ? 'yes' : 'no') . ", File error code: " . $file->error);
         return null;
     }
 }

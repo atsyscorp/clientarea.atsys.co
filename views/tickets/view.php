@@ -779,6 +779,36 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 <div class="overflow-x-auto">
                     <table class="table table-sm w-full">
                         <tbody>
+                            <?php if ($isAdmin && $model->customer): ?>
+                                <tr>
+                                    <th class="text-base-content/60 font-normal pl-0">Cliente:</th>
+                                    <td class="text-right pr-0 font-semibold text-sm">
+                                        <?= Html::a(Html::encode($model->customer->business_name), ['customers/view', 'id' => $model->customer_id], [
+                                            'class' => 'link link-hover link-primary'
+                                        ]) ?>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+
+                            <?php 
+                            $creatorUser = $model->getCreatorUser();
+                            if ($creatorUser): 
+                            ?>
+                                <tr>
+                                    <th class="text-base-content/60 font-normal pl-0 pt-2 align-top">Usuario:</th>
+                                    <td class="text-right pr-0 pt-2">
+                                        <div class="text-sm font-semibold flex items-center justify-end gap-1">
+                                            <?= Html::encode($creatorUser->contact_name ?: $creatorUser->username) ?>
+                                            <?php if ($creatorUser->getIsSubAccount()): ?>
+                                                <span class="badge badge-ghost badge-xs">Delegado</span>
+                                            <?php else: ?>
+                                                <span class="badge badge-neutral badge-xs font-bold">Titular</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+
                             <tr>
                                 <th class="text-base-content/60 font-normal pl-0">Prioridad:</th>
                                 <td class="text-right pr-0">

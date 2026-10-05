@@ -342,13 +342,16 @@ class CronController extends Controller
             }
         }
 
-        echo "Terminado. Recordatorios y alertas enviadas: $count\n";
-        Yii::$app->mailer->compose()
-            ->setHtmlBody('Cron completed for send reminders')
-            ->setTo(Yii::$app->params['adminEmail'])
-            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-            ->setSubject("Cron Send Reminders")
-            ->send();
+        // Procesar recordatorios de tareas To-Do
+        try {
+            $todoRemindersCount = \app\models\Todos::processPendingReminders();
+            if ($todoRemindersCount > 0) {
+                echo "Recordatorios de tareas To-Do notificados: $todoRemindersCount\n";
+            }
+        } catch (\Exception $e) {
+            Yii::error("Error procesando recordatorios de To-Do en send-reminders: " . $e->getMessage());
+        }
+
         return ExitCode::OK;
     }
 
@@ -729,5 +732,24 @@ class CronController extends Controller
             }
         }
         return (float) $sizeString;
+    }
+
+    /**
+     * Revisa y despacha los recordatorios pendientes del módulo de To-Do list.
+     * Ejecutar vía cron con la periodicidad deseada (ej. cada 5 minutos o cada hora).
+     */
+    public function actionCheckTodoReminders()
+    {
+        echo "Iniciando revisión de recordatorios de tareas To-Do...\n";
+        try {
+            $processed = \app\models\Todos::processPendingReminders();
+            echo "Recordatorios procesados y notificaciones generadas: $processed\n";
+        } catch (\Exception $e) {
+            echo "Error: " . $e->getMessage() . "\n";
+            Yii::error("Error en actionCheckTodoReminders: " . $e->getMessage());
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        return ExitCode::OK;
     }
 }

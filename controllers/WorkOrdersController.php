@@ -81,6 +81,11 @@ class WorkOrdersController extends Controller
                 throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
             }
         }
+        
+        if ($model->isExpired()) {
+            Yii::$app->session->setFlash('error', 'Esta orden de trabajo ha expirado (superó el límite de vigencia de ' . $model->getExpirationDays() . ' días) y ya no puede ser aprobada. Por favor contáctanos para solicitar una nueva cotización.');
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
 
         if ($model->status == WorkOrders::STATUS_PENDING) {
             $model->status = WorkOrders::STATUS_APPROVED;
@@ -423,11 +428,14 @@ class WorkOrdersController extends Controller
             // 3. Enviar copia al administrador como evidencia (evita que BCC sea filtrado por SMTP)
             try {
                 $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+                if (strcasecmp(trim($adminEmail), 'hola@atsys.co') === 0) {
+                    $adminEmail = 'gerencia@atsys.co';
+                }
                 $adminEmails = !empty($adminEmail)
                     ? array_map('trim', explode(',', $adminEmail))
                     : ['gerencia@atsys.co'];
 
-                $adminEmailsToSend = array_filter($adminEmails, fn($e) => strcasecmp($e, $targetEmail) !== 0);
+                $adminEmailsToSend = array_filter($adminEmails, fn($e) => strcasecmp($e, $targetEmail) !== 0 && strcasecmp(trim($e), 'hola@atsys.co') !== 0);
 
                 if (!empty($adminEmailsToSend)) {
                     $isResend = !empty($customMessage) || !empty($overrideEmail);
@@ -711,51 +719,116 @@ class WorkOrdersController extends Controller
 
     public function actionRequest()
     {
-
         // Solo para clientes
         if (Yii::$app->user->isGuest || Yii::$app->user->identity->isAdmin) {
             throw new \yii\web\ForbiddenHttpException();
         }
 
+        $customer_id = Yii::$app->user->identity->getRealCustomerId();
+        if (!$customer_id) {
+            Yii::$app->session->setFlash('error', 'Tu usuario no tiene un perfil de cliente asociado.');
+            return $this->redirect(['index']);
+        }
+
         $model = new WorkOrders();
+        $model->customer_id = $customer_id;
 
-        if (!Yii::$app->user->identity->isAdmin) {
-            $customer_id = Yii::$app->user->identity->getRealCustomerId();
+        // Obtener proyectos activos del cliente
+        $projects = \app\models\Projects::find()
+            ->where(['customer_id' => $customer_id, 'status' => \app\models\Projects::STATUS_ACTIVE])
+            ->orderBy(['is_default' => SORT_DESC, 'id' => SORT_ASC])
+            ->all();
 
-            if ($customer_id) {
-                $model->customer_id = $customer_id;
-            } else {
-                Yii::$app->session->setFlash('error', 'Tu usuario no tiene un perfil de cliente asociado.');
-                return $this->redirect(['index']);
+        // Si por alguna razón no tiene proyectos creados, asegurar el proyecto por defecto
+        if (empty($projects)) {
+            $customer = \app\models\Customers::findOne($customer_id);
+            if ($customer) {
+                $proj = new \app\models\Projects();
+                $proj->customer_id = $customer->id;
+                $proj->name = 'Proyecto Principal - ' . (!empty($customer->trade_name) ? $customer->trade_name : $customer->business_name);
+                $proj->business_name = $customer->business_name;
+                $proj->document_number = $customer->document_number;
+                $proj->address = $customer->address;
+                $proj->is_default = 1;
+                $proj->status = \app\models\Projects::STATUS_ACTIVE;
+                if ($proj->save(false)) {
+                    $projects = [$proj];
+                }
             }
+        }
+
+        // Preseleccionar proyecto predeterminado
+        if (!$model->project_id && !empty($projects)) {
+            $defaultProj = null;
+            foreach ($projects as $p) {
+                if ($p->is_default) {
+                    $defaultProj = $p;
+                    break;
+                }
+            }
+            $model->project_id = $defaultProj ? $defaultProj->id : $projects[0]->id;
         }
 
         if ($this->request->isPost) {
             if ($model->load($this->request->post())) {
+                $model->customer_id = $customer_id;
+
+                // Validar que project_id pertenezca a este cliente
+                $validProject = null;
+                if (!empty($model->project_id)) {
+                    $validProject = \app\models\Projects::findOne(['id' => $model->project_id, 'customer_id' => $customer_id]);
+                }
+                if (!$validProject && !empty($projects)) {
+                    $model->project_id = $projects[0]->id;
+                }
+
+                // Validar campos básicos requeridos de la solicitud
+                if (!$model->validate(['title', 'requirements', 'project_id'])) {
+                    return $this->render('request', [
+                        'model' => $model,
+                        'projects' => $projects,
+                    ]);
+                }
+
                 $file = \yii\web\UploadedFile::getInstance($model, 'attachmentFile');
                 if ($file) {
-                    $uploadUrl = Yii::$app->googleDrive->upload($file);
-                    if ($uploadUrl) {
-                        $model->attachment_url = $uploadUrl;
+                    $model->attachmentFile = $file;
+                    if ($model->validate(['attachmentFile'])) {
+                        $uploadUrl = Yii::$app->googleDrive->upload($file);
+                        if ($uploadUrl) {
+                            $model->attachment_url = $uploadUrl;
+                        } else {
+                            Yii::$app->session->setFlash('warning', 'La orden se registrará, pero no se pudo cargar el archivo adjunto a la nube.');
+                        }
+                    } else {
+                        return $this->render('request', [
+                            'model' => $model,
+                            'projects' => $projects,
+                        ]);
                     }
                 }
+
                 if ($model->request()) {
                     // Notificación en plataforma para Admins
+                    $customerName = $model->customer ? $model->customer->business_name : 'Cliente #' . $model->customer_id;
                     Notifications::notifyAdmins(
                         "🛠️ Nueva Solicitud de Orden: " . $model->code,
-                        "El cliente " . $model->customer->business_name . " ha solicitado una nueva orden de trabajo: " . $model->title,
+                        "El cliente " . $customerName . " ha solicitado una nueva orden de trabajo: " . $model->title,
                         "/work-orders/view?id=" . $model->id,
                         Notifications::TYPE_INFO
                     );
 
                     Yii::$app->session->setFlash('success', 'Orden solicitada exitosamente, pronto recibirás un correo con el detalle propuesto para que lo revises.');
                     return $this->redirect(['index']);
+                } else {
+                    Yii::$app->session->setFlash('error', 'Ocurrió un error al guardar la solicitud de orden de trabajo.');
                 }
             }
         }
 
         return $this->render('request', [
             'model' => $model,
+            'projects' => $projects,
         ]);
     }
 
@@ -813,9 +886,13 @@ class WorkOrdersController extends Controller
                 if ($update->notify_email) {
                     try {
                         $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+                        if (strcasecmp(trim($adminEmail), 'hola@atsys.co') === 0) {
+                            $adminEmail = 'gerencia@atsys.co';
+                        }
                         $adminEmails = !empty($adminEmail)
                             ? array_map('trim', explode(',', $adminEmail))
                             : ['gerencia@atsys.co'];
+                        $adminEmails = array_values(array_filter($adminEmails, fn($e) => strcasecmp(trim($e), 'hola@atsys.co') !== 0));
 
                         $attachmentHtml = '';
                         if (!empty($update->attachment_url)) {
@@ -1091,12 +1168,14 @@ class WorkOrdersController extends Controller
         }
 
         $user = Yii::$app->user->identity;
-        if (!$user->isAdmin) {
-            $realCustomerId = $user->getRealCustomerId();
-            $workOrder = $this->findModel($id);
-            if (!$realCustomerId || $workOrder->customer_id != $realCustomerId) {
-                throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
-            }
+        if ($user->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('Los administradores no pueden responder a este requerimiento. Este campo es exclusivo para el cliente.');
+        }
+
+        $realCustomerId = $user->getRealCustomerId();
+        $workOrder = $this->findModel($id);
+        if (!$realCustomerId || $workOrder->customer_id != $realCustomerId) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
         }
 
         $updateId = $request->post('update_id');
@@ -1181,6 +1260,66 @@ class WorkOrdersController extends Controller
         }
 
         // 6. Redirigir de vuelta a la vista de la orden
+        return $this->redirect(['view', 'id' => $id]);
+    }
+
+    /**
+     * Permite al administrador eliminar una respuesta registrada por error en un avance.
+     */
+    public function actionDeleteReply($id, $update_id)
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException();
+        }
+
+        if (!Yii::$app->request->isPost) {
+            throw new \yii\web\BadRequestHttpException('Método no permitido.');
+        }
+
+        $update = WorkOrderUpdates::findOne([
+            'id' => $update_id,
+            'work_order_id' => $id,
+        ]);
+
+        if (!$update) {
+            throw new \yii\web\NotFoundHttpException('El registro de avance no existe.');
+        }
+
+        $update->client_reply = null;
+        $update->replied_at = null;
+        $update->replied_by = null;
+        $update->reply_attachment_url = null;
+        $update->save(false);
+
+        Yii::$app->session->setFlash('success', 'La respuesta ha sido eliminada correctamente.');
+        return $this->redirect(['view', 'id' => $id]);
+    }
+
+    /**
+     * Permite al administrador eliminar un avance de la bitácora.
+     */
+    public function actionDeleteUpdate($id, $update_id)
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException();
+        }
+
+        if (!Yii::$app->request->isPost) {
+            throw new \yii\web\BadRequestHttpException('Método no permitido.');
+        }
+
+        $update = WorkOrderUpdates::findOne([
+            'id' => $update_id,
+            'work_order_id' => $id,
+        ]);
+
+        if (!$update) {
+            throw new \yii\web\NotFoundHttpException('El registro de avance no existe.');
+        }
+
+        $update->delete();
+
+        Yii::$app->session->setFlash('success', 'El avance ha sido eliminado de la bitácora.');
         return $this->redirect(['view', 'id' => $id]);
     }
 

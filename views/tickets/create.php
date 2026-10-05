@@ -222,8 +222,22 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     ])->dropDownList($customers ?? [], [ // Usamos $customers enviado desde el controlador
                                 'prompt' => 'Seleccione el cliente...',
                                 'class' => 'select select-bordered w-full focus:select-primary',
+                                'id' => 'select-customer',
                                 'onchange' => 'toggleEmailField(this.value)' // Disparador
                             ])->label('¿A nombre de qué cliente es el ticket?') ?>
+
+                    <div id="user-container" class="form-control mb-3" style="display: none;">
+                        <label class="label-text font-bold mb-1 flex items-center justify-between">
+                            <span>¿A qué usuario se le asigna el ticket?</span>
+                            <span id="user-loading-spinner" class="loading loading-spinner loading-xs text-primary hidden"></span>
+                        </label>
+                        <?= Html::dropDownList('Tickets[user_id]', $model->user_id ?? null, $customerUsers ?? [], [
+                            'id' => 'select-ticket-user',
+                            'class' => 'select select-bordered w-full focus:select-primary',
+                            'prompt' => 'Seleccione el usuario...',
+                        ]) ?>
+                        <div id="user-hint" class="text-xs text-base-content/60 mt-1"></div>
+                    </div>
 
                     <div id="email-container" style="display: none;">
                         <?= $form->field($model, 'email')->textInput([
@@ -339,17 +353,40 @@ $this->registerJs($js, \yii\web\View::POS_END);
 <script>
     function toggleEmailField(val) {
         const emailBlock = document.getElementById('email-container');
+        const userBlock = document.getElementById('user-container');
+        const userSelect = document.getElementById('select-ticket-user');
+        const userHint = document.getElementById('user-hint');
 
-        // Si el valor es 9999, mostramos el campo
+        if (!emailBlock) return;
+
+        // Si es 9999 (Prospecto / No Registrado)
         if (val == '9999') {
             emailBlock.style.display = 'block';
-            // Opcional: Poner el foco en el campo email
-            document.getElementById('tickets-email').focus();
-        } else {
-            emailBlock.style.display = 'none';
+            if (userBlock) userBlock.style.display = 'none';
+            if (userSelect) userSelect.value = '';
+            if (userHint) userHint.innerHTML = '';
+            window.ticketDelegates = [];
+            const emailInput = document.getElementById('tickets-email');
+            if (emailInput) emailInput.focus();
+            return;
         }
-        
-        // Cargar los delegados dinámicamente si es admin
+
+        // Si no hay cliente seleccionado
+        if (!val) {
+            emailBlock.style.display = 'none';
+            if (userBlock) userBlock.style.display = 'none';
+            if (userSelect) {
+                userSelect.innerHTML = '<option value="">Seleccione el usuario...</option>';
+                userSelect.value = '';
+            }
+            if (userHint) userHint.innerHTML = '';
+            window.ticketDelegates = [];
+            return;
+        }
+
+        // Cliente registrado normal
+        emailBlock.style.display = 'none';
+        if (userBlock) userBlock.style.display = 'block';
         loadCustomerDelegates(val);
     }
 
@@ -358,7 +395,13 @@ $this->registerJs($js, \yii\web\View::POS_END);
             window.ticketDelegates = [];
             return;
         }
-        
+
+        const userSelect = document.getElementById('select-ticket-user');
+        const spinner = document.getElementById('user-loading-spinner');
+        const hint = document.getElementById('user-hint');
+
+        if (spinner) spinner.classList.remove('hidden');
+
         fetch('/tickets/get-delegates?customer_id=' + customerId)
             .then(response => response.json())
             .then(data => {
@@ -367,17 +410,87 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 } else {
                     window.ticketDelegates = [];
                 }
+
+                if (userSelect) {
+                    const currentSelectedVal = userSelect.value;
+                    userSelect.innerHTML = '';
+
+                    const users = data.users || data.delegates || [];
+
+                    if (users.length === 0) {
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = '(Sin usuarios registrados - se usarán datos de la empresa)';
+                        userSelect.appendChild(opt);
+                        if (hint) {
+                            hint.innerHTML = '<span class="text-warning text-xs font-semibold">⚠ Este cliente no tiene cuentas de acceso creadas aún. Se usarán los datos de contacto generales.</span>';
+                        }
+                    } else {
+                        const defaultOpt = document.createElement('option');
+                        defaultOpt.value = '';
+                        defaultOpt.textContent = 'Seleccione el usuario...';
+                        userSelect.appendChild(defaultOpt);
+
+                        let ownerId = null;
+                        users.forEach(function (user) {
+                            const opt = document.createElement('option');
+                            opt.value = user.id;
+                            opt.textContent = user.display_label || (user.contact_name ? `${user.contact_name} - ${user.email}` : user.email);
+                            userSelect.appendChild(opt);
+
+                            if (user.is_owner) {
+                                ownerId = user.id;
+                            }
+                        });
+
+                        // Selección automática inteligente:
+                        if (currentSelectedVal && users.some(u => u.id == currentSelectedVal)) {
+                            userSelect.value = currentSelectedVal;
+                        } else if (users.length === 1) {
+                            userSelect.value = users[0].id;
+                        } else if (ownerId) {
+                            userSelect.value = ownerId;
+                        }
+
+                        if (hint) {
+                            hint.innerHTML = `<span class="text-success text-xs font-medium">✓ ${users.length} usuario(s) disponible(s) para este cliente</span>`;
+                        }
+                    }
+                }
             })
             .catch(err => {
                 console.error('Error fetching delegates:', err);
                 window.ticketDelegates = [];
+                if (hint) {
+                    hint.innerHTML = '<span class="text-error text-xs">Error al cargar usuarios del cliente.</span>';
+                }
+            })
+            .finally(() => {
+                if (spinner) spinner.classList.add('hidden');
             });
     }
 
     // Ejecutar al cargar la página (por si falla la validación y recarga, mantener el estado)
     document.addEventListener("DOMContentLoaded", function () {
-        const currentVal = document.getElementById('tickets-customer_id').value;
-        toggleEmailField(currentVal);
+        const custSelect = document.getElementById('select-customer') || document.getElementById('tickets-customer_id');
+        if (custSelect && custSelect.value) {
+            const val = custSelect.value;
+            const emailBlock = document.getElementById('email-container');
+            const userBlock = document.getElementById('user-container');
+            const userSelect = document.getElementById('select-ticket-user');
+
+            if (val == '9999') {
+                if (emailBlock) emailBlock.style.display = 'block';
+                if (userBlock) userBlock.style.display = 'none';
+            } else {
+                if (emailBlock) emailBlock.style.display = 'none';
+                if (userBlock) userBlock.style.display = 'block';
+                // Si el selector no tiene opciones cargadas desde PHP, disparar la carga AJAX
+                if (userSelect && userSelect.options.length <= 1) {
+                    loadCustomerDelegates(val);
+                }
+            }
+        }
     });
 
     function formatCreateFileSize(bytes) {

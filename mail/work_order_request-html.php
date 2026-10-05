@@ -15,6 +15,12 @@ $link = Yii::$app->urlManager->createAbsoluteUrl(['work-orders/view', 'id' => $i
         <?=$requirements?>
     </div>
     
+    <?php if (!empty($attachment_url)): ?>
+        <p style="margin-top: 15px;">
+            <strong>Archivo adjunto:</strong> <a href="<?= Html::encode($attachment_url) ?>" target="_blank"><?= Html::encode($attachment_url) ?></a>
+        </p>
+    <?php endif; ?>
+
     <p style="text-align: center; margin: 30px 0;">
         <a href="<?= $link ?>" style="background-color: #4F46E5; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">
             Ver detalles de la Orden

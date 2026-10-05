@@ -81,6 +81,7 @@ $config = [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
+                'reuniones/solicitar' => 'meetings/request',
                 'signup' => 'site/signup',
                 'login' => 'site/login',
                 'logout' => 'site/logout',

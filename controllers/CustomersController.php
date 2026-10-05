@@ -122,19 +122,30 @@ class CustomersController extends Controller
     public function actionCreate()
     {
         $model = new Customers();
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
-        // ASIGNACIÓN AUTOMÁTICA DEL ID DE USUARIO
-        if (!Yii::$app->user->isGuest) {
+        // Si NO es admin, asignamos automáticamente el usuario logueado
+        if (!$isAdmin && !Yii::$app->user->isGuest) {
             $model->user_id = Yii::$app->user->id;
         }
 
         if ($this->request->isPost) {
-            if(!Yii::$app->user->isGuest && !Yii::$app->user->identity->isAdmin) {
+            if (!$isAdmin) {
                 $model->status = 'active';
             }
-            if ($model->load($this->request->post()) && $model->save()) {
-                Yii::$app->session->setFlash('success', '¡Perfil completado! Bienvenido a ATSYS.');
-                return $this->redirect(['/site/index']); // Ahora sí lo dejamos ir al Dashboard
+            if ($model->load($this->request->post())) {
+                if ($isAdmin) {
+                    $model->user_id = !empty($model->user_id) ? (int)$model->user_id : null;
+                }
+                if ($model->save()) {
+                    if ($isAdmin) {
+                        Yii::$app->session->setFlash('success', 'Cliente creado exitosamente.');
+                        return $this->redirect(['view', 'id' => $model->id]);
+                    } else {
+                        Yii::$app->session->setFlash('success', '¡Perfil completado! Bienvenido a ATSYS.');
+                        return $this->redirect(['/site/index']);
+                    }
+                }
             }
         }
 
@@ -153,9 +164,16 @@ class CustomersController extends Controller
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 
-        if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
-            return $this->redirect(['view', 'id' => $model->id]);
+        if ($this->request->isPost && $model->load($this->request->post())) {
+            if ($isAdmin) {
+                $model->user_id = !empty($model->user_id) ? (int)$model->user_id : null;
+            }
+            if ($model->save()) {
+                Yii::$app->session->setFlash('success', 'Cliente actualizado exitosamente.');
+                return $this->redirect(['view', 'id' => $model->id]);
+            }
         }
 
         return $this->render('update', [

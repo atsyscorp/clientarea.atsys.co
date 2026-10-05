@@ -22,12 +22,23 @@ use yii\db\ActiveRecord;
  *
  * @property Contracts $contract
  * @property WorkOrders|null $workOrder
+ * @property ContractTaskFiles[] $files
  */
 class ContractTasks extends ActiveRecord
 {
     const STATUS_PENDING = 0;
     const STATUS_IN_PROGRESS = 1;
     const STATUS_COMPLETED = 2;
+
+    /**
+     * @var int|bool Indicador si se debe notificar por correo al cliente
+     */
+    public $notify_email = 1;
+
+    /**
+     * @var \yii\web\UploadedFile[] Archivos de evidencia cargados para este hito
+     */
+    public $evidenceFiles;
 
     public static function tableName()
     {
@@ -51,6 +62,7 @@ class ContractTasks extends ActiveRecord
         return [
             [['contract_id', 'title'], 'required'],
             [['contract_id', 'work_order_id', 'status'], 'integer'],
+            [['notify_email', 'evidenceFiles'], 'safe'],
             [['weight_percentage', 'progress_percentage'], 'number'],
             [['description'], 'string'],
             [['due_date', 'created_at'], 'safe'],
@@ -77,6 +89,7 @@ class ContractTasks extends ActiveRecord
             'progress_percentage' => '% de Avance',
             'status' => 'Estado',
             'due_date' => 'Fecha Límite',
+            'notify_email' => 'Notificar por correo electrónico al cliente',
             'created_at' => 'Fecha de Creación',
         ];
     }
@@ -89,6 +102,15 @@ class ContractTasks extends ActiveRecord
     public function getWorkOrder()
     {
         return $this->hasOne(WorkOrders::class, ['id' => 'work_order_id']);
+    }
+
+    /**
+     * Relación con los archivos y evidencias de este hito.
+     * @return \yii\db\ActiveQuery
+     */
+    public function getFiles()
+    {
+        return $this->hasMany(ContractTaskFiles::class, ['task_id' => 'id'])->orderBy(['id' => SORT_DESC]);
     }
 
     public function afterSave($insert, $changedAttributes)

@@ -34,7 +34,7 @@ class TicketsController extends \yii\web\Controller
                     'rules' => [
                         // REGLA 1: Usuarios autenticados pueden ver, crear y cerrar SUS tickets
                         [
-                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk', 'upload-image', 'badge-count', 'get-new-replies'],
+                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk', 'upload-image', 'badge-count', 'get-new-replies', 'get-delegates'],
                             'allow' => true,
                             'roles' => ['@'],
                         ],
@@ -358,29 +358,61 @@ class TicketsController extends \yii\web\Controller
     }
 
     /**
-     * Obtiene los delegados de un cliente específico por AJAX
+     * Obtiene los delegados y usuarios de un cliente específico por AJAX
      */
     public function actionGetDelegates($customer_id)
     {
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+        if (!$isAdmin) {
+            $myCustomerId = Yii::$app->user->identity->realCustomerId;
+            if (!$myCustomerId || (int)$customer_id !== (int)$myCustomerId) {
+                return ['success' => false, 'message' => 'No autorizado', 'delegates' => [], 'users' => []];
+            }
+        }
         
         $customer = \app\models\Customers::findOne($customer_id);
         if (!$customer || !$customer->user_id) {
-            return ['success' => true, 'delegates' => []];
+            return ['success' => true, 'delegates' => [], 'users' => []];
         }
         
-        $delegates = User::find()
-            ->select(['id', 'contact_name', 'username', 'email'])
+        $users = User::find()
+            ->select(['id', 'contact_name', 'username', 'email', 'parent_id', 'role'])
             ->where([
                 'or',
                 ['id' => $customer->user_id],
                 ['parent_id' => $customer->user_id]
             ])
             ->andWhere(['status' => User::STATUS_ACTIVE])
-            ->asArray()
             ->all();
+
+        $delegatesData = [];
+        $usersList = [];
+        foreach ($users as $u) {
+            $isOwner = ($u->id == $customer->user_id);
+            $roleLabel = $isOwner ? 'Titular' : 'Delegado';
+            $displayName = !empty($u->contact_name) ? $u->contact_name : $u->username;
+            $displayLabel = $displayName . ' (' . $roleLabel . ') - ' . $u->email;
+
+            $item = [
+                'id' => $u->id,
+                'contact_name' => $u->contact_name,
+                'username' => $u->username,
+                'email' => $u->email,
+                'is_owner' => $isOwner,
+                'role_label' => $roleLabel,
+                'display_label' => $displayLabel,
+            ];
+            $delegatesData[] = $item;
+            $usersList[] = $item;
+        }
             
-        return ['success' => true, 'delegates' => $delegates];
+        return [
+            'success' => true, 
+            'delegates' => $delegatesData,
+            'users' => $usersList
+        ];
     }
 
     /**
@@ -477,9 +509,37 @@ class TicketsController extends \yii\web\Controller
 
         if ($this->request->isPost && $model->load($this->request->post())) {
 
-            if (Yii::$app->user->identity->isAdmin) {
-                $model->customer_id = $this->request->post('Tickets')['customer_id'];
-                $customer = \app\models\Customers::findOne(['id' => $this->request->post('Tickets')['customer_id']]);
+            $selectedUser = null;
+            $customer = null;
+
+            if ($isAdmin) {
+                $customerId = $this->request->post('Tickets')['customer_id'] ?? null;
+                $model->customer_id = $customerId;
+                $submittedUserId = $this->request->post('Tickets')['user_id'] ?? null;
+
+                if (!empty($customerId) && $customerId != '9999') {
+                    $customer = \app\models\Customers::findOne(['id' => $customerId]);
+                    if ($customer && $customer->user_id) {
+                        if (!empty($submittedUserId)) {
+                            // Validar que el usuario seleccionado pertenezca al cliente (titular o delegado)
+                            $selectedUser = User::find()
+                                ->where(['id' => $submittedUserId, 'status' => User::STATUS_ACTIVE])
+                                ->andWhere([
+                                    'or',
+                                    ['id' => $customer->user_id],
+                                    ['parent_id' => $customer->user_id]
+                                ])
+                                ->one();
+                        }
+                        // Si no seleccionó usuario o no fue válido, usar titular por defecto
+                        if (!$selectedUser) {
+                            $selectedUser = User::findOne(['id' => $customer->user_id, 'status' => User::STATUS_ACTIVE]);
+                        }
+                    }
+                }
+            } else {
+                // Cliente regular: identificación completamente automática
+                $selectedUser = Yii::$app->user->identity;
             }
 
             // 1. Capturamos los archivos desde el modelo Tickets (múltiples o individual)
@@ -495,8 +555,16 @@ class TicketsController extends \yii\web\Controller
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 // 1. Guardar el Ticket (Encabezado)
-                $model->email = ($model->customer_id == '9999') ?
-                    $this->request->post('Tickets')['email'] : (($isAdmin) ? $customer->email : Yii::$app->user->identity->email);
+                if ($model->customer_id == '9999') {
+                    $model->email = $this->request->post('Tickets')['email'] ?? '';
+                } elseif ($selectedUser && !empty($selectedUser->email)) {
+                    $model->email = $selectedUser->email;
+                } elseif ($customer && !empty($customer->email)) {
+                    $model->email = $customer->email;
+                } else {
+                    $model->email = Yii::$app->user->identity->email;
+                }
+
                 if ($model->save()) {
 
                     // 2. Guardar el Mensaje Inicial en TicketReplies
@@ -508,10 +576,12 @@ class TicketsController extends \yii\web\Controller
                     $reply->sender_type = 'customer';
                     $reply->created_at = date('Y-m-d H:i:s');
                     
-                    if ($isAdmin) {
-                        $reply->user_id = ($customer && $customer->user_id) ? $customer->user_id : null;
+                    if ($selectedUser) {
+                        $reply->user_id = $selectedUser->id;
+                    } elseif ($customer && $customer->user_id) {
+                        $reply->user_id = $customer->user_id;
                     } else {
-                        $reply->user_id = Yii::$app->user->id;
+                        $reply->user_id = $isAdmin ? null : Yii::$app->user->id;
                     }
 
                     // Subir los adjuntos del mensaje inicial a Google Drive
@@ -532,7 +602,8 @@ class TicketsController extends \yii\web\Controller
                         // Si ambos se guardan, confirmamos cambios
                         $transaction->commit();
 
-                        $model->sendNewTicketNotifications($model->message, $user, $isAdmin);
+                        $ticketActor = $selectedUser ?: (($customer && $customer->user_id) ? User::findOne($customer->user_id) : $user);
+                        $model->sendNewTicketNotifications($model->message, $ticketActor, $isAdmin);
 
                         Yii::$app->session->setFlash('success', '¡Ticket creado exitosamente! Te hemos enviado un correo de confirmación.');
                         return $this->redirect(['view', 'id' => $model->id]);
@@ -571,6 +642,7 @@ class TicketsController extends \yii\web\Controller
         }
 
         $customers = [];
+        $customerUsers = [];
         if (Yii::$app->user->identity->isAdmin) {
             $customers = \yii\helpers\ArrayHelper::map(
                 \app\models\Customers::find()->orderBy('business_name')->all(),
@@ -578,11 +650,33 @@ class TicketsController extends \yii\web\Controller
                 'business_name'
             );
             $customers[9999] = '★ Cliente No Registrado';
+
+            if (!empty($model->customer_id) && $model->customer_id != 9999) {
+                $cust = \app\models\Customers::findOne($model->customer_id);
+                if ($cust && $cust->user_id) {
+                    $cUsers = User::find()
+                        ->select(['id', 'contact_name', 'username', 'email', 'parent_id', 'role'])
+                        ->where([
+                            'or',
+                            ['id' => $cust->user_id],
+                            ['parent_id' => $cust->user_id]
+                        ])
+                        ->andWhere(['status' => User::STATUS_ACTIVE])
+                        ->all();
+                    foreach ($cUsers as $u) {
+                        $isOwner = ($u->id == $cust->user_id);
+                        $roleLabel = $isOwner ? 'Titular' : 'Delegado';
+                        $displayName = !empty($u->contact_name) ? $u->contact_name : $u->username;
+                        $customerUsers[$u->id] = $displayName . ' (' . $roleLabel . ') - ' . $u->email;
+                    }
+                }
+            }
         }
 
         return $this->render('create', [
             'model' => $model,
             'customers' => $customers,
+            'customerUsers' => $customerUsers,
             'delegates' => $delegates,
         ]);
     }

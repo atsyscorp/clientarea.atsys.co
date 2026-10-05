@@ -21,6 +21,7 @@ $this->title = 'Solicitar Orden de Trabajo';
 
     <?= $this->render('_form-request', [
         'model' => $model,
+        'projects' => $projects ?? [],
     ]) ?>
 
 </div>

@@ -232,6 +232,14 @@ class SystemSettings extends ActiveRecord
                             'Webhook N8N Admin Push',
                             'URL del Webhook de N8N utilizado para enviar notificaciones Push a los dispositivos de los administradores.',
                             'text'
+                        ],
+                        [
+                            'work_orders',
+                            'work_order_expiration_days',
+                            '5',
+                            'Días de Vigencia de Órdenes de Trabajo',
+                            'Número de días calendario de vigencia para una orden de trabajo pendiente antes de expirar por inactividad o falta de aprobación.',
+                            'number'
                         ]
                     ]
                 )->execute();

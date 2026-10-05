@@ -576,9 +576,14 @@ class OrdersController extends Controller
                 <p>Por favor generar la factura y enviarla al cliente.</p>
             ";
 
+            $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+            if (strcasecmp(trim($adminEmail), 'hola@atsys.co') === 0) {
+                $adminEmail = 'gerencia@atsys.co';
+            }
+
             Yii::$app->mailer->compose()
                 ->setFrom([Yii::$app->params['senderEmail'] ?? 'no-reply@atsys.co' => Yii::$app->params['senderName'] ?? 'ATSYS'])
-                ->setTo(Yii::$app->params['adminEmail'] ?? 'hola@atsys.co')
+                ->setTo($adminEmail)
                 ->setSubject("Factura Electrónica Requerida - Orden {$order->code}")
                 ->setHtmlBody($body)
                 ->send();

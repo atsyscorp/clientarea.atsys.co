@@ -291,7 +291,10 @@ class WebhookController extends Controller
      */
     protected function sendNewTicketEmails($ticket, $messageContent, $customerObj)
     {
-        $adminEmail = Yii::$app->params['adminEmail'] ?? 'hola@atsys.co';
+        $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
+        if (strcasecmp(trim($adminEmail), 'hola@atsys.co') === 0) {
+            $adminEmail = 'gerencia@atsys.co';
+        }
         $senderEmail = Yii::$app->params['senderEmail'] ?? 'no-reply@atsys.co';
 
         // Determinar nombre del cliente para el correo

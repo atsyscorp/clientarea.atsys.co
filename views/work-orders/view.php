@@ -37,7 +37,7 @@ function formatMessage($text, $dark = false)
 $this->title = $model->code . ' - ' . $model->title;
 $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
 $newUpdate = new \app\models\WorkOrderUpdates();
-$newUpdate->allow_reply = 1;
+$newUpdate->allow_reply = 0;
 $newUpdate->is_visible = 1;
 $newUpdate->notify_email = 1;
 
@@ -121,6 +121,8 @@ if ($model->is_request == 1) {
                     <?= $model->getStatusHtml() ?>
                     <?php if ($model->has_service_contract): ?>
                         <span class="badge badge-info font-bold ml-1">Contrato de Servicios</span>
+                    <?php elseif ($model->status == \app\models\WorkOrders::STATUS_PENDING && $model->isExpired()): ?>
+                        <span class="badge badge-error text-white font-bold ml-1">Vigencia Expirada</span>
                     <?php endif; ?>
                 </div>
                 <div class="text-sm opacity-60 mt-1">Fecha: <?= Yii::$app->formatter->asDate($model->created_at) ?></div>
@@ -395,36 +397,82 @@ if ($model->is_request == 1) {
             </div>
 
             <?php if (!$isAdmin && $model->status == \app\models\WorkOrders::STATUS_PENDING): ?>
-                <div class="border-t-2 border-dashed border-base-300 pt-8 mt-8 text-center no-print">
-                    <h3 class="text-lg font-bold mb-4">Aprobación del Cliente</h3>
-                    <p class="text-sm mb-6 max-w-2xl mx-auto opacity-70">
-                        Al aprobar esta orden de trabajo, confirmas que los requerimientos descritos arriba son correctos y
-                        autorizas el inicio del desarrollo bajo los costos estipulados.
-                    </p>
-
-                    <div class="flex justify-center gap-4 flex-wrap">
-                        <?= Html::a('📄 Ver Propuesta (PDF)', ['pdf', 'id' => $model->id], [
-                            'class' => 'btn btn-outline btn-secondary px-6',
-                            'target' => '_blank'
-                        ]) ?>
-
-                        <?= Html::a('✓ Aprobar e Iniciar', ['approve', 'id' => $model->id], [
-                            'class' => 'btn btn-primary text-white px-8',
-                            'data' => ['confirm' => '¿Estás seguro de aprobar esta orden? Esto autoriza el inicio del trabajo.', 'method' => 'post']
-                        ]) ?>
-
-                        <?= Html::a('✕ Rechazar / Solicitar Cambios', ['reject', 'id' => $model->id], [
-                            'class' => 'btn btn-outline btn-error px-6',
-                            'data' => ['confirm' => '¿Deseas rechazar esta orden?', 'method' => 'post']
-                        ]) ?>
+                <?php if ($model->isExpired()): ?>
+                    <div class="alert alert-error border border-error/30 text-white p-6 rounded-xl mt-8 text-center no-print shadow-md">
+                        <div class="flex flex-col items-center gap-2 max-w-xl mx-auto">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-8 w-8" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span class="font-bold text-lg">Esta orden de trabajo ha expirado</span>
+                            <p class="text-xs opacity-90 leading-relaxed">
+                                El plazo de vigencia de <strong><?= $model->getExpirationDays() ?> días</strong> para aprobar esta cotización concluyó el <?= Html::encode($model->getExpirationDate('long')) ?>. 
+                                Las condiciones y tarifas han dejado de estar activas. Si aún requieres realizar este trabajo, por favor contáctanos para emitir una nueva propuesta.
+                            </p>
+                            <div class="mt-3 flex gap-3 flex-wrap justify-center">
+                                <?= Html::a('📄 Ver Propuesta (PDF)', ['pdf', 'id' => $model->id], [
+                                    'class' => 'btn btn-sm btn-ghost bg-white/20 hover:bg-white/30 text-white',
+                                    'target' => '_blank'
+                                ]) ?>
+                                <?= Html::a('Contactar Soporte', ['tickets/create'], [
+                                    'class' => 'btn btn-sm btn-ghost bg-white/20 hover:bg-white/30 text-white'
+                                ]) ?>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                <?php else: ?>
+                    <div class="border-t-2 border-dashed border-base-300 pt-8 mt-8 text-center no-print">
+                        <h3 class="text-lg font-bold mb-2">Aprobación del Cliente</h3>
+
+                        <?php if (!$model->has_service_contract): ?>
+                            <?php
+                            $remainingDays = $model->getDaysRemaining();
+                            $expDateStr = $model->getExpirationDate('long');
+                            ?>
+                            <div class="inline-flex items-center gap-2 px-3 py-1 bg-warning/15 text-warning-content rounded-full text-xs font-semibold mb-4 border border-warning/30">
+                                <span>⏳ Vigencia: Válida hasta el <strong><?= Html::encode($expDateStr) ?></strong> (restan <?= $remainingDays ?> <?= $remainingDays === 1 ? 'día' : 'días' ?>)</span>
+                            </div>
+                        <?php endif; ?>
+
+                        <p class="text-sm mb-6 max-w-2xl mx-auto opacity-70">
+                            Al aprobar esta orden de trabajo, confirmas que los requerimientos descritos arriba son correctos y
+                            autorizas el inicio del desarrollo bajo los costos estipulados.
+                        </p>
+
+                        <div class="flex justify-center gap-4 flex-wrap">
+                            <?= Html::a('📄 Ver Propuesta (PDF)', ['pdf', 'id' => $model->id], [
+                                'class' => 'btn btn-outline btn-secondary px-6',
+                                'target' => '_blank'
+                            ]) ?>
+
+                            <?= Html::a('✓ Aprobar e Iniciar', ['approve', 'id' => $model->id], [
+                                'class' => 'btn btn-primary text-white px-8',
+                                'data' => ['confirm' => '¿Estás seguro de aprobar esta orden? Esto autoriza el inicio del trabajo.', 'method' => 'post']
+                            ]) ?>
+
+                            <?= Html::a('✕ Rechazar / Solicitar Cambios', ['reject', 'id' => $model->id], [
+                                'class' => 'btn btn-outline btn-error px-6',
+                                'data' => ['confirm' => '¿Deseas rechazar esta orden?', 'method' => 'post']
+                            ]) ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
 
             <?php if ($isAdmin && $model->status == \app\models\WorkOrders::STATUS_PENDING): ?>
-                <div class="bg-base-200 p-3 rounded-xl">
-                    <div class="text-sm italic">
-                        El cliente aún no ha aprobado esta orden, vuelve cuando hayas recibido una notificación.
+                <div class="bg-base-200 p-4 rounded-xl mt-6">
+                    <div class="text-sm">
+                        <?php if ($model->isExpired()): ?>
+                            <div class="flex items-center gap-2 text-error font-bold mb-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                <span>Esta orden ha superado su límite de vigencia de <?= $model->getExpirationDays() ?> días (expiró el <?= Html::encode($model->getExpirationDate('long')) ?>).</span>
+                            </div>
+                            <span class="opacity-70 text-xs block">El cliente ya no podrá aprobarla y el cron de limpieza la procesará en su próxima ejecución.</span>
+                        <?php else: ?>
+                            <span class="italic block font-medium">El cliente aún no ha aprobado esta orden.</span>
+                            <?php if (!$model->has_service_contract): ?>
+                                <span class="opacity-70 text-xs block mt-0.5">Vigencia configurada: <?= $model->getExpirationDays() ?> días. Vence el <?= Html::encode($model->getExpirationDate('long')) ?> (restan <?= $model->getDaysRemaining() ?> días).</span>
+                            <?php else: ?>
+                                <span class="opacity-70 text-xs block mt-0.5">Respaldada por contrato de servicios (sin fecha de vencimiento).</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endif; ?>
@@ -704,12 +752,23 @@ JS;
                         
                         <!-- Tarjeta de Avance -->
                         <div class="bg-base-100 p-6 rounded-box shadow-sm border border-base-200 w-full text-left">
-                            <time class="font-mono italic text-xs opacity-50 block mb-2">
-                                <?= Yii::$app->formatter->asDatetime($update->created_at) ?>
-                                <?php if ($isAdmin && !$update->is_visible): ?>
-                                    <span class="badge badge-xs badge-ghost ml-2">Privado 🔒</span>
+                            <div class="flex items-center justify-between mb-2">
+                                <time class="font-mono italic text-xs opacity-50 block">
+                                    <?= Yii::$app->formatter->asDatetime($update->created_at) ?>
+                                    <?php if ($isAdmin && !$update->is_visible): ?>
+                                        <span class="badge badge-xs badge-ghost ml-2">Privado 🔒</span>
+                                    <?php endif; ?>
+                                </time>
+                                <?php if ($isAdmin): ?>
+                                    <?= \yii\helpers\Html::a('Eliminar avance', ['delete-update', 'id' => $model->id, 'update_id' => $update->id], [
+                                        'class' => 'text-xs text-error/70 hover:text-error hover:underline transition-colors',
+                                        'data' => [
+                                            'confirm' => '¿Estás seguro de que deseas eliminar este avance de la bitácora?',
+                                            'method' => 'post',
+                                        ],
+                                    ]) ?>
                                 <?php endif; ?>
-                            </time>
+                            </div>
                             <div class="text-sm text-justify leading-relaxed whitespace-pre-line text-base-content/90">
                                 <?= \yii\helpers\Html::encode($update->description) ?>
                             </div>
@@ -726,7 +785,18 @@ JS;
                             <?php if ($update->allow_reply == 1): ?>
                                 <?php if (!empty($update->client_reply)): ?>
                                     <div class="bg-base-200 p-4 rounded-lg border-l-4 border-primary mt-4">
-                                        <div class="text-xs font-bold text-primary mb-2">Respuesta del cliente:</div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="text-xs font-bold text-primary">Respuesta del cliente:</div>
+                                            <?php if ($isAdmin): ?>
+                                                <?= \yii\helpers\Html::a('✕ Eliminar respuesta', ['delete-reply', 'id' => $model->id, 'update_id' => $update->id], [
+                                                    'class' => 'btn btn-ghost btn-xs text-error hover:bg-error/10 font-normal',
+                                                    'data' => [
+                                                        'confirm' => '¿Estás seguro de que deseas eliminar esta respuesta? Esto permitirá que el cliente pueda responder nuevamente.',
+                                                        'method' => 'post',
+                                                    ],
+                                                ]) ?>
+                                            <?php endif; ?>
+                                        </div>
                                         <div class="text-sm italic text-justify leading-relaxed whitespace-pre-line text-base-content/85">
                                             <?= \yii\helpers\Html::encode($update->client_reply) ?>
                                         </div>
@@ -738,6 +808,13 @@ JS;
                                                 <a href="<?= \yii\helpers\Html::encode($update->reply_attachment_url) ?>" target="_blank" class="link link-primary font-semibold">Ver Archivo Adjunto</a>
                                             </div>
                                         <?php endif; ?>
+                                    </div>
+                                <?php elseif ($isAdmin): ?>
+                                    <div class="mt-4 p-3 bg-base-200 rounded-lg border-l-4 border-warning flex items-center gap-2 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-warning shrink-0">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="font-medium text-base-content/80">Se solicitó respuesta al cliente (esperando respuesta).</span>
                                     </div>
                                 <?php elseif (!in_array($model->status, [\app\models\WorkOrders::STATUS_COMPLETED, \app\models\WorkOrders::STATUS_NOT_COMPLETED])): ?>
                                     <div class="bg-base-200 p-4 rounded-lg border-l-4 border-primary mt-4">
@@ -949,6 +1026,18 @@ JS;
                 <div class="alert alert-info bg-info/10 border border-info/20 text-xs p-3 rounded-lg mb-4 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-info shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span>El cliente tiene usuario registrado en el portal. Puedes enviar a su correo o especificar un correo alternativo.</span>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!$model->has_service_contract): ?>
+                <div class="alert alert-info bg-info/5 border border-info/20 text-xs p-3 rounded-lg mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-info shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>El correo recordará al cliente su vigencia de <strong><?= $model->getExpirationDays() ?> días</strong><?= !empty($model->getExpirationDate('long')) ? ' (vence el <strong>' . Html::encode($model->getExpirationDate('long')) . '</strong>)' : '' ?>.</span>
+                </div>
+            <?php else: ?>
+                <div class="alert alert-success bg-success/5 border border-success/20 text-xs p-3 rounded-lg mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-success shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>Esta orden cuenta con contrato de servicios activo (sin fecha de caducidad).</span>
                 </div>
             <?php endif; ?>
 

@@ -610,10 +610,15 @@ if (!Yii::$app->user->isGuest) {
                     $isDomainSearchActive = ($controllerId === 'site' && $actionId === 'domain-search');
                     $isNotificationsActive = ($controllerId === 'notifications');
                     $isFeedbackActive = ($controllerId === 'feedback');
+                    $isTodosActive = ($controllerId === 'todos');
+                    $isMeetingsActive = ($controllerId === 'meetings' && $actionId !== 'request');
+                    $isMeetingRequestActive = ($controllerId === 'meetings' && $actionId === 'request');
 
                     // Compute badge counts
                     $ticketBadgeCount = 0;
                     $workOrderBadgeCount = 0;
+                    $todoBadgeCount = 0;
+                    $meetingBadgeCount = 0;
                     if (!Yii::$app->user->isGuest) {
                         if (Yii::$app->user->identity->isAdmin) {
                             $ticketBadgeCount = (int) \app\models\Tickets::find()
@@ -622,6 +627,21 @@ if (!Yii::$app->user->isGuest) {
                             $workOrderBadgeCount = (int) \app\models\WorkOrders::find()
                                 ->where(['is_request' => 1])
                                 ->count();
+                            try {
+                                $todoBadgeCount = (int) \app\models\Todos::find()
+                                    ->where(['not in', 'status', [\app\models\Todos::STATUS_COMPLETED, \app\models\Todos::STATUS_CANCELLED]])
+                                    ->count();
+                            } catch (\Exception $e) {
+                                $todoBadgeCount = 0;
+                            }
+                            try {
+                                $meetingBadgeCount = (int) \app\models\Meetings::find()
+                                    ->where(['between', 'start_time', date('Y-m-d 00:00:00'), date('Y-m-d 23:59:59')])
+                                    ->andWhere(['!=', 'status', \app\models\Meetings::STATUS_CANCELED])
+                                    ->count();
+                            } catch (\Exception $e) {
+                                $meetingBadgeCount = 0;
+                            }
                         } else {
                             $realCustomerId = Yii::$app->user->identity->getRealCustomerId() ?? -1;
                             $ticketBadgeCount = (int) \app\models\Tickets::find()
@@ -632,6 +652,15 @@ if (!Yii::$app->user->isGuest) {
                                 ->where(['customer_id' => $realCustomerId])
                                 ->andWhere(['status' => 1]) // Pending approval
                                 ->count();
+                            try {
+                                $meetingBadgeCount = (int) \app\models\Meetings::find()
+                                    ->where(['or', ['customer_id' => $realCustomerId], ['client_email' => Yii::$app->user->identity->email]])
+                                    ->andWhere(['between', 'start_time', date('Y-m-d 00:00:00'), date('Y-m-d 23:59:59')])
+                                    ->andWhere(['status' => \app\models\Meetings::STATUS_SCHEDULED])
+                                    ->count();
+                            } catch (\Exception $e) {
+                                $meetingBadgeCount = 0;
+                            }
                         }
                     }
                     ?>
@@ -660,6 +689,28 @@ if (!Yii::$app->user->isGuest) {
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v9.632c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" /></svg>
                                     Tickets
                                     <span id="ticket-badge-count" class="badge badge-error badge-sm font-bold ml-auto animate-pulse shadow-sm <?= $ticketBadgeCount > 0 ? '' : 'hidden' ?>"><?= $ticketBadgeCount ?></span>
+                                </a>
+                            </li>
+
+                            <!-- Admin To-Do List -->
+                            <li>
+                                <a href="/todos/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isTodosActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    To-Do List
+                                    <?php if ($todoBadgeCount > 0): ?>
+                                        <span class="badge badge-warning badge-sm font-bold ml-auto shadow-sm"><?= $todoBadgeCount ?></span>
+                                    <?php endif; ?>
+                                </a>
+                            </li>
+
+                            <!-- Admin Reuniones Google Meet -->
+                            <li>
+                                <a href="/meetings/" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isMeetingsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                                    Reuniones Meet
+                                    <?php if ($meetingBadgeCount > 0): ?>
+                                        <span class="badge badge-info badge-sm font-bold ml-auto shadow-sm"><?= $meetingBadgeCount ?></span>
+                                    <?php endif; ?>
                                 </a>
                             </li>
 
@@ -747,12 +798,31 @@ if (!Yii::$app->user->isGuest) {
                                     <span id="ticket-badge-count" class="badge badge-accent badge-sm font-bold ml-auto animate-pulse shadow-sm <?= $ticketBadgeCount > 0 ? '' : 'hidden' ?>"><?= $ticketBadgeCount ?></span>
                                 </a>
                             </li>
+
+                            <!-- Client Reuniones Meet -->
+                            <li>
+                                <a href="/meetings/" id="tour-meetings" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isMeetingsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                                    Reuniones Meet
+                                    <?php if ($meetingBadgeCount > 0): ?>
+                                        <span class="badge badge-info badge-sm font-bold ml-auto shadow-sm"><?= $meetingBadgeCount ?></span>
+                                    <?php endif; ?>
+                                </a>
+                            </li>
+
+                            <!-- Client Solicitar Cita -->
+                            <li>
+                                <a href="/reuniones/solicitar" id="tour-request-meeting" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isMeetingRequestActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v7.5m-9 3.75h.008v.008H12v-.008z" /></svg>
+                                    Solicitar Cita
+                                </a>
+                            </li>
                         <?php endif; ?>
 
                         <?php if (!Yii::$app->user->isGuest): ?>
                             <!-- Projects -->
                             <li>
-                                <a href="/projects/index" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isProjectsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                <a href="/projects/index" id="tour-projects" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isProjectsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" /></svg>
                                     Proyectos
                                 </a>
@@ -760,7 +830,7 @@ if (!Yii::$app->user->isGuest) {
 
                             <!-- Contracts -->
                             <li>
-                                <a href="/contracts/index" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isContractsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
+                                <a href="/contracts/index" id="tour-contracts" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 <?= $isContractsActive ? 'active bg-primary text-primary-content shadow-md' : 'hover:bg-base-200 text-base-content/85' ?>">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
                                     Contratos
                                 </a>
@@ -1100,6 +1170,22 @@ if (!Yii::$app->user->isGuest) {
                         popover: {
                             title: '🎫 Soporte y Tickets',
                             description: 'Reporta cualquier fallo con tus servicios o desarrollos.',
+                            position: 'right'
+                        }
+                    },
+                    {
+                        element: '#tour-projects',
+                        popover: {
+                            title: '📁 Proyectos',
+                            description: 'Organiza y consulta tus proyectos, marcas o razones sociales para gestionar tus requerimientos de forma independiente.',
+                            position: 'right'
+                        }
+                    },
+                    {
+                        element: '#tour-contracts',
+                        popover: {
+                            title: '📑 Contratos',
+                            description: 'Consulta tus acuerdos de servicio, descarga tus contratos en PDF y supervisa el avance e hitos pactados en tiempo real.',
                             position: 'right'
                         }
                     },

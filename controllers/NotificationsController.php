@@ -171,6 +171,12 @@ class NotificationsController extends Controller
         }
 
         $userId = Yii::$app->user->id;
+
+        // Si el usuario es administrador, verificar y despachar recordatorios pendientes de To-Do
+        if (!empty(Yii::$app->user->identity->isAdmin)) {
+            \app\models\Todos::processPendingReminders($userId);
+        }
+
         $unreadCount = Notifications::find()->where(['user_id' => $userId, 'is_read' => 0])->count();
         $recentNotifications = Notifications::find()->where(['user_id' => $userId])->orderBy(['created_at' => SORT_DESC])->limit(5)->all();
 

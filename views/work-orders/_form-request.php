@@ -7,6 +7,7 @@ use yii\helpers\ArrayHelper;
 /* @var $this yii\web\View */
 /* @var $model app\models\WorkOrders */
 /* @var $form yii\widgets\ActiveForm */
+/* @var $projects app\models\Projects[] */
 
 // A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
@@ -31,11 +32,18 @@ document.addEventListener("DOMContentLoaded", function() {
         branding: false, // Quitar marca "Powered by TinyMCE"
         setup: function (editor) {
             // Esto asegura que el valor se guarde en el textarea al enviar el formulario
-            editor.on('change', function () {
+            editor.on('change keyup NodeChange', function () {
                 editor.save();
             });
         }
     });
+
+    const form = document.getElementById('request-work-order-form');
+    if (form) {
+        form.addEventListener('submit', function() {
+            tinymce.triggerSave();
+        });
+    }
 });
 JS;
 $this->registerJs($js, \yii\web\View::POS_END);
@@ -44,12 +52,53 @@ $this->registerJs($js, \yii\web\View::POS_END);
 <div class="card bg-base-100 shadow-xl border border-base-200">
     <div class="card-body">
 
-        <?php $form = ActiveForm::begin(['options' => ['enctype' => 'multipart/form-data']]); ?>
+        <?php $form = ActiveForm::begin([
+            'id' => 'request-work-order-form',
+            'options' => ['enctype' => 'multipart/form-data']
+        ]); ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
+            <?php if (!empty($projects) && count($projects) > 1): ?>
+                <div class="form-control w-full md:col-span-2">
+                    <label class="label">
+                        <span class="label-text font-bold">Proyecto / Filial <span class="text-error">*</span></span>
+                        <span class="label-text-alt opacity-70">Selecciona el proyecto o filial al que corresponde esta solicitud</span>
+                    </label>
+                    <?= $form->field($model, 'project_id', ['template' => '{input}{error}'])->dropDownList(
+                        ArrayHelper::map($projects, 'id', function($p) {
+                            $label = $p->name;
+                            if (!empty($p->business_name) && $p->business_name !== $p->name) {
+                                $label .= ' (' . $p->business_name . ')';
+                            }
+                            return $label;
+                        }),
+                        [
+                            'class' => 'select select-bordered w-full',
+                            'id' => 'workorders-project_id'
+                        ]
+                    ) ?>
+                </div>
+            <?php else: ?>
+                <?= $form->field($model, 'project_id')->hiddenInput(['value' => $model->project_id])->label(false) ?>
+                <?php if (!empty($projects) && count($projects) === 1): ?>
+                    <div class="form-control w-full md:col-span-2">
+                        <label class="label">
+                            <span class="label-text font-bold">Proyecto / Filial</span>
+                        </label>
+                        <div class="p-3 bg-base-200/60 rounded-lg text-sm font-medium flex items-center gap-2 border border-base-300">
+                            <span class="badge badge-primary badge-sm">Predeterminado</span>
+                            <span>📌 <?= Html::encode($projects[0]->name) ?><?= (!empty($projects[0]->business_name) && $projects[0]->business_name !== $projects[0]->name) ? ' (' . Html::encode($projects[0]->business_name) . ')' : '' ?></span>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
             <div class="form-control w-full md:col-span-2">
-                <label class="label"><span class="label-text font-bold">Título del Proyecto</span></label>
+                <label class="label">
+                    <span class="label-text font-bold">Título de la Solicitud <span class="text-error">*</span></span>
+                    <span class="label-text-alt opacity-70">Describe brevemente qué requieres</span>
+                </label>
                 <?= $form->field($model, 'title', ['template' => '{input}{error}'])->textInput([
                     'class' => 'input input-bordered w-full',
                     'placeholder' => 'Ej: Desarrollo de API Rest para App Móvil'
@@ -58,7 +107,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
 
             <div class="form-control w-full md:col-span-2">
                 <label class="label">
-                    <span class="label-text font-bold">Detalle de Requerimientos</span>
+                    <span class="label-text font-bold">Detalle de Requerimientos <span class="text-error">*</span></span>
                     <span class="label-text-alt opacity-70">Indica tu solicitud en detalle. Procura ser lo más específic@ posible.</span>
                 </label>
                 <?= $form->field($model, 'requirements', ['template' => '{input}{error}'])                
