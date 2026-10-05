@@ -273,13 +273,28 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 )->label(false) ?>
             </div>
 
-            <?php if ($isAdmin):
-                echo $form->field($model, 'priority')->dropDownList([
+            <?php 
+                echo $form->field($model, 'priority', [
+                    'template' => "{label}\n{input}\n{error}",
+                    'labelOptions' => ['class' => 'label-text font-bold mb-1 block']
+                ])->dropDownList([
                     'medium' => 'Medio',
                     'high' => 'Alto',
                     'critical' => 'Urgente'
-                ], ['class' => 'select select-bordered w-full']);
-            endif; ?>
+                ], [
+                    'class' => 'select select-bordered w-full',
+                    'id' => 'priority-selector',
+                    'onchange' => 'togglePriorityWarning(this.value)',
+                    'options' => [
+                        'medium' => ['selected' => true]
+                    ]
+                ])->label('Prioridad');
+            ?>
+            
+            <div id="urgent-warning" class="alert alert-warning shadow-sm mt-2 hidden text-sm py-3 mb-4 rounded-xl border border-warning/30 bg-warning/10 text-warning-content">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <span>Entendemos la urgencia de la solicitud. Cada ticket se revisa minuciosamente y, si determinamos que no corresponde a una urgencia crítica que afecte el servicio, nos reservamos el derecho de ajustar la prioridad para mantener los tiempos de respuesta justos.</span>
+            </div>
 
             <?= $form->field($model, 'subject', [
                 'template' => "{label}\n<div class=\"relative\">{input}<div class=\"absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-base-content/40\"><svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"w-5 h-5\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z\" /></svg></div></div>\n{error}",
@@ -561,4 +576,21 @@ $this->registerJs($js, \yii\web\View::POS_END);
         const chipsContainer = document.getElementById('create-files-chips');
         if (chipsContainer) chipsContainer.innerHTML = '';
     }
+
+    function togglePriorityWarning(value) {
+        const warning = document.getElementById('urgent-warning');
+        if (!warning) return;
+        
+        if (value === 'critical') {
+            warning.classList.remove('hidden');
+        } else {
+            warning.classList.add('hidden');
+        }
+    }
+
+    // Run on init just in case
+    document.addEventListener('DOMContentLoaded', function() {
+        const select = document.getElementById('priority-selector');
+        if (select) togglePriorityWarning(select.value);
+    });
 </script>

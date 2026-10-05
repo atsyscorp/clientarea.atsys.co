@@ -94,7 +94,7 @@ class WorkOrdersController extends Controller
                 // 1. Notificación interna en la plataforma al cliente
                 Notifications::notifyCustomer(
                     $model->customer_id,
-                    "✅ Orden Aprobada: " . $model->code,
+                    "Orden Aprobada: " . $model->code,
                     "Has aprobado la orden de trabajo: " . $model->title . ". El equipo de ATSYS dará inicio al desarrollo.",
                     "/work-orders/view?id=" . $model->id,
                     Notifications::TYPE_SUCCESS
@@ -124,13 +124,13 @@ class WorkOrdersController extends Controller
                     ";
 
                     Yii::$app->mailer->compose(['html' => 'admin-notification'], [
-                        'title' => '✅ Orden Aprobada',
+                        'title' => 'Orden Aprobada',
                         'content' => $adminHtmlContent,
                         'color' => '#10b981' // Verde Éxito
                     ])
                         ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                         ->setTo(Yii::$app->params['adminEmail'])
-                        ->setSubject("✅ APROBADA: Orden " . $model->code . " - " . $customerName)
+                        ->setSubject("APROBADA: Orden " . $model->code . " - " . $customerName)
                         ->send();
                 } catch (\Throwable $e) {
                     Yii::error("Error enviando correo de aprobación al Admin: " . $e->getMessage());
@@ -155,14 +155,14 @@ class WorkOrdersController extends Controller
                         ";
 
                         $mail = Yii::$app->mailer->compose(['html' => 'admin-notification'], [
-                            'title' => '✅ Confirmación de Aprobación - Orden ' . $model->code,
+                            'title' => 'Confirmación de Aprobación - Orden ' . $model->code,
                             'content' => $clientHtmlContent,
                             'color' => '#10b981'
                         ])
                             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                             ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                             ->setTo($model->customer->email)
-                            ->setSubject("✅ Confirmación de Aprobación: Orden " . $model->code . " - " . $model->title);
+                            ->setSubject("Confirmación de Aprobación: Orden " . $model->code . " - " . $model->title);
 
                         if ($pdfContent) {
                             $mail->attachContent($pdfContent, [
@@ -214,13 +214,13 @@ class WorkOrdersController extends Controller
                     ";
 
                     Yii::$app->mailer->compose(['html' => 'admin-notification'], [
-                        'title' => '❌ Orden Rechazada',
+                        'title' => 'Orden Rechazada',
                         'content' => $htmlContent,
                         'color' => '#ef4444' // Rojo Error
                     ])
                         ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                         ->setTo(Yii::$app->params['adminEmail'])
-                        ->setSubject("❌ RECHAZADA: Orden " . $model->code . " - " . $model->customer->business_name)
+                        ->setSubject("RECHAZADA: Orden " . $model->code . " - " . $model->customer->business_name)
                         ->send();
                 } catch (\Exception $e) {
                     Yii::error("Error enviando notificación de rechazo: " . $e->getMessage());
@@ -876,7 +876,7 @@ class WorkOrdersController extends Controller
                 // Notificación en plataforma para el Cliente
                 Notifications::notifyCustomer(
                     $workOrder->customer_id,
-                    "🚀 Nuevo avance en Orden: " . $workOrder->code,
+                    "Nuevo avance en Orden: " . $workOrder->code,
                     "Se ha registrado un nuevo avance en tu orden de trabajo: " . mb_substr(strip_tags($update->description), 0, 80, 'UTF-8') . "...",
                     "/work-orders/view?id=" . $workOrder->id,
                     Notifications::TYPE_INFO
@@ -908,10 +908,10 @@ class WorkOrdersController extends Controller
                         }
 
                         $mail = Yii::$app->mailer->compose(['html' => 'admin-notification'], [
-                            'title' => '🚀 Nuevo Avance en tu Proyecto',
+                            'title' => 'Nuevo Avance en tu Proyecto',
                             'content' => "<p>Se ha registrado un nuevo avance en la orden <strong>{$workOrder->code}</strong>:</p>
                                           <blockquote style='background:#f9f9f9; padding:10px; border-left:3px solid #134C42;'>
-                                            " . nl2br($update->description) . "
+                                            " . $update->description . "
                                           </blockquote>
                                           " . $attachmentHtml . "
                                           " . (($update->allow_reply == 1) ? '<p>Este avance incluye una solicitud de respuesta de tu parte. Por favor, ingresa a la orden de trabajo para ver los detalles y responder.</p><br><br>' : '') . "

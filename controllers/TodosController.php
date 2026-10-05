@@ -14,6 +14,7 @@ use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
 use yii\web\Response;
+use yii\helpers\ArrayHelper;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 
@@ -116,6 +117,7 @@ class TodosController extends Controller
             'todayTrackedTime' => TodoTimeLogs::formatSeconds($todaySeconds),
             'runningTimer' => $runningTimer,
             'boardTasks' => $boardTasks,
+            'customersList' => $this->getCustomersList(false),
         ]);
     }
 
@@ -179,6 +181,8 @@ class TodosController extends Controller
 
         return $this->render('create', [
             'model' => $model,
+            'customersList' => $this->getCustomersList(true),
+            'adminsList' => $this->getAdminsList(),
         ]);
     }
 
@@ -201,6 +205,8 @@ class TodosController extends Controller
 
         return $this->render('update', [
             'model' => $model,
+            'customersList' => $this->getCustomersList(true),
+            'adminsList' => $this->getAdminsList(),
         ]);
     }
 
@@ -530,6 +536,41 @@ class TodosController extends Controller
         }
 
         return $this->redirect(['view', 'id' => $model->id]);
+    }
+
+    /**
+     * Returns mapped customer list for dropdowns and filters.
+     * @param bool $withDocument
+     * @return array
+     */
+    protected function getCustomersList($withDocument = false)
+    {
+        $customers = Customers::find()
+            ->select(['id', 'business_name', 'trade_name', 'document_number'])
+            ->orderBy(['business_name' => SORT_ASC])
+            ->all();
+
+        return ArrayHelper::map($customers, 'id', function ($customer) use ($withDocument) {
+            $name = $customer->trade_name ?: $customer->business_name;
+            return $withDocument ? ($name . ' (' . $customer->document_number . ')') : $name;
+        });
+    }
+
+    /**
+     * Returns mapped assignable admin users list.
+     * @return array
+     */
+    protected function getAdminsList()
+    {
+        $admins = User::find()
+            ->select(['id', 'username', 'email'])
+            ->where(['role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE])
+            ->orderBy(['username' => SORT_ASC])
+            ->all();
+
+        return ArrayHelper::map($admins, 'id', function ($user) {
+            return $user->username . ' (' . $user->email . ')';
+        });
     }
 
     /**

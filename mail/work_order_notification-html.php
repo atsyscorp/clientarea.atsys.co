@@ -4,6 +4,8 @@ use yii\helpers\Html;
 /* @var $customMessage string|null */
 /* @var $isUserRegistered bool|null */
 
+$this->title = 'Nueva Orden de Trabajo ' . $model->code;
+
 $link = Yii::$app->urlManager->createAbsoluteUrl(['work-orders/view', 'id' => $model->id]);
 $hasRegisteredUser = isset($isUserRegistered) ? $isUserRegistered : (!empty($model->customer && $model->customer->user_id));
 ?>
@@ -29,6 +31,9 @@ $hasRegisteredUser = isset($isUserRegistered) ? $isUserRegistered : (!empty($mod
                 Ver y Aprobar Orden en Línea
             </a>
         </p>
+        <p style="text-align: center; font-size: 13px; color: #666;">
+            Ver y aprobar la orden en línea: <a href="<?= $link ?>" style="color: #666;"><?= $link ?></a>
+        </p>
     <?php else: ?>
         <div style="background-color: #f0fdf4; border: 1px solid #86efac; color: #166534; padding: 14px 18px; border-radius: 6px; margin: 20px 0;">
             <strong>📋 Aprobación de la Orden:</strong><br>
@@ -45,9 +50,8 @@ $hasRegisteredUser = isset($isUserRegistered) ? $isUserRegistered : (!empty($mod
         $days = $model->getExpirationDays();
         $expDateStr = $model->getExpirationDate('long');
         ?>
-        <div style="background-color: #fef2f2; border: 1px solid #f87171; color: #991b1b; padding: 14px 18px; border-radius: 6px; margin: 20px 0; font-size: 13px; line-height: 1.5;">
-            <strong>⏳ Recordatorio de Vigencia:</strong> Esta propuesta tiene una vigencia de <strong><?= $days ?> días calendario</strong><?= !empty($expDateStr) ? ' (válida hasta el <strong>' . Html::encode($expDateStr) . '</strong>)' : '' ?>. 
-            Transcurrido dicho plazo sin recibir aprobación, la orden expirará automáticamente. Si requieres reactivarla con posterioridad, deberás solicitar una nueva cotización.
+        <div style="background-color: #f5f5f5; border: 1px solid #cccccc; color: #333333; padding: 14px 18px; border-radius: 6px; margin: 20px 0; font-size: 13px; line-height: 1.5;">
+            <strong>Recordatorio de Vigencia:</strong> Esta propuesta es válida hasta el <strong><?= Html::encode($expDateStr) ?></strong>. Pasado ese plazo la orden vence y habría que solicitar una nueva cotización.
         </div>
     <?php endif; ?>
 </div>

@@ -43,39 +43,38 @@ $newUpdate->notify_email = 1;
 
 
 
-if ($model->is_request == 1) {
-    // A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
-    $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
-        'position' => \yii\web\View::POS_HEAD
-    ]);
+// A. Cargamos la librería desde la nube (Versión 6, estable y ligera)
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js', [
+    'position' => \yii\web\View::POS_HEAD
+]);
 
-    // B. Inicializamos el editor sobre el ID 'workorders-requirements'
-    $js = <<<JS
-    document.addEventListener("DOMContentLoaded", function() {
-        const isDarkMode = document.documentElement.classList.contains('dark');
-        tinymce.remove('#workorders-requirements'); // Limpieza preventiva por si usas Pjax
-        tinymce.init({
-            selector: '#workorders-requirements', // Debe coincidir con el ID de arriba
-            height: 300,
-            menubar: false, // Sin menú superior (Archivo, Editar...)
-            statusbar: false, // Sin barra inferior
-            language: 'es', // Intenta cargar español, si falla usará inglés
-            plugins: 'lists link autolink fullscreen', // Plugins básicos
-            toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen', // Herramientas limpias
-            skin: isDarkMode ? 'oxide-dark' : 'oxide',
-            content_css: isDarkMode ? 'dark' : 'default',
-            branding: false, // Quitar marca "Powered by TinyMCE"
-            setup: function (editor) {
-                // Esto asegura que el valor se guarde en el textarea al enviar el formulario
-                editor.on('change', function () {
-                    editor.save();
-                });
-            }
-        });
+// B. Inicializamos el editor
+$js = <<<JS
+document.addEventListener("DOMContentLoaded", function() {
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    tinymce.remove('#workorders-requirements, #workorderupdates-description'); // Limpieza preventiva
+    tinymce.init({
+        selector: '#workorders-requirements, #workorderupdates-description', // Debe coincidir con los IDs
+        height: 300,
+        menubar: false,
+        statusbar: false,
+        language: 'es',
+        plugins: 'lists link autolink fullscreen',
+        toolbar: 'bold italic underline | bullist numlist | link | removeformat | fullscreen',
+        skin: isDarkMode ? 'oxide-dark' : 'oxide',
+        content_css: isDarkMode ? 'dark' : 'default',
+        branding: false,
+        setup: function (editor) {
+            editor.on('change', function () {
+                editor.save();
+            });
+        }
     });
-    JS;
-    $this->registerJs($js, \yii\web\View::POS_END);
-} else {
+});
+JS;
+$this->registerJs($js, \yii\web\View::POS_END);
+
+if ($model->is_request != 1) {
     $isForeign = in_array($model->currency, ['USD', 'EUR']);
     $isUsd = $model->currency === 'USD';
     $isEur = $model->currency === 'EUR';
@@ -769,8 +768,8 @@ JS;
                                     ]) ?>
                                 <?php endif; ?>
                             </div>
-                            <div class="text-sm text-justify leading-relaxed whitespace-pre-line text-base-content/90">
-                                <?= \yii\helpers\Html::encode($update->description) ?>
+                            <div class="text-sm text-justify leading-relaxed text-base-content/90 prose prose-sm max-w-none">
+                                <?= formatMessage($update->description) ?>
                             </div>
 
                             <?php if (!empty($update->attachment_url)): ?>

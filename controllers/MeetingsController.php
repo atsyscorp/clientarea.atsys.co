@@ -325,7 +325,7 @@ class MeetingsController extends Controller
     protected function sendInvitationEmail(Meetings $model)
     {
         try {
-            $fromEmail = env('MAIL_USERNAME', 'noreply@atsys.co');
+            $fromEmail = env('MAIL_USERNAME', 'clientarea@atsys.co');
             $adminEmail = 'gerencia@atsys.co';
             $replyTo = $adminEmail;
 
@@ -376,7 +376,7 @@ class MeetingsController extends Controller
                 $bccEmails[] = $adminEmail;
             }
 
-            $mailer->setTo([$model->client_email => $model->client_name])
+            $mailer->setTo($model->client_email)
                 ->setFrom([$fromEmail => 'ATSYS'])
                 ->setReplyTo($replyTo)
                 ->setSubject('Invitación a Reunión: ' . $model->title . ' - ATSYS')
@@ -562,7 +562,7 @@ class MeetingsController extends Controller
     protected function sendMeetingRequestAdminNotification($meeting, $customer = null, $phone = null, $company = null)
     {
         try {
-            $fromEmail = 'noreply@atsys.co';
+            $fromEmail = 'clientarea@atsys.co';
             $adminEmail = 'gerencia@atsys.co';
 
             $mailer = Yii::$app->mailer->compose(
@@ -580,7 +580,7 @@ class MeetingsController extends Controller
             $mailer->setTo($adminEmail)
                 ->setFrom([$fromEmail => 'ATSYS'])
                 ->setReplyTo([$meeting->client_email => $meeting->client_name])
-                ->setSubject("🔔 {$subjectType} Solicitud de Reunión: {$meeting->title} - {$meeting->client_name}");
+                ->setSubject("{$subjectType} Solicitud de Reunión: {$meeting->title} - {$meeting->client_name}");
 
             return (bool) $mailer->send();
         } catch (\Exception $e) {
@@ -595,7 +595,7 @@ class MeetingsController extends Controller
     protected function sendMeetingRequestClientAcknowledgement($meeting)
     {
         try {
-            $fromEmail = 'noreply@atsys.co';
+            $fromEmail = 'clientarea@atsys.co';
             $adminEmail = 'gerencia@atsys.co';
 
             $mailer = Yii::$app->mailer->compose(
@@ -603,7 +603,7 @@ class MeetingsController extends Controller
                 ['model' => $meeting]
             );
 
-            $mailer->setTo([$meeting->client_email => $meeting->client_name])
+            $mailer->setTo($meeting->client_email)
                 ->setFrom([$fromEmail => 'ATSYS'])
                 ->setReplyTo($adminEmail)
                 ->setSubject('Hemos recibido tu solicitud de reunión: ' . $meeting->title . ' - ATSYS');

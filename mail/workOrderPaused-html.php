@@ -42,7 +42,7 @@ $orderLink = Url::to(['work-orders/view', 'id' => $model->id], true);
     </p>
 
     <p style="color: #555; margin-bottom: 25px;">
-        Cuando decidas reactivar este proyecto, el proceso es muy sencillo: solo debes <strong>crear un ticket dirigido al departamento comercial</strong> desde tu panel de cliente y con gusto te asistiremos en el proceso para retomarlo de inmediato.
+        Cuando decidas reactivar este proyecto, el proceso es muy sencillo: solo debes <strong>crear un ticket dirigido al departamento comercial</strong> desde tu panel de cliente y con gusto te asistiremos en el proceso para retomarlo a la mayor brevedad.
     </p>
 
     <div style="text-align: center; margin: 30px 0;">

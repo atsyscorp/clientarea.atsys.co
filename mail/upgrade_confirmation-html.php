@@ -21,7 +21,7 @@ use yii\helpers\Html;
         <div
             style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 6px; margin: 20px 0;">
             <p style="margin: 0; color: #166534; font-weight: bold;">
-                🚀 Tu nueva capacidad y recursos ya se encuentran disponibles de inmediato.
+                Tu nueva capacidad y recursos ya se encuentran disponibles.
             </p>
         </div>
 

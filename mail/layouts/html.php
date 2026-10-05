@@ -11,7 +11,7 @@ use yii\helpers\Html;
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=<?= Yii::$app->charset ?>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title><?= Html::encode($this->title) ?></title>
+    <title><?= Html::encode(isset($message) ? $message->getSubject() : ($this->title ?? "Notificación")) ?></title>
     <?php $this->head() ?>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; ">

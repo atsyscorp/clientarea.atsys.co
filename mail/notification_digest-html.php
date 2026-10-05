@@ -20,7 +20,7 @@ $badgeStyles = [
     <!-- Header -->
     <div style="background-color: #4F46E5; padding: 24px 20px; border-radius: 8px 8px 0 0; text-align: center;">
         <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold;">
-            🔔 Resumen de Novedades Pendientes
+            Resumen de Novedades Pendientes
         </h1>
         <p style="color: #c7d2fe; margin: 8px 0 0 0; font-size: 14px;">
             Tienes <?= $totalNotifications ?> <?= $totalNotifications === 1 ? 'notificación no leída' : 'notificaciones no leídas' ?> en tu plataforma

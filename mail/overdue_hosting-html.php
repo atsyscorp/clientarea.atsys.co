@@ -1,8 +1,8 @@
 <?php
 use yii\helpers\Html;
 
-// Mensaje legal crítico
-$warningText = "IMPORTANTE: En caso de no reactivarse, se eliminará cualquier archivo asociado y bases de datos en un tiempo de 15 a 30 días de forma irreversible.";
+// Mensaje informativo sobre retención
+$warningText = "Nota: Recuerda que los servicios suspendidos se mantienen respaldados temporalmente. Te sugerimos realizar tu renovación antes de 30 días para conservar tu información.";
 $clientAreaLink = Yii::$app->urlManager->createAbsoluteUrl(['customer-services']);
 ?>
 <h2>Hola, <?=$business_name?></h2>
@@ -26,8 +26,8 @@ $multiple = count($servicesData) > 1;
     <p>Fecha de vencimiento: <?=Yii::$app->formatter->asDate($servicesData[0]->next_due_date, 'long')?></p>
 <?php endif; ?>
 
-<div style='background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 15px; border-radius: 5px; margin: 20px 0;'>
-    <strong><?=$warningText?></strong>
+<div style='background-color: #f8fafc; border-left: 4px solid #cbd5e1; color: #475569; padding: 15px; margin: 20px 0;'>
+    <?=$warningText?>
 </div>
 
 <p>Para reactivar tu servicio inmediatamente, por favor realiza el pago en tu área de cliente.</p>

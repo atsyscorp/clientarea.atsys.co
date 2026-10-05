@@ -107,6 +107,7 @@ $statusLabels = [
     'in_progress' => ['text' => 'EN PROGRESO', 'color' => 'badge-info'],
     'answered' => ['text' => 'RESPONDIDO', 'color' => 'badge-success'],
     'closed' => ['text' => 'CERRADO', 'color' => 'badge-neutral text-white'],
+    'customer_reply' => ['text' => 'R. Cliente', 'color' => 'badge-warning'],
 ];
 $st = strtolower($model->status);
 $currentStatus = $statusLabels[$st] ?? ['text' => strtoupper($st), 'color' => 'bg-ghost'];
@@ -663,6 +664,16 @@ $this->registerJs($js, \yii\web\View::POS_END);
                         </button>
                     <?php endif; ?>
 
+                    <button type="button" onclick="openManageCcModal()"
+                        class="btn btn-outline btn-info btn-block gap-2 mb-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.199l-.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                        </svg>
+                        Gestionar Participantes (CC)
+                    </button>
+
                     <?= Html::a(
                         '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg> Generar Orden de Trabajo',
                         ['work-orders/create-from-ticket', 'ticket_id' => $model->id],
@@ -849,15 +860,39 @@ $this->registerJs($js, \yii\web\View::POS_END);
                                 </td>
                             </tr>
 
-                            <?php if (!empty($model->cc_emails)): ?>
+                            <?php 
+                            $ccList = $model->getCcEmailsList();
+                            if (!empty($ccList) || $isAdmin): 
+                            ?>
                                 <tr>
-                                    <th class="text-base-content/60 font-normal pl-0 pt-3 align-top">En copia (CC):</th>
+                                    <th class="text-base-content/60 font-normal pl-0 pt-3 align-top">
+                                        <div class="flex items-center gap-1.5">
+                                            <span>En copia (CC):</span>
+                                            <?php if ($isAdmin): ?>
+                                                <button type="button" onclick="openManageCcModal()"
+                                                    class="btn btn-ghost btn-xs text-primary p-0.5 hover:bg-primary/10 rounded h-auto min-h-0"
+                                                    title="Gestionar participantes (CC)">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                                        stroke="currentColor" class="w-3.5 h-3.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                    </svg>
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </th>
                                     <td class="text-right pr-0 pt-3">
                                         <div class="flex flex-col gap-1 items-end">
-                                            <?php foreach (array_map('trim', explode(',', $model->cc_emails)) as $ccEmail): ?>
-                                                <span
-                                                    class="badge badge-sm badge-neutral font-semibold select-all"><?= Html::encode($ccEmail) ?></span>
-                                            <?php endforeach; ?>
+                                            <?php if (!empty($ccList)): ?>
+                                                <?php foreach ($ccList as $ccEmail): ?>
+                                                    <span class="badge badge-sm badge-neutral font-semibold select-all"><?= Html::encode($ccEmail) ?></span>
+                                                <?php endforeach; ?>
+                                            <?php else: ?>
+                                                <button type="button" onclick="openManageCcModal()"
+                                                    class="btn btn-xs btn-ghost text-xs text-primary font-normal gap-1 hover:bg-primary/10 p-0 h-auto min-h-0">
+                                                    + Agregar participante
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -1099,6 +1134,272 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     submitBtn.classList.remove('loading');
                     showError('Error de conexión al fusionar.');
                 });
+        }
+    </script>
+<?php endif; ?>
+
+<?php if ($isAdmin): ?>
+    <dialog id="manage_cc_modal" class="modal">
+        <div class="modal-box max-w-lg">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Cerrar">✕</button>
+            </form>
+
+            <h3 class="font-bold text-lg text-primary flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+                    stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.199l-.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                </svg>
+                Gestionar Participantes (CC)
+            </h3>
+
+            <p class="py-2 text-xs text-base-content/70">
+                Las personas en copia recibirán todas las respuestas y actualizaciones de este ticket por correo electrónico.
+            </p>
+
+            <?php if (!empty($model->email)): ?>
+                <div class="alert alert-sm bg-base-200/60 text-xs py-2 px-3 rounded-lg border border-base-300 mb-3 flex items-center justify-between">
+                    <span class="text-base-content/70">Remitente principal:</span>
+                    <span class="font-bold select-all text-base-content"><?= Html::encode($model->email) ?></span>
+                </div>
+            <?php endif; ?>
+
+            <!-- Contenedor de Participantes Actuales -->
+            <div class="mt-2">
+                <label class="label py-1">
+                    <span class="label-text text-xs font-bold uppercase tracking-wider text-base-content/60">Participantes en copia:</span>
+                    <span id="manage-cc-count" class="badge badge-xs badge-neutral">0</span>
+                </label>
+                <div id="manage-cc-badges" class="flex flex-wrap gap-1.5 p-3 rounded-lg bg-base-200/50 min-h-[46px] items-center border border-base-300">
+                    <!-- Se renderizan dinámicamente con JS -->
+                </div>
+            </div>
+
+            <!-- Agregar correo externo (WhatsApp, terceros, etc.) -->
+            <div class="mt-4">
+                <label class="label py-1" for="new-cc-email-input">
+                    <span class="label-text text-xs font-bold uppercase tracking-wider text-base-content/60">Agregar correo electrónico (WhatsApp / Externo):</span>
+                </label>
+                <div class="join w-full">
+                    <input type="email" id="new-cc-email-input" class="input input-bordered input-sm join-item w-full"
+                        placeholder="ejemplo@correo.com"
+                        onkeydown="if(event.key === 'Enter'){ event.preventDefault(); addCustomEmailToCc(); }">
+                    <button type="button" class="btn btn-sm btn-primary join-item gap-1" onclick="addCustomEmailToCc()">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Agregar
+                    </button>
+                </div>
+                <p id="manage-cc-input-error" class="text-xs text-error mt-1 hidden"></p>
+            </div>
+
+            <!-- Sugerencias de Miembros del Cliente -->
+            <?php if (!empty($delegatesData)): ?>
+                <div class="mt-4 pt-3 border-t border-base-200">
+                    <label class="label py-1">
+                        <span class="label-text text-xs font-bold uppercase tracking-wider text-base-content/60">Miembros del cliente (Clic para sumar):</span>
+                    </label>
+                    <div id="manage-cc-suggestions" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pt-1">
+                        <!-- Se llena con delegados que no estén ya en la lista -->
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <p id="manage-cc-error" class="text-sm text-error mt-3 hidden" role="alert"></p>
+
+            <div class="modal-action mt-6">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('manage_cc_modal').close()">Cancelar</button>
+                <button type="button" id="manage-cc-submit" class="btn btn-primary btn-sm gap-2 shadow-md" onclick="submitUpdateCc()">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                    Guardar Participantes
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+
+    <script>
+        let currentCcList = <?= json_encode($model->getCcEmailsList()) ?>;
+        const allDelegates = <?= json_encode($delegatesData) ?>;
+        const ticketOwnerEmail = <?= json_encode(strtolower(trim((string)$model->email))) ?>;
+
+        function openManageCcModal() {
+            // Reiniciar con el estado actual
+            currentCcList = <?= json_encode($model->getCcEmailsList()) ?>;
+            renderManageCcBadges();
+            renderManageCcSuggestions();
+            const errorBox = document.getElementById('manage-cc-error');
+            if (errorBox) errorBox.classList.add('hidden');
+            const inputError = document.getElementById('manage-cc-input-error');
+            if (inputError) inputError.classList.add('hidden');
+            const input = document.getElementById('new-cc-email-input');
+            if (input) input.value = '';
+            document.getElementById('manage_cc_modal').showModal();
+        }
+
+        function renderManageCcBadges() {
+            const container = document.getElementById('manage-cc-badges');
+            const countBadge = document.getElementById('manage-cc-count');
+            if (!container) return;
+
+            if (countBadge) countBadge.textContent = currentCcList.length;
+
+            if (currentCcList.length === 0) {
+                container.innerHTML = '<span class="text-xs text-base-content/40 italic">No hay participantes adicionales en copia.</span>';
+                return;
+            }
+
+            container.innerHTML = '';
+            currentCcList.forEach((email) => {
+                const badge = document.createElement('div');
+                badge.className = 'badge badge-neutral gap-1.5 py-3 font-mono text-xs shadow-xs';
+                badge.innerHTML = `
+                    <span>${escapeHtmlCc(email)}</span>
+                    <button type="button" class="btn btn-ghost btn-circle btn-xs w-4 h-4 min-h-0 text-white/70 hover:text-white hover:bg-white/20 p-0" title="Eliminar" onclick="removeEmailFromCc('${email}')">✕</button>
+                `;
+                container.appendChild(badge);
+            });
+        }
+
+        function renderManageCcSuggestions() {
+            const container = document.getElementById('manage-cc-suggestions');
+            if (!container) return;
+
+            container.innerHTML = '';
+            const available = allDelegates.filter(d => d.email && !currentCcList.includes(d.email.toLowerCase()));
+
+            if (available.length === 0) {
+                container.innerHTML = '<span class="text-xs text-base-content/40 italic">Todos los delegados sugeridos ya están agregados.</span>';
+                return;
+            }
+
+            available.forEach(d => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-xs btn-outline btn-ghost gap-1 border-base-300 font-normal hover:border-primary hover:bg-primary/10';
+                btn.innerHTML = `<span class="text-primary font-bold">+</span> <span>${escapeHtmlCc(d.contact_name || d.username || d.email)}</span> <span class="opacity-50 text-[10px]">(${escapeHtmlCc(d.email)})</span>`;
+                btn.onclick = () => addEmailToCc(d.email);
+                container.appendChild(btn);
+            });
+        }
+
+        function addEmailToCc(email) {
+            const clean = (email || '').trim().toLowerCase();
+            if (!clean) return;
+            if (!isValidEmailCc(clean)) {
+                showCcInputError('Ingresa un correo electrónico válido.');
+                return;
+            }
+            if (ticketOwnerEmail && clean === ticketOwnerEmail) {
+                showCcInputError('Este correo es el solicitante principal del ticket.');
+                return;
+            }
+            if (currentCcList.includes(clean)) {
+                showCcInputError('Este correo ya está en la lista de participantes.');
+                return;
+            }
+            hideCcInputError();
+            currentCcList.push(clean);
+            renderManageCcBadges();
+            renderManageCcSuggestions();
+        }
+
+        function addCustomEmailToCc() {
+            const input = document.getElementById('new-cc-email-input');
+            if (!input) return;
+            const email = input.value;
+            if (!email || !email.trim()) {
+                showCcInputError('Escribe una dirección de correo.');
+                return;
+            }
+            addEmailToCc(email);
+            input.value = '';
+            input.focus();
+        }
+
+        function removeEmailFromCc(email) {
+            const clean = (email || '').trim().toLowerCase();
+            currentCcList = currentCcList.filter(e => e !== clean);
+            renderManageCcBadges();
+            renderManageCcSuggestions();
+        }
+
+        function showCcInputError(msg) {
+            const err = document.getElementById('manage-cc-input-error');
+            if (err) {
+                err.textContent = msg;
+                err.classList.remove('hidden');
+            }
+        }
+
+        function hideCcInputError() {
+            const err = document.getElementById('manage-cc-input-error');
+            if (err) err.classList.add('hidden');
+        }
+
+        function isValidEmailCc(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        function escapeHtmlCc(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function submitUpdateCc() {
+            const errorBox = document.getElementById('manage-cc-error');
+            const submitBtn = document.getElementById('manage-cc-submit');
+            const showError = (msg) => {
+                if (errorBox) {
+                    errorBox.textContent = msg;
+                    errorBox.classList.remove('hidden');
+                }
+            };
+            if (errorBox) errorBox.classList.add('hidden');
+
+            const formData = new FormData();
+            currentCcList.forEach(email => formData.append('cc_emails[]', email));
+
+            const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrfParamMeta = document.querySelector('meta[name="csrf-param"]');
+            if (csrfTokenMeta && csrfParamMeta) {
+                formData.append(csrfParamMeta.getAttribute('content'), csrfTokenMeta.getAttribute('content'));
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('loading');
+            }
+
+            fetch('<?= \yii\helpers\Url::to(['/tickets/update-cc', 'id' => $model->id]) ?>', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('loading');
+                    }
+                    showError(data.message || 'Error al actualizar los participantes.');
+                }
+            })
+            .catch(() => {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('loading');
+                }
+                showError('Error de conexión al guardar los participantes.');
+            });
         }
     </script>
 <?php endif; ?>

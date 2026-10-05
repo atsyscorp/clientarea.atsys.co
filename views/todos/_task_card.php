@@ -30,7 +30,7 @@ $activeTimer = $task->getActiveTimer(Yii::$app->user->id);
                 <?php endif; ?>
 
                 <?php if ($activeTimer): ?>
-                    <span class="badge badge-warning badge-xs text-[10px] font-bold animate-pulse">
+                    <span class="badge badge-warning badge-xs font-bold animate-pulse motion-reduce:animate-none">
                         <i class="fas fa-stopwatch mr-1"></i> Cronómetro activo
                     </span>
                 <?php endif; ?>
@@ -43,8 +43,8 @@ $activeTimer = $task->getActiveTimer(Yii::$app->user->id);
                 <?= Html::encode($task->title) ?>
             </a>
             <?php if ($task->customer): ?>
-                <div class="text-[11px] text-base-content/50 mt-1 flex items-center gap-1 truncate">
-                    <i class="fas fa-building text-[10px]"></i>
+                <div class="text-xs text-base-content/60 mt-1 flex items-center gap-1 truncate">
+                    <i class="fas fa-building text-xs"></i>
                     <?= Html::encode($task->customer->trade_name ?: $task->customer->business_name) ?>
                 </div>
             <?php endif; ?>
@@ -54,11 +54,11 @@ $activeTimer = $task->getActiveTimer(Yii::$app->user->id);
         <?php $itemsCount = count($task->checklistItems); ?>
         <?php if ($itemsCount > 0): ?>
             <div>
-                <div class="flex justify-between text-[10px] text-base-content/60 font-semibold mb-1">
+                <div class="flex justify-between text-xs text-base-content/60 font-semibold mb-1">
                     <span>Subtareas</span>
                     <span><?= $pct ?>%</span>
                 </div>
-                <progress class="progress <?= $progressColor ?> w-full h-1.5" value="<?= $pct ?>" max="100"></progress>
+                <progress class="progress <?= $progressColor ?> w-full h-1.5" value="<?= $pct ?>" max="100" aria-label="Avance de subtareas: <?= $pct ?>%" aria-valuenow="<?= $pct ?>"></progress>
             </div>
         <?php endif; ?>
 
@@ -74,7 +74,7 @@ $activeTimer = $task->getActiveTimer(Yii::$app->user->id);
             <?php if ($task->due_date): ?>
                 <div class="<?= $isOverdue ? 'text-error font-bold flex items-center gap-1' : 'text-base-content/50' ?>" title="Vencimiento: <?= date('d/m/Y H:i', strtotime($task->due_date)) ?>">
                     <?php if ($isOverdue): ?>
-                        <i class="fas fa-exclamation-circle text-[11px]"></i>
+                        <i class="fas fa-exclamation-circle text-xs"></i>
                     <?php endif; ?>
                     <?= date('d/m', strtotime($task->due_date)) ?>
                 </div>
@@ -83,7 +83,7 @@ $activeTimer = $task->getActiveTimer(Yii::$app->user->id);
             <!-- Assigned User -->
             <?php if ($task->assignedToUser): ?>
                 <div class="avatar placeholder tooltip tooltip-left" data-tip="Asignado a: <?= Html::encode($task->assignedToUser->username) ?>">
-                    <div class="bg-primary/20 text-primary rounded-full w-5 h-5 text-[10px] font-bold flex items-center justify-center">
+                    <div class="bg-primary/20 text-primary rounded-full w-6 h-6 sm:w-5 sm:h-5 text-xs font-bold flex items-center justify-center">
                         <?= strtoupper(substr($task->assignedToUser->username, 0, 1)) ?>
                     </div>
                 </div>

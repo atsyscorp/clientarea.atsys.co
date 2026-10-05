@@ -79,7 +79,7 @@ class CyberPanel extends Component
 
         $result = self::sendRequest($baseUrl . 'submitWebsiteStatus', $payload);
         Yii::error($result);
-        return ($result['websiteStatus'] == 1);
+        return (isset($result['websiteStatus']) && $result['websiteStatus'] == 1) || (isset($result['status']) && $result['status'] == 1);
     }
 
     /**
@@ -101,7 +101,7 @@ class CyberPanel extends Component
 
         $result = self::sendRequest($baseUrl . 'submitWebsiteStatus', $payload);
         Yii::error($result);
-        return ($result['websiteStatus'] == 1);
+        return (isset($result['websiteStatus']) && $result['websiteStatus'] == 1) || (isset($result['status']) && $result['status'] == 1);
     }
 
     /**

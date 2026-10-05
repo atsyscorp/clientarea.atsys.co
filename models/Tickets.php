@@ -183,6 +183,7 @@ class Tickets extends \yii\db\ActiveRecord
 
             [['merged_into_id'], 'integer'],
             [['merged_into_id'], 'exist', 'skipOnError' => true, 'targetClass' => self::class, 'targetAttribute' => ['merged_into_id' => 'id']],
+            [['cc_emails'], 'string'],
         ];
     }
 
@@ -211,6 +212,7 @@ class Tickets extends \yii\db\ActiveRecord
             'customer_id' => 'Cliente',
             'user_id' => 'Usuario / Solicitante',
             'email' => 'Email',
+            'cc_emails' => 'En copia (CC)',
             'subject' => 'Asunto',
             'status' => 'Estado',
             'is_locked' => 'Respuestas Bloqueadas',
@@ -828,6 +830,26 @@ class Tickets extends \yii\db\ActiveRecord
     }
 
     /**
+     * Obtiene la lista limpia de correos en copia (CC)
+     * @return array
+     */
+    public function getCcEmailsList()
+    {
+        if (empty($this->cc_emails)) {
+            return [];
+        }
+        $emails = array_map('trim', explode(',', $this->cc_emails));
+        $validEmails = [];
+        foreach ($emails as $email) {
+            $clean = strtolower(trim($email));
+            if (!empty($clean) && filter_var($clean, FILTER_VALIDATE_EMAIL)) {
+                $validEmails[] = $clean;
+            }
+        }
+        return array_values(array_unique($validEmails));
+    }
+
+    /**
      * Fusiona este ticket (origen) dentro de un ticket destino (target).
      * @param Tickets $targetTicket
      * @param User $adminUser
@@ -884,14 +906,21 @@ class Tickets extends \yii\db\ActiveRecord
                 ['ticket_id' => $this->id]
             );
 
-            // 4. Consolidar cc_emails
-            if (!empty($this->cc_emails)) {
-                $existingCc = !empty($targetTicket->cc_emails)
-                    ? array_map('trim', explode(',', $targetTicket->cc_emails))
-                    : [];
-                $sourceCc = array_map('trim', explode(',', $this->cc_emails));
-                $mergedCc = array_unique(array_merge($existingCc, $sourceCc));
-                $targetTicket->cc_emails = implode(', ', array_filter($mergedCc));
+            // 4. Consolidar cc_emails y asegurar que el remitente del ticket origen quede en copia
+            $existingCc = $targetTicket->getCcEmailsList();
+            $sourceCc = $this->getCcEmailsList();
+
+            // Si el creador del ticket origen tiene email y es diferente al del destino, incluirlo en CC
+            if (!empty($this->email)) {
+                $srcEmail = strtolower(trim($this->email));
+                if (filter_var($srcEmail, FILTER_VALIDATE_EMAIL) && $srcEmail !== strtolower(trim((string)$targetTicket->email))) {
+                    $sourceCc[] = $srcEmail;
+                }
+            }
+
+            $mergedCc = array_values(array_unique(array_merge($existingCc, $sourceCc)));
+            if (!empty($mergedCc)) {
+                $targetTicket->cc_emails = implode(', ', $mergedCc);
                 $targetTicket->save(false);
             }
 
@@ -945,7 +974,7 @@ class Tickets extends \yii\db\ActiveRecord
         }
 
         $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
-        $senderEmail = Yii::$app->params['senderEmail'] ?? 'noreply@atsys.co';
+        $senderEmail = Yii::$app->params['senderEmail'] ?? 'clientarea@atsys.co';
 
         // 1. CORREO ELECTRÓNICO AL CLIENTE (Confirmación)
         if (!empty($this->email)) {

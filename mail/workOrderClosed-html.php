@@ -19,7 +19,7 @@ $rateUrl = Yii::$app->urlManager->createAbsoluteUrl(['feedback/rate', 'work_orde
 
     <div style="border-left: 4px solid #28a745; background-color: #f0fff4; padding: 15px; margin: 25px 0; border-radius: 4px;">
         <p style="margin: 0; color: #155724; font-size: 15px;">
-            ✅ <strong>Misión Cumplida:</strong> En ATSYS confirmamos que hemos <strong>cumplido con el trabajo solicitado dentro de los tiempos establecidos</strong> y bajo los estándares de calidad acordados.
+            <strong>Trabajo Finalizado:</strong> En ATSYS confirmamos que hemos <strong>cumplido con el trabajo solicitado dentro de los tiempos establecidos</strong> y bajo los estándares de calidad acordados.
         </p>
     </div>
 

@@ -22,7 +22,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
 <div class="todos-view space-y-6">
 
     <!-- Header Section -->
-    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-base-100 p-6 rounded-2xl shadow-xl border border-base-200">
+    <div class="relative z-20 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-base-100 p-6 rounded-2xl shadow-xl border border-base-200" style="position: relative; z-index: 20;">
         <div class="space-y-2 max-w-3xl">
             <div class="flex flex-wrap items-center gap-2">
                 <span id="task-status-badge" class="badge <?= $model->getStatusBadgeClass() ?> badge-lg shadow-sm">
@@ -32,7 +32,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                     Prioridad <?= Html::encode(Todos::optsPriority()[$model->priority] ?? $model->priority) ?>
                 </span>
                 <?php if ($isOverdue): ?>
-                    <span class="badge badge-error text-white badge-md font-bold animate-pulse">
+                    <span class="badge badge-error text-white badge-md font-bold animate-pulse motion-reduce:animate-none">
                         <i class="fas fa-exclamation-circle mr-1"></i> Vencida
                     </span>
                 <?php endif; ?>
@@ -59,15 +59,31 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
         <!-- Quick Status & Action Buttons -->
         <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
             <!-- Cambio de Estado Rápido -->
-            <div class="dropdown dropdown-end">
-                <label tabindex="0" class="btn btn-outline btn-primary btn-sm">
+            <div class="dropdown dropdown-end" style="position: relative; z-index: 30;">
+                <div role="button" tabindex="0" class="btn btn-outline btn-primary btn-sm">
                     <i class="fas fa-exchange-alt mr-1"></i> Cambiar Estado
-                </label>
-                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-2xl bg-base-100 rounded-box w-52 border border-base-200">
+                </div>
+                <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-2xl bg-base-100 rounded-box w-56 border border-base-200 mt-2" style="z-index: 50;">
+                    <li class="menu-title text-xs text-base-content/50 uppercase font-bold tracking-wider px-3 py-1">Seleccionar Estado</li>
                     <?php foreach (Todos::optsStatus() as $stKey => $stLabel): ?>
+                        <?php
+                            $dotColor = match($stKey) {
+                                Todos::STATUS_PENDING => 'bg-warning',
+                                Todos::STATUS_IN_PROGRESS => 'bg-primary',
+                                Todos::STATUS_COMPLETED => 'bg-success',
+                                Todos::STATUS_CANCELLED => 'bg-base-content/30',
+                                default => 'bg-base-content/40',
+                            };
+                        ?>
                         <li>
-                            <button type="button" onclick="changeTaskStatus('<?= $stKey ?>')" class="<?= $model->status === $stKey ? 'active' : '' ?>">
-                                <?= $stLabel ?>
+                            <button type="button" onclick="changeTaskStatus('<?= $stKey ?>')" class="flex items-center justify-between <?= $model->status === $stKey ? 'active font-bold' : '' ?>">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full <?= $dotColor ?>"></span>
+                                    <?= $stLabel ?>
+                                </span>
+                                <?php if ($model->status === $stKey): ?>
+                                    <i class="fas fa-check text-xs"></i>
+                                <?php endif; ?>
                             </button>
                         </li>
                     <?php endforeach; ?>
@@ -75,10 +91,10 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
             </div>
 
             <?= Html::a('<i class="fas fa-pencil-alt mr-1"></i> Editar', ['update', 'id' => $model->id], ['class' => 'btn btn-ghost btn-sm']) ?>
-            <?= Html::a('<i class="fas fa-trash text-error mr-1"></i> Eliminar', ['delete', 'id' => $model->id], [
-                'class' => 'btn btn-ghost btn-sm text-error',
+            <?= Html::a('<i class="fas fa-trash mr-1"></i> Eliminar', ['delete', 'id' => $model->id], [
+                'class' => 'btn btn-outline btn-error btn-sm hover:text-white',
                 'data' => [
-                    'confirm' => '¿Estás seguro de que deseas eliminar esta tarea?',
+                    'confirm' => '¿Estás seguro de que deseas eliminar permanentemente esta tarea? Esta acción no se puede deshacer.',
                     'method' => 'post',
                 ],
             ]) ?>
@@ -113,7 +129,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                             <div class="text-xs text-base-content/50 uppercase font-bold tracking-wider mb-1">
                                 <?= $isRunning ? 'Cronómetro en Marcha' : 'Cronómetro de Sesión' ?>
                             </div>
-                            <div id="stopwatch-display" class="font-mono text-4xl md:text-5xl font-extrabold <?= $isRunning ? 'text-warning animate-pulse' : 'text-base-content/80' ?>">
+                            <div id="stopwatch-display" class="font-mono text-4xl md:text-5xl font-extrabold <?= $isRunning ? 'text-warning animate-pulse motion-reduce:animate-none' : 'text-base-content/80' ?>">
                                 00:00:00
                             </div>
                             <div id="stopwatch-status-text" class="text-xs text-base-content/50 mt-1">
@@ -128,7 +144,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                             </button>
 
                             <!-- Detener Cronómetro -->
-                            <button id="btn-stop-timer" type="button" onclick="stopTaskTimer()" class="btn btn-error text-white btn-md shadow-md <?= !$isRunning ? 'hidden' : '' ?>">
+                            <button id="btn-stop-timer" type="button" onclick="openStopTaskTimerModal()" class="btn btn-error text-white btn-md shadow-md <?= !$isRunning ? 'hidden' : '' ?>">
                                 <i class="fas fa-stop mr-2"></i> Detener y Guardar
                             </button>
 
@@ -178,8 +194,9 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                                                 <td class="text-right">
                                                     <?php if (!$log->is_running): ?>
                                                         <?= Html::a('<i class="fas fa-times text-error"></i>', ['delete-time-log', 'id' => $log->id], [
-                                                            'class' => 'btn btn-ghost btn-xs btn-circle',
+                                                            'class' => 'btn btn-ghost btn-sm sm:btn-xs btn-circle',
                                                             'title' => 'Eliminar registro',
+                                                            'aria-label' => 'Eliminar registro de tiempo',
                                                             'data' => [
                                                                 'confirm' => '¿Eliminar este registro de tiempo?',
                                                                 'method' => 'post',
@@ -229,7 +246,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                     </div>
 
                     <!-- Progress Bar -->
-                    <progress id="checklist-progress-bar" class="progress progress-primary w-full h-2 mb-4" value="<?= $pct ?>" max="100"></progress>
+                    <progress id="checklist-progress-bar" class="progress progress-primary w-full h-2 mb-4" value="<?= $pct ?>" max="100" aria-label="Porcentaje de subtareas completadas: <?= $pct ?>%" aria-valuenow="<?= $pct ?>"></progress>
 
                     <!-- Checklist Items List -->
                     <div id="checklist-items-container" class="space-y-2">
@@ -241,7 +258,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                                         <?= Html::encode($item->title) ?>
                                     </span>
                                 </label>
-                                <button type="button" onclick="deleteChecklistItem(<?= $item->id ?>)" class="btn btn-ghost btn-xs btn-circle text-error ml-2" title="Eliminar subtarea">
+                                <button type="button" onclick="deleteChecklistItem(<?= $item->id ?>)" class="btn btn-ghost btn-sm sm:btn-xs btn-circle text-error ml-2" title="Eliminar subtarea" aria-label="Eliminar subtarea: <?= Html::encode($item->title) ?>">
                                     <i class="fas fa-trash text-xs"></i>
                                 </button>
                             </div>
@@ -250,7 +267,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
 
                     <!-- Inline Add Subtask Input -->
                     <form onsubmit="addChecklistItem(event)" class="mt-4 flex gap-2">
-                        <input id="input-new-subtask" type="text" placeholder="Escribe una nueva subtarea y presiona Enter..." class="input input-bordered input-sm flex-1 focus:input-primary text-sm" required>
+                        <input id="input-new-subtask" type="text" placeholder="Escribe una nueva subtarea y presiona Enter..." aria-label="Escribe una nueva subtarea" class="input input-bordered input-sm flex-1 focus:input-primary text-sm" required>
                         <button type="submit" class="btn btn-sm btn-primary text-white">
                             <i class="fas fa-plus mr-1"></i> Agregar
                         </button>
@@ -268,7 +285,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                     <!-- Formulario de nuevo comentario / nota -->
                     <form method="post" action="<?= Url::to(['add-comment', 'id' => $model->id]) ?>" class="mb-6 space-y-3">
                         <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->csrfToken ?>">
-                        <textarea name="comment" rows="3" class="textarea textarea-bordered w-full text-sm focus:textarea-primary" placeholder="Escribe una actualización de estado, acuerdo con el cliente o notas sobre el trabajo realizado..." required></textarea>
+                        <textarea name="comment" rows="3" aria-label="Escribe una nota de seguimiento o avance" class="textarea textarea-bordered w-full text-sm focus:textarea-primary" placeholder="Escribe una actualización de estado, acuerdo con el cliente o notas sobre el trabajo realizado..." required></textarea>
                         <div class="flex justify-end">
                             <button type="submit" class="btn btn-sm btn-primary text-white">
                                 <i class="fas fa-paper-plane mr-1"></i> Publicar Nota de Seguimiento
@@ -296,7 +313,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                                             <span class="font-bold text-xs text-base-content/85">
                                                 <?= Html::encode($c->user ? $c->user->username : 'Usuario') ?>
                                             </span>
-                                            <span class="text-[10px] text-base-content/50">
+                                            <span class="text-xs text-base-content/50">
                                                 <?= date('d/m/Y H:i', strtotime($c->created_at)) ?>
                                             </span>
                                         </div>
@@ -352,7 +369,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                                     <span class="badge badge-warning badge-xs">Pendiente</span>
                                 <?php endif; ?>
                             </div>
-                            <span class="text-[11px] text-base-content/50 block mt-1">
+                            <span class="text-xs text-base-content/50 block mt-1">
                                 Se enviará una notificación en el panel al responsable cuando llegue la fecha.
                             </span>
                         <?php else: ?>
@@ -374,7 +391,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
                         <div class="text-sm font-semibold text-base-content/80 mt-0.5 flex items-center gap-2">
                             <?php if ($model->assignedToUser): ?>
                                 <div class="avatar placeholder">
-                                    <div class="bg-primary text-primary-content rounded-full w-6 h-6 text-[10px] font-bold flex items-center justify-center">
+                                    <div class="bg-primary text-primary-content rounded-full w-6 h-6 text-xs font-bold flex items-center justify-center">
                                         <?= strtoupper(substr($model->assignedToUser->username, 0, 1)) ?>
                                     </div>
                                 </div>
@@ -446,7 +463,7 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
 <dialog id="modal-manual-time" class="modal">
     <div class="modal-box">
         <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Cerrar modal">✕</button>
         </form>
         <h3 class="font-bold text-lg text-primary flex items-center gap-2 mb-4">
             <i class="fas fa-history"></i> Carga Manual de Tiempo
@@ -473,6 +490,36 @@ $startTimeStamp = $isRunning ? strtotime($activeTimer->start_time) : null;
             <div class="modal-action">
                 <button type="button" onclick="document.getElementById('modal-manual-time').close()" class="btn btn-ghost">Cancelar</button>
                 <button type="submit" class="btn btn-primary text-white">Guardar Tiempo</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- MODAL: DETENER CRONÓMETRO DE TAREA -->
+<dialog id="modal-stop-task-timer" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3" aria-label="Cerrar modal">✕</button>
+        </form>
+        <h3 class="font-bold text-lg text-primary flex items-center gap-2 mb-2">
+            <i class="fas fa-stop-circle text-error"></i> Detener Cronómetro de Tarea
+        </h3>
+        <p class="text-xs text-base-content/60 mb-4">
+            El tiempo transcurrido quedará sumado al total de la tarea y se registrará en la bitácora de sesiones.
+        </p>
+        <form id="form-stop-task-timer" onsubmit="submitStopTaskTimer(event)" class="space-y-4">
+            <div class="form-control">
+                <label class="label font-semibold text-xs" for="stop-task-desc">
+                    Detalle del trabajo realizado (Opcional):
+                </label>
+                <textarea id="stop-task-desc" name="description" rows="3" class="textarea textarea-bordered w-full text-sm focus:textarea-primary" placeholder="Ej: Avances en la configuración, pruebas y resolución del requerimiento..."></textarea>
+            </div>
+            <div id="stop-task-error" class="alert alert-error text-xs p-2 hidden"></div>
+            <div class="modal-action">
+                <button type="button" onclick="document.getElementById('modal-stop-task-timer').close()" class="btn btn-ghost btn-sm">Continuar Cronómetro</button>
+                <button type="submit" id="btn-confirm-stop-task" class="btn btn-error btn-sm text-white">
+                    <i class="fas fa-stop mr-1"></i> Detener y Guardar Sesión
+                </button>
             </div>
         </form>
     </div>
@@ -524,22 +571,38 @@ function startTaskTimer() {
             startTimestamp = data.startTimestamp;
             document.getElementById('btn-start-timer').classList.add('hidden');
             document.getElementById('btn-stop-timer').classList.remove('hidden');
-            document.getElementById('stopwatch-display').classList.add('text-warning', 'animate-pulse');
+            document.getElementById('stopwatch-display').classList.add('text-warning', 'animate-pulse', 'motion-reduce:animate-none');
             document.getElementById('stopwatch-status-text').textContent = 'Cronómetro en marcha...';
             updateStopwatch();
             timerInterval = setInterval(updateStopwatch, 1000);
         } else {
-            alert(data.message || 'Error al iniciar cronómetro.');
+            const statusText = document.getElementById('stopwatch-status-text');
+            statusText.textContent = data.message || 'Error al iniciar cronómetro.';
+            statusText.className = 'text-xs text-error font-semibold mt-1';
         }
     })
     .catch(err => {
-        alert('Error de conexión al iniciar el cronómetro.');
+        const statusText = document.getElementById('stopwatch-status-text');
+        statusText.textContent = 'Error de conexión al iniciar el cronómetro.';
+        statusText.className = 'text-xs text-error font-semibold mt-1';
     });
 }
 
-function stopTaskTimer() {
-    const desc = prompt("Ingresa brevemente qué se realizó en esta sesión (Opcional):", "");
-    if (desc === null) return; // Cancelado
+function openStopTaskTimerModal() {
+    document.getElementById('stop-task-desc').value = '';
+    const errBox = document.getElementById('stop-task-error');
+    if (errBox) errBox.classList.add('hidden');
+    document.getElementById('modal-stop-task-timer').showModal();
+}
+
+function submitStopTaskTimer(e) {
+    e.preventDefault();
+    const desc = document.getElementById('stop-task-desc').value.trim();
+    const btnConfirm = document.getElementById('btn-confirm-stop-task');
+    const errBox = document.getElementById('stop-task-error');
+
+    btnConfirm.disabled = true;
+    btnConfirm.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Guardando...';
 
     const formData = new FormData();
     formData.append('description', desc);
@@ -553,21 +616,19 @@ function stopTaskTimer() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            isRunning = false;
-            clearInterval(timerInterval);
-            document.getElementById('stopwatch-display').textContent = '00:00:00';
-            document.getElementById('stopwatch-display').classList.remove('text-warning', 'animate-pulse');
-            document.getElementById('btn-stop-timer').classList.add('hidden');
-            document.getElementById('btn-start-timer').classList.remove('hidden');
-            document.getElementById('total-time-display').textContent = data.totalTime;
-            document.getElementById('stopwatch-status-text').textContent = 'Sesión guardada (' + data.duration + ').';
-            location.reload(); // Recarga para actualizar historial de sesiones
+            location.reload();
         } else {
-            alert(data.message || 'Error al detener el cronómetro.');
+            errBox.textContent = data.message || 'Error al detener el cronómetro.';
+            errBox.classList.remove('hidden');
+            btnConfirm.disabled = false;
+            btnConfirm.innerHTML = '<i class="fas fa-stop mr-1"></i> Detener y Guardar Sesión';
         }
     })
     .catch(err => {
-        alert('Error de conexión al detener el cronómetro.');
+        errBox.textContent = 'Error de conexión al detener el cronómetro.';
+        errBox.classList.remove('hidden');
+        btnConfirm.disabled = false;
+        btnConfirm.innerHTML = '<i class="fas fa-stop mr-1"></i> Detener y Guardar Sesión';
     });
 }
 

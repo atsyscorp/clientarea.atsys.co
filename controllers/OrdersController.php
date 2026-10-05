@@ -135,7 +135,7 @@ class OrdersController extends Controller
                             'order_total' => $order_total_formatted,
                             'paymentLink' => $paymentLink
                         ])
-                        ->setFrom([Yii::$app->params['senderEmail'] ?? 'no-reply@atsys.co' => Yii::$app->params['senderName'] ?? 'ATSYS'])
+                        ->setFrom([Yii::$app->params['senderEmail'] ?? 'clientarea@atsys.co' => Yii::$app->params['senderName'] ?? 'ATSYS'])
                         ->setTo($customer->email)
                         ->setSubject("Nueva orden de pago generada: " . $model->code)
                         ->send();
@@ -582,7 +582,7 @@ class OrdersController extends Controller
             }
 
             Yii::$app->mailer->compose()
-                ->setFrom([Yii::$app->params['senderEmail'] ?? 'no-reply@atsys.co' => Yii::$app->params['senderName'] ?? 'ATSYS'])
+                ->setFrom([Yii::$app->params['senderEmail'] ?? 'clientarea@atsys.co' => Yii::$app->params['senderName'] ?? 'ATSYS'])
                 ->setTo($adminEmail)
                 ->setSubject("Factura Electrónica Requerida - Orden {$order->code}")
                 ->setHtmlBody($body)
@@ -603,7 +603,7 @@ class OrdersController extends Controller
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setReplyTo(Yii::$app->params['departmentEmails']['support'] ?? 'soporte@atsys.co')
                 ->setTo($customer->email)
-                ->setSubject("✅ Servicio reactivado: {$service->domain}")
+                ->setSubject("Servicio reactivado: {$service->domain}")
                 ->send();
         } catch (\Throwable $e) {
             Yii::error("Error reactivación email: " . $e->getMessage());
@@ -656,7 +656,7 @@ class OrdersController extends Controller
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setReplyTo(Yii::$app->params['departmentEmails']['billing'] ?? 'facturacion@atsys.co')
                 ->setTo($customer->email)
-                ->setSubject("✅ Pago Recibido - Orden {$order->code}")
+                ->setSubject("Pago Recibido - Orden {$order->code}")
                 ->send();
         } catch (\Throwable $e) {
             Yii::error("Error recibo pago email: " . $e->getMessage());

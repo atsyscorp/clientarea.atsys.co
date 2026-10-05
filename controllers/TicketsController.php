@@ -34,13 +34,13 @@ class TicketsController extends \yii\web\Controller
                     'rules' => [
                         // REGLA 1: Usuarios autenticados pueden ver, crear y cerrar SUS tickets
                         [
-                            'actions' => ['index', 'view', 'create', 'reply', 'close', 'bulk', 'upload-image', 'badge-count', 'get-new-replies', 'get-delegates'],
+                            'actions' => ['index', 'view', 'create', 'reply', 'view-reply', 'close', 'bulk', 'upload-image', 'badge-count', 'get-new-replies', 'get-delegates'],
                             'allow' => true,
                             'roles' => ['@'],
                         ],
                         // REGLA 2: Solo el ADMIN puede ELIMINAR, fusionar, bloquear remitente y actualizar (editar)
                         [
-                            'actions' => ['update', 'in-progress', 'delete', 'toggle-lock', 'merge', 'block-sender', 'unblock-sender'],
+                            'actions' => ['update', 'in-progress', 'delete', 'toggle-lock', 'merge', 'block-sender', 'unblock-sender', 'update-cc'],
                             'allow' => true,
                             'roles' => ['@'],
                             'matchCallback' => function ($rule, $action) {
@@ -58,6 +58,7 @@ class TicketsController extends \yii\web\Controller
                         'merge' => ['POST'],
                         'block-sender' => ['POST'],
                         'unblock-sender' => ['POST'],
+                        'update-cc' => ['POST'],
                     ],
                 ],
             ]
@@ -166,6 +167,30 @@ class TicketsController extends \yii\web\Controller
         }
         
         return $html;
+    }
+
+    public function actionViewReply($id)
+    {
+        $reply = \app\models\TicketReplies::findOne($id);
+        if (!$reply) {
+            throw new \yii\web\NotFoundHttpException('La respuesta no existe.');
+        }
+
+        $ticket = $reply->ticket;
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+
+        if (!$isAdmin) {
+            $myCustomerId = Yii::$app->user->identity->realCustomerId;
+            if (!$myCustomerId || $ticket->customer_id != $myCustomerId) {
+                throw new \yii\web\ForbiddenHttpException('No tienes permiso para ver este ticket.');
+            }
+        }
+
+        $this->layout = 'blank';
+        return $this->render('view-reply', [
+            'reply' => $reply,
+            'model' => $ticket,
+        ]);
     }
 
     protected function findModel($id)
@@ -353,7 +378,9 @@ class TicketsController extends \yii\web\Controller
                 }
             }
         }
-
+        if (isset($reply) && !$reply->isNewRecord) {
+            return $this->redirect(['view', 'id' => $id, '#' => 'reply-' . $reply->id]);
+        }
         return $this->redirect(['view', 'id' => $id]);
     }
 
@@ -570,6 +597,11 @@ class TicketsController extends \yii\web\Controller
                     // 2. Guardar el Mensaje Inicial en TicketReplies
                     $reply = new TicketReplies();
                     $reply->ticket_id = $model->id;
+
+                    if ($isAdmin) {
+                        $model->message = "<p><strong>Ticket iniciado por ATSYS</strong></p><br>" . $model->message;
+                    }
+
                     $reply->message = $model->message; // Tomado del campo virtual
 
                     // Definir quién escribe (la primera respuesta representa la solicitud del cliente)
@@ -1106,6 +1138,77 @@ class TicketsController extends \yii\web\Controller
             $msg = !empty($errors) ? implode(' ', $errors) : 'No se pudo fusionar ningún ticket.';
             return ['success' => false, 'message' => $msg];
         }
+    }
+
+    /**
+     * Actualiza la lista de personas en copia (CC) del ticket.
+     * Solo administradores.
+     *
+     * @param int $id ID del ticket
+     * @return mixed
+     */
+    public function actionUpdateCc($id)
+    {
+        if (Yii::$app->user->isGuest || !Yii::$app->user->identity->isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
+        }
+
+        $model = $this->findModel($id);
+        $rawEmails = $this->request->post('cc_emails');
+
+        if (is_array($rawEmails)) {
+            $emails = $rawEmails;
+        } else {
+            $emails = !empty($rawEmails) ? preg_split('/[\s,;]+/', (string)$rawEmails) : [];
+        }
+
+        $cleanEmails = [];
+        $invalidEmails = [];
+        foreach ($emails as $email) {
+            $email = strtolower(trim((string)$email));
+            if (empty($email)) {
+                continue;
+            }
+            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $cleanEmails[] = $email;
+            } else {
+                $invalidEmails[] = $email;
+            }
+        }
+
+        $cleanEmails = array_values(array_unique($cleanEmails));
+        $model->cc_emails = !empty($cleanEmails) ? implode(', ', $cleanEmails) : null;
+        $saved = $model->save(false);
+
+        if ($this->request->isAjax) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            if ($saved) {
+                return [
+                    'success' => true,
+                    'message' => 'Participantes en copia actualizados correctamente.',
+                    'cc_emails' => $model->cc_emails,
+                    'cc_list' => $cleanEmails,
+                    'invalid_emails' => $invalidEmails,
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Error al guardar los participantes en copia.',
+                ];
+            }
+        }
+
+        if ($saved) {
+            if (!empty($invalidEmails)) {
+                Yii::$app->session->setFlash('warning', 'Se guardaron los participantes, pero los siguientes correos no eran válidos: ' . implode(', ', $invalidEmails));
+            } else {
+                Yii::$app->session->setFlash('success', 'Participantes en copia (CC) actualizados correctamente.');
+            }
+        } else {
+            Yii::$app->session->setFlash('error', 'Error al actualizar los participantes en copia.');
+        }
+
+        return $this->redirect(['view', 'id' => $model->id]);
     }
 
     public function actionUploadImage()

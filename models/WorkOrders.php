@@ -106,11 +106,9 @@ class WorkOrders extends \yii\db\ActiveRecord
     public function beforeSave($insert)
     {
         if (parent::beforeSave($insert)) {
-            // Generador de Código Automático (Intacto)
+            // Asignar un código temporal para permitir el guardado y obtener el ID real
             if ($this->isNewRecord && empty($this->code)) {
-                $lastOrder = self::find()->orderBy(['id' => SORT_DESC])->one();
-                $nextId = $lastOrder ? ($lastOrder->id + 1) : 1;
-                $this->code = 'OT'.(($this->is_request == 1) ? 'R' : '').'-' . date('Y') . '-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+                $this->code = 'TEMP-' . uniqid();
             }
 
             // Asignar proyecto predeterminado si es un nuevo registro y no se ha especificado
@@ -172,6 +170,13 @@ class WorkOrders extends \yii\db\ActiveRecord
     public function afterSave($insert, $changedAttributes)
     {
         parent::afterSave($insert, $changedAttributes);
+        
+        // Generador de Código Automático (Basado en el ID real para evitar reciclaje)
+        if ($insert && strpos($this->code, 'TEMP-') === 0) {
+            $this->code = 'OT'.(($this->is_request == 1) ? 'R' : '').'-' . date('Y') . '-' . str_pad($this->id, 3, '0', STR_PAD_LEFT);
+            $this->updateAttributes(['code' => $this->code]);
+        }
+
         if ($this->contract) {
             $this->contract->recalculateProgress();
         }

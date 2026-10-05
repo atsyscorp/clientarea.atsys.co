@@ -4,6 +4,8 @@ use yii\helpers\Html;
 
 /** @var yii\web\View $this */
 /** @var app\models\Todos $model */
+/** @var array $customersList */
+/** @var array $adminsList */
 
 $this->title = 'Editar Tarea: ' . $model->title;
 $this->params['breadcrumbs'][] = ['label' => 'To-Do List', 'url' => ['index']];
@@ -29,6 +31,8 @@ $this->params['breadcrumbs'][] = 'Editar';
 
     <?= $this->render('_form', [
         'model' => $model,
+        'customersList' => $customersList,
+        'adminsList' => $adminsList,
     ]) ?>
 
 </div>

@@ -35,7 +35,7 @@ $horaFin = date('h:i A', $endTime);
     <!-- Encabezado -->
     <div style="text-align: center; margin-bottom: 24px;">
         <span style="background-color: #fef3c7; color: #92400e; font-weight: bold; font-size: 11px; padding: 5px 14px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block;">
-            🔔 Nueva Solicitud de Reunión por Aprobar
+            Nueva Solicitud de Reunión por Aprobar
         </span>
         <h2 style="color: #134C42; margin-top: 12px; margin-bottom: 4px; font-size: 22px; font-weight: 700;">
             <?= Html::encode($model->title) ?>
@@ -145,7 +145,7 @@ $horaFin = date('h:i A', $endTime);
             <!-- Botón Aprobar -->
             <a href="<?= $approveUrl ?>" target="_blank" 
                style="background-color: #134C42; color: #ffffff; padding: 12px 26px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block; margin: 4px; box-shadow: 0 4px 6px rgba(19, 76, 66, 0.2);">
-                ✅ Aprobar y Generar Google Meet
+                Aprobar y Generar Google Meet
             </a>
 
             <!-- Botón Ver en Panel -->

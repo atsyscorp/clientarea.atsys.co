@@ -3,32 +3,13 @@
 use yii\helpers\Html;
 use yii\helpers\ArrayHelper;
 use yii\widgets\ActiveForm;
-use app\models\Customers;
-use app\models\User;
 use app\models\Todos;
 
 /** @var yii\web\View $this */
 /** @var app\models\Todos $model */
 /** @var yii\widgets\ActiveForm $form */
-
-// Clientes activos
-$customersList = ArrayHelper::map(
-    Customers::find()->orderBy(['business_name' => SORT_ASC])->all(),
-    'id',
-    function ($customer) {
-        $name = $customer->trade_name ?: $customer->business_name;
-        return $name . ' (' . $customer->document_number . ')';
-    }
-);
-
-// Administradores asignables
-$adminsList = ArrayHelper::map(
-    User::find()->where(['role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE])->orderBy(['username' => SORT_ASC])->all(),
-    'id',
-    function ($user) {
-        return $user->username . ' (' . $user->email . ')';
-    }
-);
+/** @var array $customersList */
+/** @var array $adminsList */
 ?>
 
 <div class="todos-form">
@@ -160,7 +141,7 @@ $adminsList = ArrayHelper::map(
                     Escribe los pasos o entregables clave para esta tarea (un paso por línea). Podrás marcarlos interactivamente como completados luego.
                 </p>
 
-                <textarea name="initial_checklist" rows="3" class="textarea textarea-bordered w-full focus:textarea-primary text-sm font-mono" placeholder="Paso 1: Respaldar base de datos&#10;Paso 2: Aplicar script de migración&#10;Paso 3: Probar inicio de sesión"></textarea>
+                <textarea name="initial_checklist" rows="3" aria-label="Subtareas iniciales (un paso por línea)" class="textarea textarea-bordered w-full focus:textarea-primary text-sm font-mono" placeholder="Paso 1: Respaldar base de datos&#10;Paso 2: Aplicar script de migración&#10;Paso 3: Probar inicio de sesión"></textarea>
             </div>
         </div>
     <?php endif; ?>

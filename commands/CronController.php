@@ -151,7 +151,7 @@ class CronController extends Controller
     {
         try {
             $multiple = count($servicesData) > 1;
-            $subject = $multiple ? "⚠️ Servicios Suspendidos" : "⚠️ Servicio Suspendido: {$servicesData[0]->domain}";
+            $subject = $multiple ? "Servicios Suspendidos" : "Servicio Suspendido: {$servicesData[0]->domain}";
 
             Yii::$app->mailer->compose(['html' => 'overdue_hosting-html'], [
                 'business_name' => $customer->business_name,
@@ -280,7 +280,7 @@ class CronController extends Controller
                 $prodName = $service->product ? $service->product->name : 'Servicio';
                 $notifTitle = $daysLeft == 0 ? "🚨 {$prodName} vence HOY: {$service->domain}" : "📅 {$prodName} por vencer: {$service->domain}";
                 $notifBody = $daysLeft == 0
-                    ? "Tu servicio {$prodName} ({$service->domain}) vence el día de hoy (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando de inmediato."
+                    ? "Tu servicio {$prodName} ({$service->domain}) vence el día de hoy (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Te invitamos a renovar para evitar interrupciones."
                     : "Tu servicio {$prodName} ({$service->domain}) vence en {$daysLeft} días (" . Yii::$app->formatter->asDate($service->next_due_date, 'long') . "). Evita interrupciones renovando hoy.";
 
                 Notifications::notifyCustomer(
@@ -385,38 +385,38 @@ class CronController extends Controller
 
             if ($minDaysLeft == 0) {
                 $subject = $multiple 
-                    ? "🚨 HOY vencen " . count($servicesData) . " de tus servicios{$domainSuffix}" 
-                    : "🚨 HOY vence tu servicio: {$servicesData[0]['model']->domain}";
+                    ? "HOY vencen " . count($servicesData) . " de tus servicios{$domainSuffix}" 
+                    : "HOY vence tu servicio: {$servicesData[0]['model']->domain}";
                 $color = "#dc2626"; // Rojo
                 $msgIntro = $multiple 
                     ? ($sameDueDate 
-                        ? "Tienes " . count($servicesData) . " servicios activos en tu cuenta que vencen el día de hoy. Por favor realiza tu renovación de inmediato para evitar la suspensión y corte de tus servicios."
-                        : "Tienes " . count($servicesData) . " servicios activos en tu cuenta próximos a vencer, y el primero de ellos vence el día de hoy. Por favor renueva de inmediato para evitar la suspensión.")
-                    : "Tu servicio vence el día de hoy. Por favor realiza tu renovación de inmediato para evitar la suspensión.";
+                        ? "Tienes " . count($servicesData) . " servicios activos en tu cuenta que vencen el día de hoy. Te invitamos a realizar tu renovación para evitar la interrupción de tus servicios."
+                        : "Tienes " . count($servicesData) . " servicios activos en tu cuenta próximos a vencer, y el primero de ellos vence el día de hoy. Por favor renueva para evitar la interrupción del servicio.")
+                    : "Tu servicio vence el día de hoy. Te invitamos a realizar tu renovación para evitar la interrupción del servicio.";
             } elseif ($minDaysLeft <= 5) {
                 $subject = $multiple 
-                    ? "🚨 ÚLTIMO AVISO: Tienes " . count($servicesData) . " servicios por vencer en {$minDaysLeft} días{$domainSuffix}" 
-                    : "🚨 ÚLTIMO AVISO: Tu servicio vence en {$minDaysLeft} días";
+                    ? "Vencimiento próximo: Tienes " . count($servicesData) . " servicios por vencer en {$minDaysLeft} días{$domainSuffix}" 
+                    : "Vencimiento próximo: Tu servicio vence en {$minDaysLeft} días";
                 $color = "#dc2626"; // Rojo
                 $msgIntro = $multiple 
                     ? ($sameDueDate
-                        ? "Es urgente que renueves tus servicios para evitar la suspensión y desconexión de tu sitio web y correos. Todos vencen en la misma fecha y puedes renovarlos conjuntamente."
-                        : "Es urgente que renueves tus servicios para evitar la suspensión y desconexión de tu sitio web y correos. A continuación verás la fecha individual de cada uno.")
-                    : "Es urgente que renueves para evitar la suspensión y desconexión de tu sitio.";
+                        ? "Es importante que renueves tus servicios para evitar la interrupción de tu sitio web y correos. Todos vencen en la misma fecha y puedes renovarlos conjuntamente."
+                        : "Es importante que renueves tus servicios para evitar la interrupción de tu sitio web y correos. A continuación verás la fecha individual de cada uno.")
+                    : "Es importante que renueves para evitar la interrupción de tu sitio.";
             } elseif ($minDaysLeft <= 15) {
                 $subject = $multiple 
-                    ? "⚠️ Recordatorio: Tienes " . count($servicesData) . " servicios que vencen pronto{$domainSuffix}" 
-                    : "⚠️ Recordatorio: {$servicesData[0]['model']->domain} vence pronto";
+                    ? "Recordatorio: Tienes " . count($servicesData) . " servicios que vencen pronto{$domainSuffix}" 
+                    : "Recordatorio: {$servicesData[0]['model']->domain} vence pronto";
                 $color = "#d97706"; // Naranja
-                $msgIntro = $multiple
+                $msgIntro = $multiple 
                     ? ($sameDueDate
                         ? "Te recordamos que tienes " . count($servicesData) . " servicios contratados que vencen el mismo día. Puedes renovarlos a tiempo desde tu área de clientes en un solo pago."
                         : "Te recordamos que tienes " . count($servicesData) . " servicios contratados con diferentes fechas de vencimiento próximas. Te presentamos a continuación el detalle de cada uno para que puedas programar su renovación.")
                     : "Te recordamos que tu servicio vence pronto. Puedes renovarlo desde tu área de clientes.";
             } elseif ($minDaysLeft <= 30) {
                 $subject = $multiple 
-                    ? "📅 Próximo vencimiento de tus servicios en {$minDaysLeft} días{$domainSuffix}" 
-                    : "📅 Próximo vencimiento: {$servicesData[0]['model']->domain} ({$minDaysLeft} días)";
+                    ? "Próximo vencimiento de tus servicios en {$minDaysLeft} días{$domainSuffix}" 
+                    : "Próximo vencimiento: {$servicesData[0]['model']->domain} ({$minDaysLeft} días)";
                 $color = "#2563eb"; // Azul
                 $msgIntro = $multiple
                     ? ($sameDueDate
@@ -425,8 +425,8 @@ class CronController extends Controller
                     : "Este es un aviso preventivo para programar la renovación de tus servicios con tranquilidad.";
             } else {
                 $subject = $multiple 
-                    ? "📅 Aviso Preventivo: Renovación en {$minDaysLeft} días{$domainSuffix}" 
-                    : "📅 Aviso Preventivo: {$servicesData[0]['model']->domain} vence en {$minDaysLeft} días";
+                    ? "Aviso Preventivo: Renovación en {$minDaysLeft} días{$domainSuffix}" 
+                    : "Aviso Preventivo: {$servicesData[0]['model']->domain} vence en {$minDaysLeft} días";
                 $color = "#0284c7"; // Azul celeste informativo
                 $msgIntro = "Te enviamos este aviso con anticipación para que puedas planificar la renovación de tus servicios y agendarlos en tu calendario.";
             }
@@ -520,7 +520,7 @@ class CronController extends Controller
             echo "Enviando resumen a {$user->email} ({$countNotifs} notificaciones)... ";
 
             try {
-                $subject = "🔔 Resumen: tienes {$countNotifs} " . ($countNotifs === 1 ? 'novedad pendiente' : 'novedades pendientes') . " en tu área de cliente";
+                $subject = "Resumen: tienes {$countNotifs} " . ($countNotifs === 1 ? 'novedad pendiente' : 'novedades pendientes') . " en tu área de cliente";
 
                 $mailer = Yii::$app->mailer->compose(['html' => 'notification_digest-html'], [
                     'user' => $user,
@@ -648,8 +648,8 @@ class CronController extends Controller
         $isCritical = $percentage >= 90;
 
         // Evitar notificaciones duplicadas usando Notifications
-        $title = $isFull ? "⚠️ Alerta urgente: Espacio lleno en $domainName" :
-            ($isCritical ? "⚠️ Aviso de espacio en $domainName próximo a llenarse" : "⚠️ Aviso de espacio en $domainName");
+        $title = $isFull ? "Tu espacio en disco para $domainName está lleno" :
+            ($isCritical ? "El espacio en disco para $domainName está próximo a llenarse" : "Aviso de espacio en disco para $domainName");
         $type = $isFull ? \app\models\Notifications::TYPE_DANGER :
             ($isCritical ? \app\models\Notifications::TYPE_WARNING : \app\models\Notifications::TYPE_INFO);
 

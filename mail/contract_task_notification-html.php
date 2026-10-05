@@ -17,13 +17,13 @@ $badgeColor = '#3730a3';
 
 if ($task->status == \app\models\ContractTasks::STATUS_COMPLETED || $actionType === 'completed') {
     $headerBg = '#059669'; // Emerald
-    $headerTitle = '✅ Hito de Trabajo Completado';
+    $headerTitle = 'Hito de Trabajo Completado';
     $badgeBg = '#d1fae5';
     $badgeColor = '#065f46';
 } elseif ($actionType === 'created') {
-    $headerTitle = '🚀 Nuevo Hito Registrado';
+    $headerTitle = 'Nuevo Hito Registrado';
 } else {
-    $headerTitle = '📌 Actualización de Hito de Trabajo';
+    $headerTitle = 'Actualización de Hito de Trabajo';
 }
 ?>
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937; line-height: 1.6;">

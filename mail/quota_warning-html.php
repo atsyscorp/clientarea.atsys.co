@@ -12,9 +12,9 @@ use yii\helpers\Html;
     <p>Hola <strong><?= Html::encode($business_name) ?></strong>,</p>
 
     <?php if ($isCritical): ?>
-        <p>Este es un aviso urgente. El espacio en disco de tu servicio para el dominio <strong><?= Html::encode($domain) ?></strong> ha alcanzado el <strong>100%</strong> de su cuota asignada.</p>
-        <p>Al tener el espacio lleno, es posible que comiences a experimentar problemas graves en tu sitio web, como correos electrónicos que rebotan o errores de conexión en tu base de datos.</p>
-        <p>Te sugerimos encarecidamente liberar espacio (eliminando correos antiguos o archivos innecesarios) o <strong>actualizar a un plan con mayor capacidad</strong> lo antes posible para restablecer el correcto funcionamiento.</p>
+        <p>Te informamos que el espacio en disco de tu servicio para el dominio <strong><?= Html::encode($domain) ?></strong> ha alcanzado el <strong>100%</strong> de su cuota asignada.</p>
+        <p>Al tener el espacio lleno, es posible que comiences a presentar intermitencias en tu sitio web o en la recepción de correos electrónicos.</p>
+        <p>Te invitamos a liberar espacio (eliminando correos antiguos o archivos innecesarios) o <strong>actualizar a un plan con mayor capacidad</strong> para asegurar el correcto funcionamiento.</p>
     <?php else: ?>
         <p>Te informamos que el espacio en disco de tu servicio para el dominio <strong><?= Html::encode($domain) ?></strong> ha superado el <strong><?= round($usagePercentage) ?>%</strong> de su cuota asignada.</p>
         <p>Te sugerimos revisar tu cuenta para limpiar archivos que ya no utilices, vaciar la papelera de correos, o bien considerar actualizarte a un siguiente plan para evitar futuras interrupciones del servicio.</p>

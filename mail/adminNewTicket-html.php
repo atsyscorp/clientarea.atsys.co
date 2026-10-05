@@ -42,7 +42,7 @@ $formatMessage = function($text, $dark = false) {
 };
 ?>
 <div style="font-family: Arial, sans-serif; color: #333;">
-    <h3 style="color: #d97706;">🔔 Nuevo Ticket</h3>
+    <h3 style="color: #d97706;">Nuevo Ticket</h3>
     
     <p>El usuario <strong><?= Html::encode($user ? $user->username : 'Usuario Externo') ?></strong> (<?= Html::encode($user ? $user->email : $ticket->email) ?>) ha abierto un ticket.</p>
     

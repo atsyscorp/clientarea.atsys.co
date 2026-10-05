@@ -45,7 +45,7 @@ foreach ($servicesData as $d) {
         <h2 style='color: <?=$color?>; margin: 0; font-size: 22px; font-weight: 700;'>Aviso de Renovación</h2>
         <?php if (isset($daysLeft) && $daysLeft == 0): ?>
             <p style='font-size: 17px; margin: 4px 0 0 0; color: #dc2626; font-weight: bold;'>
-                <?= ($isMultiple && $sameDueDate) ? '⚠️ Tus servicios vencen HOY' : '⚠️ Vence HOY' ?>
+                <?= ($isMultiple && $sameDueDate) ? 'Tus servicios vencen HOY' : 'Vence HOY' ?>
             </p>
         <?php elseif (isset($daysLeft)): ?>
             <p style='font-size: 17px; margin: 4px 0 0 0; color: #475569;'>
@@ -69,7 +69,7 @@ foreach ($servicesData as $d) {
         <!-- Caso A: Vencen en la MISMA fecha (ej. Hosting y Dominio que se pueden pagar juntos) -->
         <div style='background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 14px 16px; margin: 20px 0; font-size: 13px; color: #0369a1; line-height: 1.5;'>
             <div style='font-weight: 700; margin-bottom: 4px;'>
-                ℹ️ Información sobre tus servicios a renovar
+                Información sobre tus servicios a renovar
             </div>
             <div>
                 A continuación se detallan los <strong><?=$serviceCount?> servicios independientes</strong> activos en tu cuenta. Ten en cuenta que el <strong>Alojamiento Web (Hosting)</strong> y el <strong>Registro de Dominio</strong> son componentes distintos que <strong>vencen en la misma fecha</strong>; puedes renovarlos conjuntamente en un solo pago para mantener tu sitio web y correos operativos.
@@ -79,7 +79,7 @@ foreach ($servicesData as $d) {
         <!-- Caso B: Tienen DIFERENTES fechas de vencimiento -->
         <div style='background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; border-radius: 8px; padding: 14px 16px; margin: 20px 0; font-size: 13px; color: #334155; line-height: 1.5;'>
             <div style='font-weight: 700; margin-bottom: 4px; color: #0f172a;'>
-                ℹ️ Servicios con fechas de vencimiento diferentes
+                Servicios con fechas de vencimiento diferentes
             </div>
             <div>
                 A continuación se detallan los <strong><?=$serviceCount?> servicios activos</strong> próximos a vencer. Ten en cuenta que estos servicios <strong>tienen fechas de vencimiento diferentes</strong>; cada uno cuenta con su fecha límite y valor individual para que puedas programar su renovación oportunamente.
@@ -102,42 +102,42 @@ foreach ($servicesData as $d) {
         $productName = $product ? $product->name : ((is_object($model) && !empty($model->description_label)) ? $model->description_label : 'Servicio ATSYS');
 
         if ($productType === 'hosting') {
-            $badgeText = '🚀 HOSTING WEB';
+            $badgeText = 'HOSTING WEB';
             $badgeBg = '#e0e7ff';
             $badgeColor = '#3730a3';
             $badgeBorder = '#c7d2fe';
             $domainLabel = 'Dominio vinculado:';
             $leftAccent = '#4f46e5';
         } elseif ($productType === 'domain') {
-            $badgeText = '🌐 REGISTRO DE DOMINIO';
+            $badgeText = 'REGISTRO DE DOMINIO';
             $badgeBg = '#e0f2fe';
             $badgeColor = '#0369a1';
             $badgeBorder = '#bae6fd';
             $domainLabel = 'Nombre de dominio:';
             $leftAccent = '#0284c7';
         } elseif ($productType === 'license') {
-            $badgeText = '🔑 LICENCIA';
+            $badgeText = 'LICENCIA';
             $badgeBg = '#dcfce7';
             $badgeColor = '#15803d';
             $badgeBorder = '#bbf7d0';
             $domainLabel = 'Referencia:';
             $leftAccent = '#16a34a';
         } elseif ($productType === 'development') {
-            $badgeText = '💻 DESARROLLO';
+            $badgeText = 'DESARROLLO';
             $badgeBg = '#fef3c7';
             $badgeColor = '#92400e';
             $badgeBorder = '#fde68a';
             $domainLabel = 'Proyecto:';
             $leftAccent = '#d97706';
         } elseif ($productType === 'support') {
-            $badgeText = '🛠️ SOPORTE';
+            $badgeText = 'SOPORTE';
             $badgeBg = '#f3e8ff';
             $badgeColor = '#6b21a8';
             $badgeBorder = '#e9d5ff';
             $domainLabel = 'Servicio:';
             $leftAccent = '#9333ea';
         } else {
-            $badgeText = '📦 SERVICIO';
+            $badgeText = 'SERVICIO';
             $badgeBg = '#f1f5f9';
             $badgeColor = '#475569';
             $badgeBorder = '#cbd5e1';
@@ -211,15 +211,15 @@ foreach ($servicesData as $d) {
         <!-- Agendar en Calendario para este servicio -->
         <?php if (is_object($model) && isset($model->id) && \app\helpers\CalendarHelper::isEligible($model, 90)): ?>
         <div style='margin-top: 14px; padding-top: 12px; border-top: 1px dashed #e2e8f0; font-size: 12px;'>
-            <span style='color: #64748b; font-weight: 600; display: inline-block; margin-bottom: 6px;'>📅 Agendar recordatorio para este servicio:</span><br>
+            <span style='color: #64748b; font-weight: 600; display: inline-block; margin-bottom: 6px;'>Agendar recordatorio para este servicio:</span><br>
             <a href='<?= Html::encode(\app\helpers\CalendarHelper::getGoogleCalendarUrl($model)) ?>' target='_blank' style='display: inline-block; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 9px; color: #1d4ed8; text-decoration: none; font-size: 11px; margin-right: 5px; margin-bottom: 5px; font-weight: 500;'>
-                🗓️ Google Calendar
+                Google Calendar
             </a>
             <a href='https://clientarea.atsys.co/customer-services/calendar-ics?id=<?= $model->id ?>' target='_blank' style='display: inline-block; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 9px; color: #0f172a; text-decoration: none; font-size: 11px; margin-right: 5px; margin-bottom: 5px; font-weight: 500;'>
-                🍎 Apple / iCal (.ics)
+                Apple / iCal (.ics)
             </a>
             <a href='<?= Html::encode(\app\helpers\CalendarHelper::getOutlookLiveUrl($model)) ?>' target='_blank' style='display: inline-block; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 9px; color: #0369a1; text-decoration: none; font-size: 11px; margin-bottom: 5px; font-weight: 500;'>
-                📧 Outlook / Office 365
+                Outlook / Office 365
             </a>
         </div>
         <?php endif; ?>

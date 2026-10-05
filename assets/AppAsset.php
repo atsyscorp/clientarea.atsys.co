@@ -20,8 +20,9 @@ class AppAsset extends AssetBundle
     public $basePath = '@webroot';
     public $baseUrl = '@web';
     public $css = [
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
         'css/site.css?v=2.0',
-        'css/custom.css?v=2.1',
+        'css/custom.css?v=3.1',
     ];
     public $js = [
         'js/app.js',

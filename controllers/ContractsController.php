@@ -141,7 +141,7 @@ class ContractsController extends Controller
                 if ($model->status != Contracts::STATUS_DRAFT) {
                     Notifications::notifyCustomer(
                         $model->customer_id,
-                        "📜 Nuevo Contrato: " . $model->code,
+                        "Nuevo Contrato: " . $model->code,
                         "Se ha registrado un nuevo contrato para tu empresa: " . $model->title,
                         "/contracts/view?id=" . $model->id,
                         Notifications::TYPE_SUCCESS
@@ -214,7 +214,7 @@ class ContractsController extends Controller
                 if ($model->status != Contracts::STATUS_DRAFT) {
                     Notifications::notifyCustomer(
                         $model->customer_id,
-                        "📜 Contrato Actualizado: " . $model->code,
+                        "Contrato Actualizado: " . $model->code,
                         "Tu contrato '" . $model->title . "' ha sido actualizado. Avance global: " . number_format($model->progress_percentage, 1) . "%.",
                         "/contracts/view?id=" . $model->id,
                         Notifications::TYPE_INFO
@@ -281,7 +281,7 @@ class ContractsController extends Controller
             if ($contract->status != Contracts::STATUS_DRAFT) {
                 Notifications::notifyCustomer(
                     $contract->customer_id,
-                    "🚀 Nuevo Hito en Contrato: " . $contract->code,
+                    "Nuevo Hito en Contrato: " . $contract->code,
                     "Se registró el hito '" . $task->title . "'. Avance global del contrato: " . number_format($contract->progress_percentage, 1) . "%.",
                     "/contracts/view?id=" . $contract->id,
                     Notifications::TYPE_INFO
@@ -333,7 +333,7 @@ class ContractsController extends Controller
                 if ($task->contract->status != Contracts::STATUS_DRAFT) {
                     Notifications::notifyCustomer(
                         $task->contract->customer_id,
-                        "🚀 Avance de Hito en Contrato: " . $task->contract->code,
+                        "Avance de Hito en Contrato: " . $task->contract->code,
                         "Se actualizó el hito '" . $task->title . "' (" . number_format($task->progress_percentage, 1) . "%). Avance global: " . number_format($task->contract->progress_percentage, 1) . "%.",
                         "/contracts/view?id=" . $task->contract->id,
                         Notifications::TYPE_INFO
@@ -644,7 +644,7 @@ class ContractsController extends Controller
                 ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->name])
                 ->setReplyTo($replyToEmail)
                 ->setTo($model->customer->email)
-                ->setSubject("📜 Nuevo Contrato Activo: " . $model->code . " - " . $model->title);
+                ->setSubject("Nuevo Contrato Activo: " . $model->code . " - " . $model->title);
 
             if ($model->contract_file) {
                 $filePath = Yii::getAlias('@webroot' . $model->contract_file);
@@ -689,11 +689,11 @@ class ContractsController extends Controller
             $statusLabel = $statusLabels[$task->status] ?? 'Actualizado';
 
             if ($actionType === 'created') {
-                $subject = "🚀 Nuevo Hito Registrado: " . $task->title . " | Contrato " . $contract->code;
+                $subject = "Nuevo Hito Registrado: " . $task->title . " | Contrato " . $contract->code;
             } elseif ($actionType === 'completed' || $task->status == ContractTasks::STATUS_COMPLETED) {
-                $subject = "✅ Hito Completado: " . $task->title . " | Contrato " . $contract->code;
+                $subject = "Hito Completado: " . $task->title . " | Contrato " . $contract->code;
             } else {
-                $subject = "📌 Avance en Hito: " . $task->title . " (" . number_format($task->progress_percentage, 1) . "%) | Contrato " . $contract->code;
+                $subject = "Avance en Hito: " . $task->title . " (" . number_format($task->progress_percentage, 1) . "%) | Contrato " . $contract->code;
             }
 
             $adminEmail = Yii::$app->params['adminEmail'] ?? 'gerencia@atsys.co';
