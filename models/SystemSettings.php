@@ -240,9 +240,36 @@ class SystemSettings extends ActiveRecord
                             'Días de Vigencia de Órdenes de Trabajo',
                             'Número de días calendario de vigencia para una orden de trabajo pendiente antes de expirar por inactividad o falta de aprobación.',
                             'number'
+                        ],
+                        [
+                            'meetings',
+                            'meetings_schedule',
+                            json_encode(self::getDefaultMeetingSchedule(), JSON_UNESCAPED_UNICODE),
+                            'Horario de Atención para Citas',
+                            'Configuración de días hábiles y horarios de atención al cliente para solicitudes de reuniones virtuales (estilo WhatsApp Business).',
+                            'schedule'
                         ]
                     ]
                 )->execute();
+            }
+
+            // Asegurar que la configuración del horario de citas exista si la tabla ya fue creada
+            $hasSchedule = self::find()->where(['key' => 'meetings_schedule'])->exists();
+            if (!$hasSchedule) {
+                try {
+                    $defaultScheduleJson = json_encode(self::getDefaultMeetingSchedule(), JSON_UNESCAPED_UNICODE);
+                    $db->createCommand()->insert('system_settings', [
+                        'category' => 'meetings',
+                        'key' => 'meetings_schedule',
+                        'value' => $defaultScheduleJson,
+                        'label' => 'Horario de Atención para Citas',
+                        'description' => 'Configuración de días hábiles y horarios de atención al cliente para solicitudes de reuniones virtuales (estilo WhatsApp Business).',
+                        'type' => 'schedule',
+                        'updated_at' => date('Y-m-d H:i:s'),
+                    ])->execute();
+                } catch (\Exception $exSchedule) {
+                    Yii::error("Error auto-inserting meetings_schedule: " . $exSchedule->getMessage());
+                }
             }
 
             $settings = self::find()->all();
@@ -284,5 +311,145 @@ class SystemSettings extends ActiveRecord
         } catch (\Exception $e) {
             Yii::error("Error al cargar o inicializar configuraciones dinámicas: " . $e->getMessage(), __METHOD__);
         }
+    }
+
+    /**
+     * Retorna la plantilla predeterminada del horario comercial de atención (estilo WhatsApp).
+     * Claves: 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado, 0=Domingo.
+     * Mismo índice que date('w') en PHP y getDay() en JavaScript.
+     *
+     * @return array
+     */
+    public static function getDefaultMeetingSchedule()
+    {
+        return [
+            '1' => ['enabled' => true,  'start' => '08:00', 'end' => '17:00', 'name' => 'Lunes',     'short' => 'Lun'],
+            '2' => ['enabled' => true,  'start' => '08:00', 'end' => '17:00', 'name' => 'Martes',    'short' => 'Mar'],
+            '3' => ['enabled' => true,  'start' => '08:00', 'end' => '17:00', 'name' => 'Miércoles', 'short' => 'Mié'],
+            '4' => ['enabled' => true,  'start' => '08:00', 'end' => '17:00', 'name' => 'Jueves',    'short' => 'Jue'],
+            '5' => ['enabled' => true,  'start' => '08:00', 'end' => '17:00', 'name' => 'Viernes',   'short' => 'Vie'],
+            '6' => ['enabled' => false, 'start' => '08:00', 'end' => '12:00', 'name' => 'Sábado',    'short' => 'Sáb'],
+            '0' => ['enabled' => false, 'start' => '08:00', 'end' => '12:00', 'name' => 'Domingo',   'short' => 'Dom'],
+        ];
+    }
+
+    /**
+     * Obtiene el horario de atención configurado en el sistema para citas y reuniones.
+     * Si no existe o tiene datos inválidos, retorna el horario predeterminado.
+     *
+     * @return array
+     */
+    public static function getMeetingSchedule()
+    {
+        $raw = Yii::$app->params['meetings_schedule'] ?? null;
+        if (empty($raw)) {
+            try {
+                $row = self::findOne(['key' => 'meetings_schedule']);
+                if ($row && !empty($row->value)) {
+                    $raw = $row->value;
+                }
+            } catch (\Exception $e) {
+                // Silenciar
+            }
+        }
+
+        $default = self::getDefaultMeetingSchedule();
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                foreach ($default as $dayKey => $data) {
+                    if (isset($decoded[$dayKey]) && is_array($decoded[$dayKey])) {
+                        $default[$dayKey]['enabled'] = !empty($decoded[$dayKey]['enabled']);
+                        if (!empty($decoded[$dayKey]['start'])) {
+                            $default[$dayKey]['start'] = substr($decoded[$dayKey]['start'], 0, 5);
+                        }
+                        if (!empty($decoded[$dayKey]['end'])) {
+                            $default[$dayKey]['end'] = substr($decoded[$dayKey]['end'], 0, 5);
+                        }
+                    }
+                }
+                return $default;
+            }
+        } elseif (is_array($raw)) {
+            foreach ($default as $dayKey => $data) {
+                if (isset($raw[$dayKey]) && is_array($raw[$dayKey])) {
+                    $default[$dayKey]['enabled'] = !empty($raw[$dayKey]['enabled']);
+                    if (!empty($raw[$dayKey]['start'])) {
+                        $default[$dayKey]['start'] = substr($raw[$dayKey]['start'], 0, 5);
+                    }
+                    if (!empty($raw[$dayKey]['end'])) {
+                        $default[$dayKey]['end'] = substr($raw[$dayKey]['end'], 0, 5);
+                    }
+                }
+            }
+            return $default;
+        }
+
+        return $default;
+    }
+
+    /**
+     * Calcula la fecha hábil más próxima disponible según el horario configurado.
+     * Si el día de hoy ya superó la hora límite de cierre o no está habilitado,
+     * busca y retorna el siguiente día hábil disponible.
+     *
+     * @param string|null $fromDate Fecha base en formato Y-m-d (por defecto hoy)
+     * @return array ['date' => 'Y-m-d', 'dayOfWeek' => int, 'config' => array, 'isToday' => bool, 'isPastCutoff' => bool]
+     */
+    public static function getNextAvailableBusinessDate($fromDate = null)
+    {
+        $schedule = self::getMeetingSchedule();
+        $todayStr = date('Y-m-d');
+        $baseDate = $fromDate ?: $todayStr;
+        $currentTime = date('H:i');
+
+        // Evaluar si la fecha base es hoy
+        if ($baseDate === $todayStr) {
+            $todayDow = (string)date('w');
+            $todayConfig = $schedule[$todayDow] ?? null;
+
+            if ($todayConfig && !empty($todayConfig['enabled'])) {
+                $endTime = $todayConfig['end'] ?? '17:00';
+                // Si la hora actual es menor que la hora límite, hoy sigue estando disponible
+                if ($currentTime < $endTime) {
+                    return [
+                        'date' => $todayStr,
+                        'dayOfWeek' => (int)$todayDow,
+                        'config' => $todayConfig,
+                        'isToday' => true,
+                        'isPastCutoff' => false,
+                    ];
+                }
+            }
+        }
+
+        // Si hoy ya pasó la hora límite o no es día hábil, avanzar hasta 14 días
+        $baseTimestamp = strtotime($baseDate);
+        for ($i = 1; $i <= 14; $i++) {
+            $nextTimestamp = strtotime("+$i days", $baseTimestamp);
+            $nextDate = date('Y-m-d', $nextTimestamp);
+            $nextDow = (string)date('w', $nextTimestamp);
+            $nextConfig = $schedule[$nextDow] ?? null;
+
+            if ($nextConfig && !empty($nextConfig['enabled'])) {
+                return [
+                    'date' => $nextDate,
+                    'dayOfWeek' => (int)$nextDow,
+                    'config' => $nextConfig,
+                    'isToday' => false,
+                    'isPastCutoff' => true,
+                ];
+            }
+        }
+
+        // Respaldo de seguridad
+        return [
+            'date' => date('Y-m-d', strtotime('+1 day')),
+            'dayOfWeek' => (int)date('w', strtotime('+1 day')),
+            'config' => $schedule['1'] ?? ['start' => '08:00', 'end' => '17:00', 'name' => 'Lunes'],
+            'isToday' => false,
+            'isPastCutoff' => true,
+        ];
     }
 }

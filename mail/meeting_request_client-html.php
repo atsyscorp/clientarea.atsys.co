@@ -80,7 +80,7 @@ $horaFin = date('h:i A', $endTime);
         <strong style="color: #1a202c; display: block; margin-bottom: 4px; font-size: 12px;">
             📹 Aviso de Grabación y Calidad del Servicio:
         </strong>
-        Con el propósito de asegurar los más altos estándares de calidad, registro fiel de los compromisos técnicos y mejora continua en la prestación de nuestros servicios, le informamos que nuestras sesiones virtuales son grabadas y documentadas. La información tratada durante la reunión se gestiona bajo estrictas normas de confidencialidad y protección de datos.
+        Con el propósito de asegurar los más altos estándares de calidad, registro fiel de los compromisos técnicos y mejora continua en la prestación de nuestros servicios, le informamos que nuestras sesiones virtuales son grabadas y documentadas. La información tratada durante la reunión se gestiona bajo estrictas normas de confidencialidad y nuestra <a href="https://atsys.co/politica-de-tratamiento-de-datos/" target="_blank" rel="noopener noreferrer" style="color: #134C42; font-weight: bold; text-decoration: underline;">Política de Tratamiento de Datos</a>.
     </div>
 
     <p style="font-size: 14px; color: #4a5568; margin-top: 25px;">

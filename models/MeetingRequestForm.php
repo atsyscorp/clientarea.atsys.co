@@ -83,11 +83,11 @@ class MeetingRequestForm extends Model
     }
 
     /**
-     * Valida que la fecha sugerida no sea pasada ni fin de semana (si aplica)
+     * Valida que la fecha y hora sugeridas se encuentren dentro del horario comercial activo (estilo WhatsApp).
      */
     public function validateFutureDate($attribute, $params)
     {
-        if ($this->hasErrors()) {
+        if ($this->hasErrors($attribute)) {
             return;
         }
 
@@ -97,10 +97,45 @@ class MeetingRequestForm extends Model
             return;
         }
 
+        $schedule = SystemSettings::getMeetingSchedule();
         $timestamp = strtotime($this->requested_date);
-        $dayOfWeek = date('w', $timestamp); // 0=Domingo, 6=Sábado
-        if ($dayOfWeek == 0 || $dayOfWeek == 6) {
-            $this->addError($attribute, 'Las reuniones se agendan de lunes a viernes en horario laboral.');
+        $dayOfWeek = (string)date('w', $timestamp); // 0=Domingo, 1=Lunes, ...
+        $dayConfig = $schedule[$dayOfWeek] ?? null;
+
+        if (!$dayConfig || empty($dayConfig['enabled'])) {
+            $dayName = $dayConfig['name'] ?? 'el día seleccionado';
+            $nextAvailable = SystemSettings::getNextAvailableBusinessDate();
+            $formattedNext = date('d/m/Y', strtotime($nextAvailable['date']));
+            $this->addError($attribute, "Los días {$dayName} no contamos con atención para reuniones. Siguiente día hábil disponible: {$formattedNext}.");
+            return;
+        }
+
+        $currentTime = date('H:i');
+        $startTime = $dayConfig['start'] ?? '08:00';
+        $endTime = $dayConfig['end'] ?? '17:00';
+
+        // Si la solicitud es para el día de hoy, verificar si ya se superó la hora límite
+        if ($this->requested_date === $today) {
+            if ($currentTime >= $endTime) {
+                $nextAvailable = SystemSettings::getNextAvailableBusinessDate();
+                $formattedNext = date('d/m/Y', strtotime($nextAvailable['date']));
+                $this->addError($attribute, "La jornada de atención para hoy ha concluido (hora límite: {$endTime}). Te invitamos a seleccionar el siguiente día hábil ({$formattedNext}).");
+                return;
+            }
+
+            // Validar si la hora seleccionada ya transcurrió hoy
+            if (!empty($this->requested_time) && $this->requested_time <= $currentTime) {
+                $this->addError('requested_time', 'La hora seleccionada ya ha transcurrido. Por favor selecciona una hora posterior.');
+                return;
+            }
+        }
+
+        // Validar que la hora seleccionada esté dentro de la franja de apertura y cierre del día
+        if (!empty($this->requested_time)) {
+            if ($this->requested_time < $startTime || $this->requested_time > $endTime) {
+                $this->addError('requested_time', "La hora seleccionada ({$this->requested_time}) está fuera del horario de atención de los {$dayConfig['name']} ({$startTime} a {$endTime}).");
+                return;
+            }
         }
     }
 

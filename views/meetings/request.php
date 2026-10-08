@@ -9,8 +9,22 @@ use easedevs\yii2\turnstile\TurnstileInput;
 /** @var app\models\MeetingRequestForm $model */
 /** @var bool $isSuccess */
 /** @var app\models\Meetings|null $createdMeeting */
+/** @var array|null $schedule */
+/** @var array|null $nextAvailable */
 
 $isGuest = Yii::$app->user->isGuest;
+
+if (!isset($schedule)) {
+    $schedule = \app\models\SystemSettings::getMeetingSchedule();
+}
+if (!isset($nextAvailable)) {
+    $nextAvailable = \app\models\SystemSettings::getNextAvailableBusinessDate();
+}
+
+$minDate = $nextAvailable['date'];
+if (empty($model->requested_date) || $model->requested_date < $minDate) {
+    $model->requested_date = $minDate;
+}
 
 $this->title = 'Solicitar Reunión Virtual - ATSYS';
 if (!$isGuest) {
@@ -26,14 +40,8 @@ if (!$isGuest) {
 
         <!-- Logo y Encabezado de Marca (Público) -->
         <div class="text-center mb-8">
-            <a href="/" class="inline-flex items-center gap-3 group">
-                <div class="w-12 h-12 rounded-2xl bg-primary text-primary-content flex items-center justify-center font-black text-xl shadow-lg shadow-primary/30 group-hover:scale-105 transition-transform">
-                    AT
-                </div>
-                <div class="text-left">
-                    <span class="text-2xl font-black tracking-tight text-base-content block leading-none">ATSYS</span>
-                    <span class="text-[11px] font-semibold uppercase tracking-widest text-primary block mt-1">Servicios Cloud & TI</span>
-                </div>
+            <a href="/" class="inline-block hover:opacity-90 transition-opacity">
+                <img src="https://static.atsys.co/img/email/atsys-email-customer-tpl.png" alt="Logo ATSYS" class="h-10 sm:h-12 w-auto mx-auto" />
             </a>
             <h1 class="text-3xl font-extrabold text-base-content mt-6">Solicitar Reunión Virtual</h1>
             <p class="text-sm text-base-content/60 max-w-lg mx-auto mt-2">
@@ -196,33 +204,67 @@ if (!$isGuest) {
 
                     <!-- Sección 2: Programación de Fecha y Hora -->
                     <div class="pt-2 border-t border-base-200">
-                        <h3 class="text-sm font-bold uppercase tracking-wider text-base-content/60 mb-3 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-primary"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                            Preferencia de Horario
-                        </h3>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <h3 class="text-sm font-bold uppercase tracking-wider text-base-content/60 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-primary"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                                Preferencia de Horario
+                            </h3>
+                            <span class="text-[11px] text-base-content/50 font-medium">Zona horaria: Colombia (UTC-5)</span>
+                        </div>
+
+                        <?php if (!empty($nextAvailable['isPastCutoff'])): ?>
+                            <div class="alert alert-warning/15 border border-warning/30 text-xs py-2.5 px-3.5 rounded-xl shadow-sm flex items-start gap-2.5 mb-4 text-base-content/90">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-warning flex-shrink-0 mt-0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                                <div>
+                                    <span class="font-bold">Horario de hoy concluido:</span> La hora límite de atención para hoy ha finalizado. La agenda se encuentra habilitada para el siguiente día hábil: <strong><?= date('d/m/Y', strtotime($minDate)) ?> (<?= Html::encode($nextAvailable['config']['name'] ?? 'Próximo Día Hábil') ?>)</strong>.
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="form-control">
                                 <?= $form->field($model, 'requested_date')->input('date', [
-                                    'min' => date('Y-m-d'),
+                                    'min' => $minDate,
+                                    'id' => 'input-requested-date',
                                     'required' => true,
                                     'class' => 'input input-bordered w-full bg-base-200/40 focus:bg-base-100',
                                 ])->label('Fecha Sugerida <span class="text-error">*</span>') ?>
+                                <div id="date-schedule-notice" class="text-error text-xs mt-1.5 hidden font-medium"></div>
                             </div>
 
                             <div class="form-control">
                                 <label class="label-text font-semibold text-sm mb-1 block">
                                     Hora Sugerida <span class="text-error">*</span>
                                 </label>
-                                <select name="MeetingRequestForm[requested_time]" class="select select-bordered w-full bg-base-200/40 focus:bg-base-100" required>
+                                <?php
+                                $initialDow = (string)date('w', strtotime($model->requested_date));
+                                $initialConfig = $schedule[$initialDow] ?? null;
+                                $initialSlots = [];
+                                if ($initialConfig && !empty($initialConfig['enabled'])) {
+                                    $startH = (int)substr($initialConfig['start'] ?? '08:00', 0, 2);
+                                    $endH = (int)substr($initialConfig['end'] ?? '17:00', 0, 2);
+                                    $todayStr = date('Y-m-d');
+                                    $currentTime = date('H:i');
+                                    for ($h = $startH; $h <= $endH; $h++) {
+                                        $timeVal = sprintf('%02d:00', $h);
+                                        if ($model->requested_date === $todayStr && $timeVal <= $currentTime) {
+                                            continue;
+                                        }
+                                        $ampm = $h >= 12 ? 'PM' : 'AM';
+                                        $h12 = $h % 12;
+                                        if ($h12 === 0) $h12 = 12;
+                                        $label = sprintf('%02d:00 %s', $h12, $ampm);
+                                        $initialSlots[] = ['value' => $timeVal, 'label' => $label];
+                                    }
+                                }
+                                ?>
+                                <select name="MeetingRequestForm[requested_time]" id="select-requested-time" class="select select-bordered w-full bg-base-200/40 focus:bg-base-100" required>
                                     <option value="">-- Seleccionar Hora --</option>
-                                    <option value="08:00" <?= $model->requested_time === '08:00' ? 'selected' : '' ?>>08:00 AM</option>
-                                    <option value="09:00" <?= $model->requested_time === '09:00' ? 'selected' : '' ?>>09:00 AM</option>
-                                    <option value="10:00" <?= $model->requested_time === '10:00' ? 'selected' : '' ?>>10:00 AM</option>
-                                    <option value="11:00" <?= $model->requested_time === '11:00' ? 'selected' : '' ?>>11:00 AM</option>
-                                    <option value="14:00" <?= $model->requested_time === '14:00' ? 'selected' : '' ?>>02:00 PM</option>
-                                    <option value="15:00" <?= $model->requested_time === '15:00' ? 'selected' : '' ?>>03:00 PM</option>
-                                    <option value="16:00" <?= $model->requested_time === '16:00' ? 'selected' : '' ?>>04:00 PM</option>
-                                    <option value="17:00" <?= $model->requested_time === '17:00' ? 'selected' : '' ?>>05:00 PM</option>
+                                    <?php foreach ($initialSlots as $slot): ?>
+                                        <option value="<?= $slot['value'] ?>" <?= $model->requested_time === $slot['value'] ? 'selected' : '' ?>>
+                                            <?= $slot['label'] ?>
+                                        </option>
+                                    <?php endforeach; ?>
                                 </select>
                                 <span class="text-[11px] opacity-50 mt-1">Hora Colombia (UTC-5)</span>
                             </div>
@@ -280,9 +322,19 @@ if (!$isGuest) {
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg>
                             Enviar Solicitud de Reunión
                         </button>
-                        <p class="text-xs text-center text-base-content/50 mt-3">
-                            Al enviar esta solicitud, aceptas que la sesión pueda ser grabada con fines de aseguramiento de calidad y seguimiento técnico.
-                        </p>
+                        
+                        <!-- Aviso Legal de Tratamiento de Datos y Grabación -->
+                        <div class="text-xs text-center text-base-content/60 mt-3.5 space-y-1.5 leading-relaxed">
+                            <p>
+                                Al enviar esta solicitud, autorizas a <strong>Arkitech Systems SAS (ATSYS)</strong> el tratamiento de tus datos personales conforme a nuestra 
+                                <a href="https://atsys.co/politica-de-tratamiento-de-datos/" target="_blank" rel="noopener noreferrer" class="link link-primary font-semibold hover:underline">
+                                    Política de Tratamiento de Datos
+                                </a>.
+                            </p>
+                            <p class="text-base-content/40 text-[11px]">
+                                Asimismo, aceptas que la sesión pueda ser grabada con fines de aseguramiento de calidad y mejoramiento en el servicio.
+                            </p>
+                        </div>
                     </div>
 
                     <?php ActiveForm::end(); ?>
@@ -292,8 +344,13 @@ if (!$isGuest) {
 
 <?php if ($isGuest): ?>
         <!-- Pie de Página (Solo Invitados) -->
-        <div class="mt-8 text-center text-xs text-base-content/40">
-            &copy; <?= date('Y') ?> Arkitech Systems SAS (ATSYS). Todos los derechos reservados.
+        <div class="mt-8 text-center text-xs text-base-content/40 space-y-1">
+            <div>&copy; <?= date('Y') ?> Arkitech Systems SAS (ATSYS). Todos los derechos reservados.</div>
+            <div>
+                <a href="https://atsys.co/politica-de-tratamiento-de-datos/" target="_blank" rel="noopener noreferrer" class="hover:text-base-content/70 hover:underline">
+                    Política de Tratamiento de Datos Personales
+                </a>
+            </div>
         </div>
     </div>
 </div>
@@ -306,6 +363,100 @@ if (!$isGuest) {
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('form-meeting-request');
     const submitBtn = document.getElementById('btn-submit-request');
+    const dateInput = document.getElementById('input-requested-date');
+    const timeSelect = document.getElementById('select-requested-time');
+    const noticeEl = document.getElementById('date-schedule-notice');
+
+    const scheduleConfig = <?= json_encode($schedule, JSON_UNESCAPED_UNICODE) ?>;
+    const serverToday = '<?= date('Y-m-d') ?>';
+    const serverCurrentTime = '<?= date('H:i') ?>';
+    const minAvailableDate = '<?= $minDate ?>';
+
+    function formatTime12h(timeStr) {
+        const parts = timeStr.split(':');
+        let h = parseInt(parts[0], 10);
+        const m = parts[1] || '00';
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        let h12 = h % 12;
+        if (h12 === 0) h12 = 12;
+        return (h12 < 10 ? '0' + h12 : h12) + ':' + m + ' ' + ampm;
+    }
+
+    function updateAvailableSlots() {
+        if (!dateInput || !timeSelect) return;
+        const selectedDate = dateInput.value;
+        if (!selectedDate) {
+            timeSelect.innerHTML = '<option value="">-- Seleccionar Fecha Primero --</option>';
+            return;
+        }
+
+        // Si es anterior a la fecha mínima permitida, restablecer
+        if (selectedDate < minAvailableDate) {
+            dateInput.value = minAvailableDate;
+            updateAvailableSlots();
+            return;
+        }
+
+        const dateParts = selectedDate.split('-');
+        if (dateParts.length !== 3) return;
+        const dObj = new Date(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10));
+        const dow = String(dObj.getDay()); // 0=Domingo, 1=Lunes, ...
+        const dayCfg = scheduleConfig[dow];
+
+        if (!dayCfg || !dayCfg.enabled) {
+            const dayName = (dayCfg && dayCfg.name) ? dayCfg.name : 'seleccionado';
+            if (noticeEl) {
+                noticeEl.textContent = 'Los días ' + dayName + ' no contamos con atención para citas. Por favor selecciona otro día hábil.';
+                noticeEl.classList.remove('hidden');
+            }
+            timeSelect.innerHTML = '<option value="">-- Día cerrado para citas --</option>';
+            timeSelect.disabled = true;
+            if (submitBtn) submitBtn.disabled = true;
+            return;
+        }
+
+        // Día habilitado
+        if (noticeEl) {
+            noticeEl.textContent = '';
+            noticeEl.classList.add('hidden');
+        }
+        timeSelect.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
+
+        const startH = parseInt(dayCfg.start.split(':')[0], 10);
+        const endH = parseInt(dayCfg.end.split(':')[0], 10);
+        const isToday = (selectedDate === serverToday);
+
+        let optionsHtml = '<option value="">-- Seleccionar Hora --</option>';
+        let validSlotsCount = 0;
+
+        for (let h = startH; h <= endH; h++) {
+            const timeVal = (h < 10 ? '0' + h : '' + h) + ':00';
+            if (isToday && timeVal <= serverCurrentTime) {
+                continue; // Hora ya transcurrida hoy
+            }
+            const label = formatTime12h(timeVal);
+            optionsHtml += '<option value="' + timeVal + '">' + label + '</option>';
+            validSlotsCount++;
+        }
+
+        if (validSlotsCount === 0) {
+            timeSelect.innerHTML = '<option value="">-- Sin turnos disponibles hoy --</option>';
+            timeSelect.disabled = true;
+            if (noticeEl) {
+                noticeEl.textContent = 'La jornada de atención para hoy ya finalizó. Te sugerimos seleccionar el siguiente día hábil.';
+                noticeEl.classList.remove('hidden');
+            }
+            if (submitBtn) submitBtn.disabled = true;
+        } else {
+            timeSelect.innerHTML = optionsHtml;
+        }
+    }
+
+    if (dateInput) {
+        dateInput.addEventListener('change', updateAvailableSlots);
+        dateInput.addEventListener('input', updateAvailableSlots);
+    }
 
     if (form && submitBtn) {
         form.addEventListener('submit', function() {

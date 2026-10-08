@@ -422,6 +422,15 @@ class MeetingsController extends Controller
             }
         }
 
+        // Obtener configuración de horario de atención comercial y próximo día hábil disponible
+        $schedule = \app\models\SystemSettings::getMeetingSchedule();
+        $nextAvailable = \app\models\SystemSettings::getNextAvailableBusinessDate();
+
+        // Inicializar fecha sugerida si aún no se ha especificado
+        if (empty($model->requested_date)) {
+            $model->requested_date = $nextAvailable['date'];
+        }
+
         if ($model->load(Yii::$app->request->post())) {
             // 1. Verificación Honeypot silenciosa (si un bot llenó el campo oculto)
             if (!empty($model->website)) {
@@ -434,6 +443,8 @@ class MeetingsController extends Controller
                         'client_name' => $model->name,
                         'client_email' => $model->email,
                     ],
+                    'schedule' => $schedule,
+                    'nextAvailable' => $nextAvailable,
                 ]);
             }
 
@@ -447,6 +458,8 @@ class MeetingsController extends Controller
                     'model' => $model,
                     'isSuccess' => false,
                     'createdMeeting' => null,
+                    'schedule' => $schedule,
+                    'nextAvailable' => $nextAvailable,
                 ]);
             }
 
@@ -507,6 +520,8 @@ class MeetingsController extends Controller
             'model' => $model,
             'isSuccess' => $isSuccess,
             'createdMeeting' => $createdMeeting,
+            'schedule' => $schedule,
+            'nextAvailable' => $nextAvailable,
         ]);
     }
 
