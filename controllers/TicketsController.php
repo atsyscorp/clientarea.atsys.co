@@ -40,7 +40,7 @@ class TicketsController extends \yii\web\Controller
                         ],
                         // REGLA 2: Solo el ADMIN puede ELIMINAR, fusionar, bloquear remitente y actualizar (editar)
                         [
-                            'actions' => ['update', 'in-progress', 'delete', 'toggle-lock', 'merge', 'block-sender', 'unblock-sender', 'update-cc'],
+                            'actions' => ['update', 'in-progress', 'delete', 'toggle-lock', 'merge', 'block-sender', 'unblock-sender', 'update-cc', 'edit'],
                             'allow' => true,
                             'roles' => ['@'],
                             'matchCallback' => function ($rule, $action) {
@@ -59,6 +59,7 @@ class TicketsController extends \yii\web\Controller
                         'block-sender' => ['POST'],
                         'unblock-sender' => ['POST'],
                         'update-cc' => ['POST'],
+                        'edit' => ['POST'],
                     ],
                 ],
             ]
@@ -136,7 +137,35 @@ class TicketsController extends \yii\web\Controller
         ]);
     }
 
-    /**
+        /**
+     * Edita los datos básicos de un ticket
+     */
+    public function actionEdit($id)
+    {
+        $model = $this->findModel($id);
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+
+        if (!$isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permiso para editar este ticket.');
+        }
+
+        if ($this->request->isPost && $model->load($this->request->post())) {
+            
+            // Optionally, handle "notificar al cliente" here if needed.
+            // As per request "sin la opción de poder notificar", we just save without notifying.
+            if ($model->save()) {
+                Yii::$app->session->setFlash('success', 'Ticket actualizado correctamente.');
+            } else {
+                Yii::$app->session->setFlash('error', 'Error al actualizar el ticket.');
+            }
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+        
+        // This action only accepts POST requests. If accessed via GET, redirect to view
+        return $this->redirect(['view', 'id' => $model->id]);
+    }
+
+/**
      * Devuelve las respuestas nuevas de un ticket por AJAX (Polling)
      */
     public function actionGetNewReplies($id, $lastReplyId)
