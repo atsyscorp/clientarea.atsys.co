@@ -1,3 +1,11 @@
+<?php
+
+/** @var yii\web\View $this */
+
+$this->title = 'Servicio suspendido - VRALLO';
+$referrer = Yii::$app->request->referrer;
+$domain = preg_replace('/^https?:\/\//', '', $referrer);
+?>
 <div class="min-h-screen bg-base-200 flex items-center justify-center px-4">
     <div class="max-w-md w-full bg-base-100 shadow-2xl rounded-3xl p-8 text-center border-t-4 border-warning">
         <div class="flex justify-center mb-6">
@@ -9,10 +17,12 @@
                 </svg>
             </div>
         </div>
-        <h1 class="text-3xl font-bold text-base-content mb-2">Servicio Suspendido</h1>
+        <h1 class="text-3xl font-bold text-base-content mb-2">Servicio suspendido</h1>
         <p class="text-base-content/70 mb-8">
-            El hosting asociado a este dominio se encuentra temporalmente inactivo por falta de pago o vencimiento de
-            contrato o por incumplimiento a los términos de uso de ATSYS Nexus.
+            El servicio asociado al dominio <strong>
+                <?= htmlspecialchars($domain) ?>
+            </strong> se encuentra suspendido por falta de pago o vencimiento de
+            contrato o por incumplimiento a los términos de uso de VRALLO (antes ATSYS Nexus).
         </p>
         <div class="space-y-4">
             <a href="https://clientarea.atsys.co/customer-services" class="btn btn-primary w-full shadow-lg">Renovar

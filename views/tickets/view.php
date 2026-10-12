@@ -1032,6 +1032,15 @@ $this->registerJs($js, \yii\web\View::POS_END);
                 ]) ?>
             </div>
 
+            <div class="form-control">
+                <label class="label pb-1">
+                    <span class="label-text text-sm font-bold">Email</span>
+                </label>
+                <?= Html::activeTextInput($model, 'email', [
+                    'class' => 'input input-bordered input-sm w-full focus:input-primary'
+                ]) ?>
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
                 <div class="form-control">
                     <label class="label pb-1">
