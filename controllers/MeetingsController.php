@@ -208,9 +208,9 @@ class MeetingsController extends Controller
                 ]);
 
                 if ($n8nResponse && !empty($n8nResponse['success'])) {
-                    $model->google_event_id = $n8nResponse['event_id'] ?? null;
-                    $model->meet_url = $n8nResponse['meet_url'] ?? null;
-                    $model->calendar_html_link = $n8nResponse['html_link'] ?? null;
+                    $model->google_event_id = $n8nResponse['event_id'] ?? ($n8nResponse['google_event_id'] ?? ($n8nResponse['id'] ?? null));
+                    $model->meet_url = $n8nResponse['meet_url'] ?? ($n8nResponse['hangoutLink'] ?? null);
+                    $model->calendar_html_link = $n8nResponse['calendar_html_link'] ?? ($n8nResponse['html_link'] ?? ($n8nResponse['htmlLink'] ?? null));
 
                     if ($model->save(false)) {
                         // Enviar correo corporativo con plantilla de ATSYS y archivo .ics adjunto
@@ -247,6 +247,97 @@ class MeetingsController extends Controller
             'model' => $model,
             'customers' => $customers,
             'durationMinutes' => $durationMinutes,
+        ]);
+    }
+
+    /**
+     * Edita o reprograma una reunión existente
+     *
+     * @param int $id
+     * @return string|\yii\web\Response
+     * @throws NotFoundHttpException
+     */
+    public function actionUpdate($id)
+    {
+        $model = $this->findModel($id);
+
+        $durationMinutes = $model->getDurationMinutes();
+        if ($durationMinutes <= 0) {
+            $durationMinutes = 30;
+        }
+
+        $oldStartTime = $model->start_time;
+        $oldEndTime = $model->end_time;
+        $wasScheduled = ($model->status === Meetings::STATUS_SCHEDULED && !empty($model->meet_url));
+
+        if ($model->load(Yii::$app->request->post())) {
+            $durationMinutes = (int) Yii::$app->request->post('duration_minutes', 30);
+            if ($durationMinutes <= 0) $durationMinutes = 30;
+
+            // Formatear fechas
+            $startTimestamp = strtotime($model->start_time);
+            $endTimestamp = $startTimestamp + ($durationMinutes * 60);
+
+            $model->start_time = date('Y-m-d H:i:s', $startTimestamp);
+            $model->end_time = date('Y-m-d H:i:s', $endTimestamp);
+
+            // Si se seleccionó cliente registrado, sincronizar su nombre y correo si estaban vacíos
+            if (!empty($model->customer_id)) {
+                $customer = Customers::findOne($model->customer_id);
+                if ($customer) {
+                    if (empty($model->client_name)) {
+                        $model->client_name = $customer->contact_name ?: $customer->business_name;
+                    }
+                    if (empty($model->client_email)) {
+                        $model->client_email = $customer->email;
+                    }
+                }
+            }
+
+            if ($model->validate()) {
+                $timeChanged = ($model->start_time !== $oldStartTime || $model->end_time !== $oldEndTime);
+                $model->save(false);
+
+                // Si la reunión ya estaba programada y cambió el horario:
+                if ($wasScheduled && $timeChanged) {
+                    // 1. Notificar a n8n para actualizar Google Calendar si está configurado
+                    if (!empty($model->google_event_id)) {
+                        N8NService::updateMeeting($model);
+                    }
+
+                    // 2. Enviar correo de actualización con .ics oficial de reprogramación
+                    $sendUpdateEmail = (bool) Yii::$app->request->post('send_update_email', 1);
+                    if ($sendUpdateEmail) {
+                        $this->sendInvitationEmail($model);
+                        Yii::$app->session->setFlash('success', '¡Reunión actualizada y reprogramada con éxito! Se envió la actualización oficial a ' . Html::encode($model->client_email) . '.');
+                    } else {
+                        Yii::$app->session->setFlash('success', 'Reunión actualizada correctamente.');
+                    }
+                } elseif ($model->status === Meetings::STATUS_PENDING) {
+                    Yii::$app->session->setFlash('success', 'Solicitud de reunión actualizada. Cuando desees, puedes hacer clic en "Aprobar y Generar Meet" para sincronizarla con Google Calendar.');
+                } else {
+                    Yii::$app->session->setFlash('success', 'Reunión actualizada correctamente.');
+                }
+
+                return $this->redirect(['view', 'id' => $model->id]);
+            }
+        }
+
+        // Formatear fecha para el input datetime-local
+        $model->start_time = date('Y-m-d\TH:i', strtotime($model->start_time));
+
+        // Lista de clientes para el selector
+        $customers = Customers::find()
+            ->select(['id', 'business_name', 'contact_name', 'email'])
+            ->orderBy(['business_name' => SORT_ASC])
+            ->asArray()
+            ->all();
+
+        return $this->render('update', [
+            'model' => $model,
+            'customers' => $customers,
+            'durationMinutes' => $durationMinutes,
+            'wasScheduled' => $wasScheduled,
         ]);
     }
 
@@ -540,11 +631,11 @@ class MeetingsController extends Controller
         // Llamar a n8n para crear la cita en Google Calendar y sala de Google Meet
         $response = N8NService::scheduleMeeting($meeting);
 
-        if ($response['success']) {
+        if (is_array($response) && !empty($response['success'])) {
             $meeting->status = Meetings::STATUS_SCHEDULED;
-            $meeting->meet_url = $response['meet_url'] ?? null;
-            $meeting->calendar_html_link = $response['calendar_html_link'] ?? null;
-            $meeting->google_event_id = $response['event_id'] ?? null;
+            $meeting->meet_url = $response['meet_url'] ?? ($response['hangoutLink'] ?? null);
+            $meeting->calendar_html_link = $response['calendar_html_link'] ?? ($response['html_link'] ?? ($response['htmlLink'] ?? null));
+            $meeting->google_event_id = $response['event_id'] ?? ($response['google_event_id'] ?? ($response['id'] ?? null));
             $meeting->save(false);
 
             // Enviar invitación oficial por email con .ics al cliente (y BCC gerencia)
@@ -552,7 +643,8 @@ class MeetingsController extends Controller
 
             Yii::$app->session->setFlash('success', '¡Reunión aprobada exitosamente! Se sincronizó con Google Calendar y se envió la invitación con Google Meet a ' . Html::encode($meeting->client_email));
         } else {
-            Yii::$app->session->setFlash('error', 'No se pudo generar el enlace de Google Meet con n8n: ' . ($response['error'] ?? 'Error desconocido'));
+            $errorMsg = (is_array($response) && !empty($response['error'])) ? $response['error'] : 'Error desconocido o sin respuesta de n8n';
+            Yii::$app->session->setFlash('error', 'No se pudo generar el enlace de Google Meet con n8n: ' . $errorMsg);
         }
 
         return $this->redirect(['view', 'id' => $meeting->id]);

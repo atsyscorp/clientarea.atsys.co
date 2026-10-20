@@ -35,8 +35,99 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 
 // B. Inicializamos el editor sobre el ID 'tickets-message'
 $js = <<<'JS'
+window.AutoDraft = window.AutoDraft || {
+    save: function(k, d) { try { if (!k) return false; localStorage.setItem(k, JSON.stringify({ data: d, timestamp: Date.now() })); return true; } catch (e) { return false; } },
+    load: function(k, m) { try { if (!k) return null; const r = localStorage.getItem(k); if (!r) return null; const i = JSON.parse(r); if (Date.now() - i.timestamp > (typeof m === 'number' ? m : 7) * 86400000) { this.clear(k); return null; } return i; } catch (e) { return null; } },
+    clear: function(k) { try { if (k) localStorage.removeItem(k); } catch (e) {} },
+    formatTime: function(t) { try { const d = new Date(t), now = new Date(), isToday = d.toDateString() === now.toDateString(), s = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); return isToday ? 'hoy a las ' + s : d.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' + s; } catch (e) { return ''; } }
+};
+
 function initCreateTicketEditor() {
     if (typeof tinymce === 'undefined') return;
+
+    const createForm = document.getElementById('create-ticket-form');
+    const userId = createForm ? (createForm.getAttribute('data-user-id') || '0') : '0';
+    const draftKey = `draft_ticket_create_u${userId}`;
+    const draftNotice = document.getElementById('create-draft-notice');
+    const draftTimeSpan = document.getElementById('create-draft-time');
+    const discardBtn = document.getElementById('btn-discard-create-draft');
+    const autosaveStatus = document.getElementById('create-autosave-status');
+
+    const subjectInput = document.getElementById('tickets-subject');
+    const deptSelect = document.querySelector('select[name="Tickets[department]"]');
+    const prioritySelect = document.getElementById('priority-selector');
+
+    function isContentEmpty(html) {
+        if (!html) return true;
+        const stripped = html.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').trim();
+        return stripped.length === 0;
+    }
+
+    let statusFadeTimer = null;
+    function setStatus(text, success) {
+        if (!autosaveStatus) return;
+        clearTimeout(statusFadeTimer);
+        autosaveStatus.textContent = text;
+        autosaveStatus.className = `text-[11px] font-normal transition-opacity duration-300 ${success ? 'text-success' : 'text-base-content/50'}`;
+        autosaveStatus.style.opacity = '1';
+        if (text) {
+            statusFadeTimer = setTimeout(() => {
+                autosaveStatus.style.opacity = '0';
+            }, 3000);
+        }
+    }
+
+    let debounceTimer = null;
+    function triggerSaveDraft() {
+        if (!window.AutoDraft) return;
+
+        clearTimeout(debounceTimer);
+        setStatus('Guardando borrador...', false);
+        debounceTimer = setTimeout(() => {
+            let messageContent = '';
+            if (typeof tinymce !== 'undefined') {
+                const inst = tinymce.get('tickets-message');
+                if (inst) messageContent = inst.getContent();
+            }
+            if (!messageContent) {
+                const ta = document.getElementById('tickets-message');
+                if (ta) messageContent = ta.value;
+            }
+
+            const subjectVal = subjectInput ? subjectInput.value.trim() : '';
+            const deptVal = deptSelect ? deptSelect.value : '';
+            const priorityVal = prioritySelect ? prioritySelect.value : '';
+
+            const hasMessage = !isContentEmpty(messageContent);
+            const hasSubject = subjectVal.length > 0;
+
+            if (hasMessage || hasSubject) {
+                const draftData = {
+                    subject: subjectVal,
+                    message: messageContent,
+                    department: deptVal,
+                    priority: priorityVal
+                };
+                window.AutoDraft.save(draftKey, draftData);
+                setStatus('✓ Borrador guardado localmente', true);
+            } else {
+                window.AutoDraft.clear(draftKey);
+                if (draftNotice) draftNotice.classList.add('hidden');
+                setStatus('', false);
+            }
+        }, 600);
+    }
+
+    // Escuchar inputs estándar
+    if (subjectInput) {
+        subjectInput.addEventListener('input', triggerSaveDraft);
+    }
+    if (deptSelect) {
+        deptSelect.addEventListener('change', triggerSaveDraft);
+    }
+    if (prioritySelect) {
+        prioritySelect.addEventListener('change', triggerSaveDraft);
+    }
 
     const getCsrf = () => {
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -67,9 +158,58 @@ function initCreateTicketEditor() {
         `,
         branding: false, // Quitar marca "Powered by TinyMCE"
         setup: function (editor) {
-            // Esto asegura que el valor se guarde en el textarea al enviar el formulario
-            editor.on('change keyup NodeChange', function () {
+            editor.on('change keyup NodeChange input', function () {
                 editor.save();
+                triggerSaveDraft();
+            });
+
+            // Restaurar borrador previo cuando el editor esté listo
+            editor.on('init', function () {
+                if (window.AutoDraft) {
+                    const savedDraft = window.AutoDraft.load(draftKey);
+                    if (savedDraft && savedDraft.data) {
+                        const data = (typeof savedDraft.data === 'string')
+                            ? { message: savedDraft.data }
+                            : savedDraft.data;
+
+                        let restoredAny = false;
+
+                        // Restaurar Asunto si el campo está vacío
+                        if (data.subject && subjectInput && !subjectInput.value.trim()) {
+                            subjectInput.value = data.subject;
+                            restoredAny = true;
+                        }
+
+                        // Restaurar Departamento si no fue pasado por URL
+                        if (data.department && deptSelect && (!deptSelect.value || deptSelect.value === '0')) {
+                            deptSelect.value = data.department;
+                            restoredAny = true;
+                        }
+
+                        // Restaurar Prioridad si fue cambiada
+                        if (data.priority && prioritySelect && data.priority !== 'medium') {
+                            prioritySelect.value = data.priority;
+                            if (typeof window.togglePriorityWarning === 'function') {
+                                window.togglePriorityWarning(data.priority);
+                            }
+                            restoredAny = true;
+                        }
+
+                        // Restaurar Mensaje si el editor está vacío
+                        if (data.message && !isContentEmpty(data.message) && isContentEmpty(editor.getContent())) {
+                            editor.setContent(data.message);
+                            editor.save();
+                            restoredAny = true;
+                        }
+
+                        if (restoredAny && draftNotice) {
+                            draftNotice.classList.remove('hidden');
+                            if (draftTimeSpan && savedDraft.timestamp) {
+                                draftTimeSpan.textContent = window.AutoDraft.formatTime(savedDraft.timestamp);
+                            }
+                        }
+                    }
+                }
             });
 
             // Registrar autocompleter para menciones con @
@@ -162,11 +302,54 @@ function initCreateTicketEditor() {
         })
     });
 
+    // Descartar borrador
+    if (discardBtn) {
+        const newDiscardBtn = discardBtn.cloneNode(true);
+        discardBtn.parentNode.replaceChild(newDiscardBtn, discardBtn);
+
+        newDiscardBtn.addEventListener('click', function () {
+            if (confirm('¿Deseas descartar este borrador? Se eliminarán los datos que has redactado.')) {
+                if (typeof tinymce !== 'undefined') {
+                    const inst = tinymce.get('tickets-message');
+                    if (inst) {
+                        inst.setContent('');
+                        inst.save();
+                    }
+                }
+                const textarea = document.getElementById('tickets-message');
+                if (textarea) textarea.value = '';
+
+                if (subjectInput) subjectInput.value = '';
+                if (prioritySelect) {
+                    prioritySelect.value = 'medium';
+                    if (typeof window.togglePriorityWarning === 'function') {
+                        window.togglePriorityWarning('medium');
+                    }
+                }
+
+                if (window.AutoDraft) {
+                    window.AutoDraft.clear(draftKey);
+                }
+                if (draftNotice) {
+                    draftNotice.classList.add('hidden');
+                }
+                setStatus('Borrador descartado', false);
+            }
+        });
+    }
+
     const createForm = document.getElementById('create-ticket-form');
     if (createForm) {
         createForm.addEventListener('submit', function () {
             if (typeof tinymce !== 'undefined') {
                 tinymce.triggerSave();
+            }
+            // Eliminar borrador al enviar el formulario exitosamente
+            if (window.AutoDraft) {
+                window.AutoDraft.clear(draftKey);
+            }
+            if (draftNotice) {
+                draftNotice.classList.add('hidden');
             }
         });
     }
@@ -186,23 +369,46 @@ $this->registerJs($js, \yii\web\View::POS_END);
     <div class="card w-full max-w-2xl bg-base-100 shadow-xl">
         <div class="card-body">
 
-            <div class="flex items-center gap-4 border-b border-base-200 pb-4 mb-4">
-                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                        stroke="currentColor" class="w-7 h-7">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+            <div class="flex items-center justify-between border-b border-base-200 pb-4 mb-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-7 h-7">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="card-title text-2xl font-bold">Nuevo Ticket</h1>
+                        <p class="text-base-content/60 text-sm">Describe tu solicitud y te responderemos a la brevedad.</p>
+                    </div>
+                </div>
+                <span id="create-autosave-status" class="text-[11px] text-base-content/50 font-normal transition-opacity duration-300"></span>
+            </div>
+
+            <!-- Aviso de borrador restaurado con opción de descartar -->
+            <div id="create-draft-notice" class="hidden alert alert-warning/10 text-xs py-2.5 px-3.5 rounded-xl border border-warning/30 shadow-sm mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 text-warning shrink-0">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                     </svg>
+                    <span>Se restauró un borrador no enviado (<span id="create-draft-time" class="font-medium"></span>).</span>
                 </div>
-                <div>
-                    <h1 class="card-title text-2xl font-bold">Nuevo Ticket</h1>
-                    <p class="text-base-content/60 text-sm">Describe tu solicitud y te responderemos a la brevedad.</p>
-                </div>
+                <button type="button" id="btn-discard-create-draft" class="btn btn-ghost btn-xs text-error hover:bg-error/10 font-bold gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                    Descartar borrador
+                </button>
             </div>
 
             <?php $form = ActiveForm::begin([
                 'id' => 'create-ticket-form',
-                'options' => ['class' => 'space-y-4', 'enctype' => 'multipart/form-data'],
+                'options' => [
+                    'class' => 'space-y-4',
+                    'enctype' => 'multipart/form-data',
+                    'data-user-id' => !Yii::$app->user->isGuest ? Yii::$app->user->id : 0,
+                ],
             ]); ?>
 
             <?php if ($isAdmin): ?>

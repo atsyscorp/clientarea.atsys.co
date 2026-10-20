@@ -40,7 +40,7 @@ class TicketsController extends \yii\web\Controller
                         ],
                         // REGLA 2: Solo el ADMIN puede ELIMINAR, fusionar, bloquear remitente y actualizar (editar)
                         [
-                            'actions' => ['update', 'in-progress', 'delete', 'toggle-lock', 'merge', 'block-sender', 'unblock-sender', 'update-cc', 'edit'],
+                            'actions' => ['update', 'in-progress', 'delete', 'toggle-lock', 'merge', 'block-sender', 'unblock-sender', 'update-cc', 'edit', 'delete-reply'],
                             'allow' => true,
                             'roles' => ['@'],
                             'matchCallback' => function ($rule, $action) {
@@ -60,6 +60,7 @@ class TicketsController extends \yii\web\Controller
                         'unblock-sender' => ['POST'],
                         'update-cc' => ['POST'],
                         'edit' => ['POST'],
+                        'delete-reply' => ['POST'],
                     ],
                 ],
             ]
@@ -907,6 +908,76 @@ class TicketsController extends \yii\web\Controller
 
         Yii::$app->session->setFlash('success', 'Ticket eliminado correctamente.');
         return $this->redirect(['index']);
+    }
+
+    /**
+     * Elimina una respuesta de un ticket (Solo Admin).
+     * @param int $id ID de la respuesta (TicketReplies)
+     * @return \yii\web\Response
+     * @throws NotFoundHttpException
+     * @throws \yii\web\ForbiddenHttpException
+     */
+    public function actionDeleteReply($id)
+    {
+        $isAdmin = !Yii::$app->user->isGuest && Yii::$app->user->identity->isAdmin;
+        if (!$isAdmin) {
+            throw new \yii\web\ForbiddenHttpException('No tienes permiso para realizar esta acción.');
+        }
+
+        $reply = TicketReplies::findOne($id);
+        if (!$reply) {
+            throw new NotFoundHttpException('La respuesta seleccionada no existe.');
+        }
+
+        $ticket = $reply->ticket;
+        if (!$ticket) {
+            throw new NotFoundHttpException('El ticket asociado no fue encontrado.');
+        }
+
+        $ticketId = $ticket->id;
+
+        // No permitir borrar el requerimiento inicial con el que se abrió el ticket
+        $firstReply = TicketReplies::find()
+            ->where(['ticket_id' => $ticket->id])
+            ->orderBy(['id' => SORT_ASC])
+            ->one();
+
+        if ($firstReply && $firstReply->id == $reply->id) {
+            Yii::$app->session->setFlash('error', 'No se puede eliminar el requerimiento inicial con el que se abrió el ticket. Si deseas descartar el ticket completo, utiliza la opción "Eliminar Ticket".');
+            return $this->redirect(['view', 'id' => $ticketId]);
+        }
+
+        if ($reply->delete()) {
+            // Reajustar la última actividad y el estado del ticket tras eliminar la respuesta
+            $lastReply = TicketReplies::find()
+                ->where(['ticket_id' => $ticket->id])
+                ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC])
+                ->one();
+
+            if ($lastReply) {
+                $ticket->updated_at = $lastReply->created_at;
+
+                // Solo recalculamos el estado si el ticket no está cerrado
+                if ($ticket->status !== Tickets::STATUS_CLOSED) {
+                    if ($lastReply->sender_type === TicketReplies::SENDER_TYPE_ADMIN) {
+                        $ticket->status = Tickets::STATUS_ANSWERED;
+                    } else {
+                        // Si la última respuesta restante es del cliente, verificar si alguna vez hubo respuesta de admin
+                        $hasAdminReply = TicketReplies::find()
+                            ->where(['ticket_id' => $ticket->id, 'sender_type' => TicketReplies::SENDER_TYPE_ADMIN])
+                            ->exists();
+                        $ticket->status = $hasAdminReply ? Tickets::STATUS_CUSTOMER_REPLY : Tickets::STATUS_OPEN;
+                    }
+                }
+                $ticket->save(false);
+            }
+
+            Yii::$app->session->setFlash('success', 'La respuesta ha sido eliminada correctamente.');
+        } else {
+            Yii::$app->session->setFlash('error', 'No se pudo eliminar la respuesta.');
+        }
+
+        return $this->redirect(['view', 'id' => $ticketId]);
     }
 
     /**

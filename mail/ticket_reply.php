@@ -41,6 +41,11 @@ $formatMessage = function($text, $dark = false) {
 };
 ?>
 
+<!-- ATSYS_REPLY_SEPARATOR -->
+<div class="ticket-reply-separator" style="color: #94a3b8; font-size: 11px; text-align: center; border-bottom: 1px dashed #cbd5e1; margin-bottom: 20px; padding-bottom: 6px; font-family: Arial, sans-serif;">
+    -- Escriba su respuesta por encima de esta línea --
+</div>
+
 <div class="ticket-reply">
     <?php if ($ticket): ?>
         <p>Se ha incluido la siguiente respuesta al ticket #<?= Html::encode($ticket->ticket_code) ?>:</p>

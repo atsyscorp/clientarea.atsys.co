@@ -63,9 +63,14 @@ class N8NService
     }
 
     /**
-     * Envía una solicitud a n8n para programar una reunión en Google Calendar con Google Meet
+     * Envía una solicitud a n8n para programar una reunión en Google Calendar con Google Meet.
+     * Puede invocarse de manera estática:
+     *   N8NService::scheduleMeeting($meeting);
+     * O mediante instancia:
+     *   $n8n = new N8NService();
+     *   $n8n->scheduleMeeting($params);
      *
-     * @param array $params Datos de la reunión:
+     * @param array|\app\models\Meetings $params Datos de la reunión en array o modelo Meetings:
      *   - cliente_nombre: (string) Nombre del cliente
      *   - cliente_email: (string) Correo al que llegará la invitación de Google Calendar
      *   - asunto: (string) Título de la reunión
@@ -73,10 +78,44 @@ class N8NService
      *   - fin: (string) Fecha/hora fin en formato ISO 8601 (ej: 2026-09-28T10:45:00-05:00)
      *   - descripcion: (string, opcional) Notas o detalles de la sesión
      *   - client_id: (int|null, opcional) ID del cliente en ClientArea
-     * @return array|false Devuelve array con 'meet_url', 'event_id', etc. o false en fallo
+     * @return array Devuelve array con 'success' => bool, 'meet_url', 'event_id', etc. o 'error' en caso de fallo
      */
-    public function scheduleMeeting(array $params)
+    public static function scheduleMeeting($params)
     {
+        $instance = new self();
+        return $instance->processScheduleMeeting($params);
+    }
+
+    /**
+     * Procesa internamente el envío del webhook a n8n para programar la reunión
+     *
+     * @param array|\app\models\Meetings $params
+     * @return array
+     */
+    public function processScheduleMeeting($params)
+    {
+        if ($params instanceof \app\models\Meetings) {
+            $startTimestamp = strtotime($params->start_time);
+            $endTimestamp = strtotime($params->end_time);
+
+            $payloadData = [
+                'client_id'      => $params->customer_id,
+                'cliente_nombre' => $params->client_name,
+                'cliente_email'  => $params->client_email,
+                'asunto'         => $params->title,
+                'descripcion'    => $params->description,
+                'inicio'         => date('c', $startTimestamp),
+                'fin'            => date('c', $endTimestamp),
+            ];
+        } elseif (is_array($params)) {
+            $payloadData = $params;
+        } else {
+            return [
+                'success' => false,
+                'error' => 'Parámetros no válidos proporcionados para programar la reunión.',
+            ];
+        }
+
         $client = $this->getHttpClient(15);
         $webhookUrl = $this->baseUrl . '/webhook/crear-reunion';
 
@@ -84,7 +123,7 @@ class N8NService
             $payload = array_merge([
                 'timestamp' => date('c'),
                 'source' => 'ATSYS-ClientArea',
-            ], $params);
+            ], $payloadData);
 
             $response = $client->createRequest()
                 ->setMethod('POST')
@@ -94,17 +133,118 @@ class N8NService
                 ->send();
 
             if ($response->isOk) {
-                return $response->data ?: Json::decode($response->content);
+                $data = $response->data ?: Json::decode($response->content);
+                if (is_array($data)) {
+                    if (!isset($data['success'])) {
+                        $data['success'] = !empty($data['meet_url']) || !empty($data['event_id']);
+                    }
+                    return $data;
+                }
+                return [
+                    'success' => false,
+                    'error' => 'La respuesta devuelta por n8n no tiene un formato válido.',
+                ];
             }
 
-            \Yii::warning(
-                "n8n scheduleMeeting falló con estado {$response->statusCode}: {$response->content}",
-                __METHOD__
-            );
-            return false;
+            $errorMsg = "n8n scheduleMeeting falló con estado {$response->statusCode}: {$response->content}";
+            \Yii::warning($errorMsg, __METHOD__);
+            return [
+                'success' => false,
+                'error' => $errorMsg,
+            ];
         } catch (\Exception $e) {
             \Yii::error("Excepción programando reunión vía n8n: " . $e->getMessage(), __METHOD__);
-            return false;
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Envía una solicitud a n8n para actualizar una reunión existente en Google Calendar.
+     *
+     * @param \app\models\Meetings|array $params
+     * @return array
+     */
+    public static function updateMeeting($params)
+    {
+        $instance = new self();
+        return $instance->processUpdateMeeting($params);
+    }
+
+    /**
+     * Procesa internamente el webhook de actualización de reunión hacia n8n
+     *
+     * @param \app\models\Meetings|array $params
+     * @return array
+     */
+    public function processUpdateMeeting($params)
+    {
+        if ($params instanceof \app\models\Meetings) {
+            $startTimestamp = strtotime($params->start_time);
+            $endTimestamp = strtotime($params->end_time);
+
+            $payloadData = [
+                'action'         => 'update',
+                'event_id'       => $params->google_event_id,
+                'google_event_id'=> $params->google_event_id,
+                'client_id'      => $params->customer_id,
+                'cliente_nombre' => $params->client_name,
+                'cliente_email'  => $params->client_email,
+                'asunto'         => $params->title,
+                'descripcion'    => $params->description,
+                'inicio'         => date('c', $startTimestamp),
+                'fin'            => date('c', $endTimestamp),
+            ];
+        } elseif (is_array($params)) {
+            $payloadData = $params;
+        } else {
+            return [
+                'success' => false,
+                'error' => 'Parámetros no válidos para actualizar la reunión.',
+            ];
+        }
+
+        $client = $this->getHttpClient(15);
+        $webhookUrl = env('N8N_UPDATE_MEETING_WEBHOOK_URL', $this->baseUrl . '/webhook/actualizar-reunion');
+
+        try {
+            $payload = array_merge([
+                'timestamp' => date('c'),
+                'source' => 'ATSYS-ClientArea',
+            ], $payloadData);
+
+            $response = $client->createRequest()
+                ->setMethod('POST')
+                ->setUrl($webhookUrl)
+                ->setFormat(Client::FORMAT_JSON)
+                ->setData($payload)
+                ->send();
+
+            if ($response->isOk) {
+                $data = $response->data ?: Json::decode($response->content);
+                if (is_array($data)) {
+                    if (!isset($data['success'])) {
+                        $data['success'] = true;
+                    }
+                    return $data;
+                }
+                return ['success' => true];
+            }
+
+            $errorMsg = "n8n updateMeeting respondió con estado {$response->statusCode}: {$response->content}";
+            \Yii::warning($errorMsg, __METHOD__);
+            return [
+                'success' => false,
+                'error' => $errorMsg,
+            ];
+        } catch (\Exception $e) {
+            \Yii::warning("Excepción actualizando reunión vía n8n: " . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 }

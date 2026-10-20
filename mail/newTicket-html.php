@@ -42,6 +42,11 @@ $formatMessage = function($text, $dark = false) {
     return $cleanHtml;
 };
 ?>
+<!-- ATSYS_REPLY_SEPARATOR -->
+<div class="ticket-reply-separator" style="color: #94a3b8; font-size: 11px; text-align: center; border-bottom: 1px dashed #cbd5e1; margin-bottom: 20px; padding-bottom: 6px; font-family: Arial, sans-serif;">
+    -- Escriba su respuesta por encima de esta línea --
+</div>
+
 <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
     <h2 style="color: #4F46E5;">¡Hemos recibido tu solicitud!</h2>
     <p>Hola,</p>

@@ -1,3 +1,62 @@
+/**
+ * AutoDraft: Gestor de almacenamiento y recuperación de borradores en localStorage
+ */
+window.AutoDraft = {
+    save: function(key, data) {
+        try {
+            if (!key) return false;
+            const payload = {
+                data: data,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+            return true;
+        } catch (e) {
+            console.warn('AutoDraft: No se pudo guardar en localStorage', e);
+            return false;
+        }
+    },
+    load: function(key, maxDays) {
+        try {
+            if (!key) return null;
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const item = JSON.parse(raw);
+            const daysLimit = typeof maxDays === 'number' ? maxDays : 7;
+            const maxAge = daysLimit * 24 * 60 * 60 * 1000;
+            if (Date.now() - item.timestamp > maxAge) {
+                this.clear(key);
+                return null;
+            }
+            return item; // Retorna { data, timestamp }
+        } catch (e) {
+            return null;
+        }
+    },
+    clear: function(key) {
+        try {
+            if (!key) return;
+            localStorage.removeItem(key);
+        } catch (e) {
+            console.warn('AutoDraft: Error al limpiar localStorage', e);
+        }
+    },
+    formatTime: function(timestamp) {
+        try {
+            const date = new Date(timestamp);
+            const today = new Date();
+            const isToday = date.toDateString() === today.toDateString();
+            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (isToday) {
+                return 'hoy a las ' + timeStr;
+            }
+            return date.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' + timeStr;
+        } catch (e) {
+            return '';
+        }
+    }
+};
+
 document.addEventListener('click', function(e) {
     // Buscamos si el elemento clickeado (o su padre) tiene data-method
     const link = e.target.closest('a[data-method]');

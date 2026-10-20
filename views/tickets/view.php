@@ -38,6 +38,9 @@ $this->registerJs('window.ticketDelegates = ' . json_encode($delegatesData) . ';
 
 // Helper para links
 $formatMessage = function ($text, $dark = false) {
+    if (class_exists('\app\helpers\EmailParserHelper')) {
+        $text = \app\helpers\EmailParserHelper::cleanReplyForDisplay($text);
+    }
     if (strpos($text, '<p') === false && strpos($text, '<div') === false && strpos($text, '<br') === false) {
         $text = nl2br($text);
     }
@@ -128,8 +131,44 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
 
 // B. Inicializamos el editor
 $js = <<<'JS'
+window.AutoDraft = window.AutoDraft || {
+    save: function(k, d) { try { if (!k) return false; localStorage.setItem(k, JSON.stringify({ data: d, timestamp: Date.now() })); return true; } catch (e) { return false; } },
+    load: function(k, m) { try { if (!k) return null; const r = localStorage.getItem(k); if (!r) return null; const i = JSON.parse(r); if (Date.now() - i.timestamp > (typeof m === 'number' ? m : 7) * 86400000) { this.clear(k); return null; } return i; } catch (e) { return null; } },
+    clear: function(k) { try { if (k) localStorage.removeItem(k); } catch (e) {} },
+    formatTime: function(t) { try { const d = new Date(t), now = new Date(), isToday = d.toDateString() === now.toDateString(), s = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); return isToday ? 'hoy a las ' + s : d.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' + s; } catch (e) { return ''; } }
+};
+
 function initViewTicketEditor() {
     if (typeof tinymce === 'undefined') return;
+
+    const replyForm = document.getElementById('ticket-reply-form');
+    const ticketId = replyForm ? (replyForm.getAttribute('data-ticket-id') || '0') : '0';
+    const userId = replyForm ? (replyForm.getAttribute('data-user-id') || '0') : '0';
+    const draftKey = `draft_ticket_reply_${ticketId}_u${userId}`;
+    const draftNotice = document.getElementById('reply-draft-notice');
+    const draftTimeSpan = document.getElementById('reply-draft-time');
+    const discardBtn = document.getElementById('btn-discard-reply-draft');
+    const autosaveStatus = document.getElementById('reply-autosave-status');
+
+    function isContentEmpty(html) {
+        if (!html) return true;
+        const stripped = html.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').trim();
+        return stripped.length === 0;
+    }
+
+    let statusFadeTimer = null;
+    function setStatus(text, success) {
+        if (!autosaveStatus) return;
+        clearTimeout(statusFadeTimer);
+        autosaveStatus.textContent = text;
+        autosaveStatus.className = `text-[11px] font-normal transition-opacity duration-300 ${success ? 'text-success' : 'text-base-content/50'}`;
+        autosaveStatus.style.opacity = '1';
+        if (text) {
+            statusFadeTimer = setTimeout(() => {
+                autosaveStatus.style.opacity = '0';
+            }, 3000);
+        }
+    }
 
     const currentHtmlTheme = document.documentElement.getAttribute('data-theme');
     const isDarkMode = currentHtmlTheme === 'dark';
@@ -162,8 +201,46 @@ function initViewTicketEditor() {
         toolbar: 'bold italic underline | bullist numlist | link image | removeformat | fullscreen | blockquote',
         branding: false,
         setup: function (editor) {
-            editor.on('change keyup NodeChange', function () {
+            let debounceTimer = null;
+
+            // Restaurar borrador guardado al cargar
+            editor.on('init', function () {
+                if (window.AutoDraft && ticketId !== '0') {
+                    const savedDraft = window.AutoDraft.load(draftKey);
+                    if (savedDraft && savedDraft.data && !isContentEmpty(savedDraft.data)) {
+                        if (isContentEmpty(editor.getContent())) {
+                            editor.setContent(savedDraft.data);
+                            editor.save();
+                            if (draftNotice) {
+                                draftNotice.classList.remove('hidden');
+                                if (draftTimeSpan && savedDraft.timestamp) {
+                                    draftTimeSpan.textContent = window.AutoDraft.formatTime(savedDraft.timestamp);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Guardado automático con debounce
+            editor.on('change keyup NodeChange input', function () {
                 editor.save();
+
+                if (window.AutoDraft && ticketId !== '0') {
+                    clearTimeout(debounceTimer);
+                    setStatus('Guardando borrador...', false);
+                    debounceTimer = setTimeout(() => {
+                        const content = editor.getContent();
+                        if (!isContentEmpty(content)) {
+                            window.AutoDraft.save(draftKey, content);
+                            setStatus('✓ Borrador guardado localmente', true);
+                        } else {
+                            window.AutoDraft.clear(draftKey);
+                            if (draftNotice) draftNotice.classList.add('hidden');
+                            setStatus('', false);
+                        }
+                    }, 600);
+                }
             });
 
             // Registrar autocompleter para menciones con @
@@ -255,11 +332,45 @@ function initViewTicketEditor() {
         })
     });
 
-    const replyForm = document.getElementById('ticket-reply-form');
+    // Botón para descartar el borrador restaurado
+    if (discardBtn) {
+        const newDiscardBtn = discardBtn.cloneNode(true);
+        discardBtn.parentNode.replaceChild(newDiscardBtn, discardBtn);
+
+        newDiscardBtn.addEventListener('click', function () {
+            if (confirm('¿Deseas descartar este borrador? El texto escrito se eliminará.')) {
+                if (typeof tinymce !== 'undefined') {
+                    const inst = tinymce.get('ticket-message-editor');
+                    if (inst) {
+                        inst.setContent('');
+                        inst.save();
+                    }
+                }
+                const textarea = document.getElementById('ticket-message-editor');
+                if (textarea) textarea.value = '';
+
+                if (window.AutoDraft) {
+                    window.AutoDraft.clear(draftKey);
+                }
+                if (draftNotice) {
+                    draftNotice.classList.add('hidden');
+                }
+                setStatus('Borrador descartado', false);
+            }
+        });
+    }
+
     if (replyForm) {
         replyForm.addEventListener('submit', function () {
             if (typeof tinymce !== 'undefined') {
                 tinymce.triggerSave();
+            }
+            // Eliminar borrador temporal al enviar exitosamente el formulario
+            if (window.AutoDraft) {
+                window.AutoDraft.clear(draftKey);
+            }
+            if (draftNotice) {
+                draftNotice.classList.add('hidden');
             }
         });
     }
@@ -357,7 +468,8 @@ $this->registerJs($js, \yii\web\View::POS_END);
                         echo $this->render('_reply', [
                             'reply' => $firstReply,
                             'model' => $model,
-                            'formatMessage' => $formatMessage
+                            'formatMessage' => $formatMessage,
+                            'isFirstReply' => true,
                         ]);
                     }
                     ?>
@@ -370,7 +482,8 @@ $this->registerJs($js, \yii\web\View::POS_END);
                         <?= $this->render('_reply', [
                             'reply' => $reply,
                             'model' => $model,
-                            'formatMessage' => $formatMessage
+                            'formatMessage' => $formatMessage,
+                            'isFirstReply' => false,
                         ]) ?>
                     <?php endforeach; ?>
 
@@ -480,11 +593,15 @@ $this->registerJs($js, \yii\web\View::POS_END);
                     <?php $form = ActiveForm::begin([
                         'id' => 'ticket-reply-form',
                         'action' => ['reply', 'id' => $model->id],
-                        'options' => ['enctype' => 'multipart/form-data']
+                        'options' => [
+                            'enctype' => 'multipart/form-data',
+                            'data-ticket-id' => $model->id,
+                            'data-user-id' => !Yii::$app->user->isGuest ? Yii::$app->user->id : 0,
+                        ]
                     ]); ?>
 
                     <div class="form-control">
-                        <label class="label">
+                        <label class="label flex justify-between items-center">
                             <span class="label-text font-bold">
                                 <?php if ($model->status === 'closed'): ?>
                                     <span class="text-warning flex items-center gap-1">
@@ -500,6 +617,7 @@ $this->registerJs($js, \yii\web\View::POS_END);
                                     <?= (Yii::$app->user->identity->isAdmin) ? 'Responder al cliente' : 'Agregar respuesta' ?>
                                 <?php endif; ?>
                             </span>
+                            <span id="reply-autosave-status" class="text-[11px] text-base-content/50 font-normal transition-opacity duration-300"></span>
                         </label>
 
                         <?= Html::textarea('TicketReplies[message]', '', [
@@ -507,6 +625,22 @@ $this->registerJs($js, \yii\web\View::POS_END);
                             'placeholder' => 'Escribe tu respuesta aquí...',
                             'id' => 'ticket-message-editor',
                         ]) ?>
+
+                        <!-- Aviso de borrador restaurado con opción de descartar -->
+                        <div id="reply-draft-notice" class="hidden alert alert-warning/10 text-xs py-2 px-3 rounded-lg border border-warning/30 shadow-sm mt-2 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 text-warning shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                                </svg>
+                                <span>Se restauró un borrador no enviado (<span id="reply-draft-time" class="font-medium"></span>).</span>
+                            </div>
+                            <button type="button" id="btn-discard-reply-draft" class="btn btn-ghost btn-xs text-error hover:bg-error/10 font-bold gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                </svg>
+                                Descartar borrador
+                            </button>
+                        </div>
                     </div>
 
                     <div class="flex flex-col md:flex-row justify-between items-start mt-4 gap-4">

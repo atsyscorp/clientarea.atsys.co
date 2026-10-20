@@ -25,7 +25,7 @@ class AppAsset extends AssetBundle
         'css/custom.css?v=3.1',
     ];
     public $js = [
-        'js/app.js',
+        'js/app.js?v=2.1',
         'https://cdn.jsdelivr.net/npm/sweetalert2@11',
     ];
     public $depends = [

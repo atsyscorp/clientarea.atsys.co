@@ -71,6 +71,13 @@ $this->params['breadcrumbs'][] = $this->title;
             <?php endif; ?>
 
             <?php if ($isAdmin): ?>
+                <!-- Editar / Reprogramar -->
+                <a href="<?= Url::to(['meetings/update', 'id' => $model->id]) ?>" 
+                   class="btn btn-outline btn-primary btn-sm gap-1.5" title="Editar detalles o reprogramar horario">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                    Editar / Reprogramar
+                </a>
+
                 <!-- Reenviar Invitación -->
                 <?php if (!empty($model->meet_url)): ?>
                     <a href="<?= Url::to(['meetings/resend-invitation', 'id' => $model->id]) ?>" 
@@ -125,7 +132,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         <?php if ($isAdmin): ?>
                             <div class="font-bold text-sm text-base-content">Solicitud Pendiente de Autorización</div>
                             <div class="text-xs text-base-content/70 mt-0.5">
-                                Esta reunión fue solicitada por el usuario. Al hacer clic en <b>"Aprobar Cita"</b>, n8n creará el evento en Google Calendar y le enviará la invitación con Google Meet al solicitante.
+                                Esta reunión fue solicitada por el usuario. Puedes ajustar el horario o datos antes de autorizar. Al pulsar <b>"Aprobar Cita"</b>, n8n creará el evento en Google Calendar y le enviará la invitación oficial con Meet.
                             </div>
                         <?php else: ?>
                             <div class="font-bold text-sm text-base-content">Solicitud Pendiente de Confirmación</div>
@@ -137,6 +144,12 @@ $this->params['breadcrumbs'][] = $this->title;
                 </div>
                 <?php if ($isAdmin): ?>
                     <div class="flex items-center gap-2 flex-shrink-0">
+                        <a href="<?= Url::to(['meetings/update', 'id' => $model->id]) ?>" 
+                           class="btn btn-outline btn-sm gap-1.5 bg-base-100" 
+                           title="Ajustar fecha, hora u otros datos antes de autorizar">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                            Ajustar Horario
+                        </a>
                         <a href="<?= Url::to(['meetings/approve', 'id' => $model->id]) ?>" 
                            onclick="return confirm('¿Deseas autorizar esta reunión y generar la sala de Google Meet?');"
                            class="btn btn-success text-white btn-sm gap-1.5 shadow-md">

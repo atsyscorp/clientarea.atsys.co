@@ -9,6 +9,7 @@ use app\models\Tickets;
 use app\models\Customers;
 use app\models\TicketReplies;
 use app\models\AdminTokens;
+use app\helpers\EmailParserHelper;
 
 class WebhookController extends Controller
 {
@@ -138,9 +139,12 @@ class WebhookController extends Controller
                     $existingTicket->save(false);
                 }
 
+                $cleanReplyBody = EmailParserHelper::extractReplyBody($data['body']);
+                $replyMessage = !empty($cleanReplyBody) ? $cleanReplyBody : $data['body'];
+
                 $reply = new TicketReplies();
                 $reply->ticket_id = $existingTicket->id;
-                $reply->message = $data['body'];
+                $reply->message = $replyMessage;
                 $reply->sender_type = 'customer'; 
                 $reply->created_at = date('Y-m-d H:i:s');
                 
@@ -223,11 +227,14 @@ class WebhookController extends Controller
                 // Si borramos todo y quedó vacío (raro), usamos el original, si no, usamos el limpio
                 $finalSubject = empty($cleanSubject) ? $incomingSubject : $cleanSubject;
 
+                $cleanNewBody = EmailParserHelper::extractReplyBody($data['body']);
+                $bodyMessage = !empty($cleanNewBody) ? $cleanNewBody : $data['body'];
+
                 $model = new Tickets(['scenario' => 'create']);
                 $model->customer_id = $customerId;
                 $model->email = $data['email'];
                 $model->subject = $finalSubject; // Guardamos el asunto LIMPIO
-                $model->message = $data['body']; 
+                $model->message = $bodyMessage; 
                 
                 // Departamento
                 if (isset($data['target_email']) && strpos($data['target_email'], 'hola') !== false) {
@@ -245,14 +252,14 @@ class WebhookController extends Controller
                 // Reply inicial
                 $reply = new TicketReplies();
                 $reply->ticket_id = $model->id;
-                $reply->message = $data['body'];
+                $reply->message = $bodyMessage;
                 $reply->sender_type = 'customer';
                 $reply->user_id = $userData ? $userData->id : null;
                 $reply->created_at = date('Y-m-d H:i:s');
                 $reply->save();
 
                 // Disparar notificaciones completas (Email, In-App, y Push N8N)
-                $model->sendNewTicketNotifications($data['body'], $userData, false);
+                $model->sendNewTicketNotifications($bodyMessage, $userData, false);
 
                 $notifTitle = "🎟️ Nuevo Ticket: " . $model->ticket_code;
                 $notifBody = $model->subject;

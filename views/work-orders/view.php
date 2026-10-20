@@ -48,13 +48,69 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tiny
     'position' => \yii\web\View::POS_HEAD
 ]);
 
-// B. Inicializamos el editor
+// B. Inicializamos el editor y la gestión de borradores
 $js = <<<JS
+window.AutoDraft = window.AutoDraft || {
+    save: function(k, d) { try { if (!k) return false; localStorage.setItem(k, JSON.stringify({ data: d, timestamp: Date.now() })); return true; } catch (e) { return false; } },
+    load: function(k, m) { try { if (!k) return null; const r = localStorage.getItem(k); if (!r) return null; const i = JSON.parse(r); if (Date.now() - i.timestamp > (typeof m === 'number' ? m : 7) * 86400000) { this.clear(k); return null; } return i; } catch (e) { return null; } },
+    clear: function(k) { try { if (k) localStorage.removeItem(k); } catch (e) {} },
+    formatTime: function(t) { try { const d = new Date(t), now = new Date(), isToday = d.toDateString() === now.toDateString(), s = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); return isToday ? 'hoy a las ' + s : d.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' + s; } catch (e) { return ''; } }
+};
+
 document.addEventListener("DOMContentLoaded", function() {
     const isDarkMode = document.documentElement.classList.contains('dark');
+    
+    // --- LÓGICA DE BORRADOR PARA "REGISTRAR AVANCE" ---
+    const addUpdateForm = document.getElementById('work-order-add-update-form');
+    const woId = addUpdateForm ? (addUpdateForm.getAttribute('data-wo-id') || '0') : '0';
+    const userId = addUpdateForm ? (addUpdateForm.getAttribute('data-user-id') || '0') : '0';
+    const updateDraftKey = 'draft_wo_update_' + woId + '_u' + userId;
+    const updateDraftNotice = document.getElementById('wo-update-draft-notice');
+    const updateDraftTime = document.getElementById('wo-update-draft-time');
+    const updateDiscardBtn = document.getElementById('btn-discard-wo-update-draft');
+    const updateAutosaveStatus = document.getElementById('wo-update-autosave-status');
+
+    function isContentEmpty(html) {
+        if (!html) return true;
+        const stripped = html.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').trim();
+        return stripped.length === 0;
+    }
+
+    let updateStatusTimer = null;
+    function setUpdateStatus(text, success) {
+        if (!updateAutosaveStatus) return;
+        clearTimeout(updateStatusTimer);
+        updateAutosaveStatus.textContent = text;
+        updateAutosaveStatus.className = 'text-[11px] font-normal transition-opacity duration-300 ' + (success ? 'text-success' : 'text-base-content/50');
+        updateAutosaveStatus.style.opacity = '1';
+        if (text) {
+            updateStatusTimer = setTimeout(() => {
+                updateAutosaveStatus.style.opacity = '0';
+            }, 3000);
+        }
+    }
+
+    let updateDebounceTimer = null;
+    function triggerSaveUpdateDraft(content) {
+        if (!window.AutoDraft || woId === '0') return;
+
+        clearTimeout(updateDebounceTimer);
+        setUpdateStatus('Guardando borrador...', false);
+        updateDebounceTimer = setTimeout(() => {
+            if (!isContentEmpty(content)) {
+                window.AutoDraft.save(updateDraftKey, content);
+                setUpdateStatus('✓ Borrador guardado localmente', true);
+            } else {
+                window.AutoDraft.clear(updateDraftKey);
+                if (updateDraftNotice) updateDraftNotice.classList.add('hidden');
+                setUpdateStatus('', false);
+            }
+        }, 600);
+    }
+
     tinymce.remove('#workorders-requirements, #workorderupdates-description'); // Limpieza preventiva
     tinymce.init({
-        selector: '#workorders-requirements, #workorderupdates-description', // Debe coincidir con los IDs
+        selector: '#workorders-requirements, #workorderupdates-description',
         height: 300,
         menubar: false,
         statusbar: false,
@@ -65,10 +121,154 @@ document.addEventListener("DOMContentLoaded", function() {
         content_css: isDarkMode ? 'dark' : 'default',
         branding: false,
         setup: function (editor) {
-            editor.on('change', function () {
+            editor.on('change keyup NodeChange input', function () {
                 editor.save();
+                if (editor.id === 'workorderupdates-description') {
+                    triggerSaveUpdateDraft(editor.getContent());
+                }
+            });
+
+            editor.on('init', function () {
+                if (editor.id === 'workorderupdates-description' && window.AutoDraft && woId !== '0') {
+                    const savedDraft = window.AutoDraft.load(updateDraftKey);
+                    if (savedDraft && savedDraft.data && !isContentEmpty(savedDraft.data)) {
+                        if (isContentEmpty(editor.getContent())) {
+                            editor.setContent(savedDraft.data);
+                            editor.save();
+                            if (updateDraftNotice) {
+                                updateDraftNotice.classList.remove('hidden');
+                                if (updateDraftTime && savedDraft.timestamp) {
+                                    updateDraftTime.textContent = window.AutoDraft.formatTime(savedDraft.timestamp);
+                                }
+                            }
+                        }
+                    }
+                }
             });
         }
+    });
+
+    if (updateDiscardBtn) {
+        updateDiscardBtn.addEventListener('click', function () {
+            if (confirm('¿Deseas descartar este avance? Se eliminará el texto escrito.')) {
+                if (typeof tinymce !== 'undefined') {
+                    const inst = tinymce.get('workorderupdates-description');
+                    if (inst) {
+                        inst.setContent('');
+                        inst.save();
+                    }
+                }
+                const textarea = document.getElementById('workorderupdates-description');
+                if (textarea) textarea.value = '';
+
+                if (window.AutoDraft) {
+                    window.AutoDraft.clear(updateDraftKey);
+                }
+                if (updateDraftNotice) {
+                    updateDraftNotice.classList.add('hidden');
+                }
+                setUpdateStatus('Borrador descartado', false);
+            }
+        });
+    }
+
+    if (addUpdateForm) {
+        addUpdateForm.addEventListener('submit', function () {
+            if (typeof tinymce !== 'undefined') {
+                tinymce.triggerSave();
+            }
+            if (window.AutoDraft) {
+                window.AutoDraft.clear(updateDraftKey);
+            }
+            if (updateDraftNotice) {
+                updateDraftNotice.classList.add('hidden');
+            }
+        });
+    }
+
+    // --- LÓGICA DE BORRADOR PARA RESPUESTAS DEL CLIENTE A AVANCES (.wo-reply-form) ---
+    document.querySelectorAll('.wo-reply-form').forEach(function(replyForm) {
+        const uId = replyForm.getAttribute('data-update-id');
+        const wId = replyForm.getAttribute('data-wo-id') || woId;
+        const usrId = replyForm.getAttribute('data-user-id') || userId;
+        const replyKey = 'draft_wo_reply_' + wId + '_upd_' + uId + '_u' + usrId;
+
+        const textarea = replyForm.querySelector('.wo-reply-textarea');
+        const notice = replyForm.querySelector('.wo-reply-draft-notice');
+        const timeSpan = replyForm.querySelector('.wo-reply-draft-time');
+        const discardBtn = replyForm.querySelector('.btn-discard-wo-reply');
+        const statusSpan = document.querySelector('.wo-reply-autosave-status[data-status-for="' + uId + '"]');
+
+        let replyStatusTimer = null;
+        function setReplyStatus(text, success) {
+            if (!statusSpan) return;
+            clearTimeout(replyStatusTimer);
+            statusSpan.textContent = text;
+            statusSpan.className = 'wo-reply-autosave-status text-[11px] font-normal transition-opacity duration-300 ' + (success ? 'text-success' : 'text-base-content/50');
+            statusSpan.style.opacity = '1';
+            if (text) {
+                replyStatusTimer = setTimeout(() => {
+                    statusSpan.style.opacity = '0';
+                }, 3000);
+            }
+        }
+
+        // Restaurar borrador si existe
+        if (window.AutoDraft && textarea) {
+            const savedReply = window.AutoDraft.load(replyKey);
+            if (savedReply && savedReply.data && !textarea.value.trim()) {
+                textarea.value = savedReply.data;
+                if (notice) {
+                    notice.classList.remove('hidden');
+                    if (timeSpan && savedReply.timestamp) {
+                        timeSpan.textContent = window.AutoDraft.formatTime(savedReply.timestamp);
+                    }
+                }
+            }
+        }
+
+        // Guardado con debounce al escribir
+        let replyDebounce = null;
+        if (textarea) {
+            textarea.addEventListener('input', function() {
+                if (!window.AutoDraft) return;
+                clearTimeout(replyDebounce);
+                setReplyStatus('Guardando...', false);
+                replyDebounce = setTimeout(() => {
+                    const val = textarea.value.trim();
+                    if (val) {
+                        window.AutoDraft.save(replyKey, val);
+                        setReplyStatus('✓ Guardado', true);
+                    } else {
+                        window.AutoDraft.clear(replyKey);
+                        if (notice) notice.classList.add('hidden');
+                        setReplyStatus('', false);
+                    }
+                }, 600);
+            });
+        }
+
+        // Descartar borrador
+        if (discardBtn) {
+            discardBtn.addEventListener('click', function() {
+                if (confirm('¿Deseas descartar esta respuesta?')) {
+                    if (textarea) textarea.value = '';
+                    if (window.AutoDraft) window.AutoDraft.clear(replyKey);
+                    if (notice) notice.classList.add('hidden');
+                    setReplyStatus('Descartado', false);
+                }
+            });
+        }
+
+        // Limpiar al enviar
+        replyForm.addEventListener('submit', function() {
+            if (window.AutoDraft) {
+                window.AutoDraft.clear(replyKey);
+            }
+            if (notice) {
+                notice.classList.add('hidden');
+            }
+        });
     });
 });
 JS;
@@ -662,16 +862,40 @@ JS;
             <div class="max-w-4xl mx-auto w-full mb-8">
                 <div class="card bg-base-200 shadow-inner border border-base-300">
                     <div class="card-body p-6">
-                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Registrar Avance en Bitácora
-                        </h3>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-lg flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-primary">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Registrar Avance en Bitácora
+                            </h3>
+                            <span id="wo-update-autosave-status" class="text-[11px] text-base-content/50 font-normal transition-opacity duration-300"></span>
+                        </div>
+
+                        <!-- Aviso de borrador restaurado con opción de descartar -->
+                        <div id="wo-update-draft-notice" class="hidden alert alert-warning/10 text-xs py-2 px-3 rounded-lg border border-warning/30 shadow-sm mb-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 text-warning shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                                </svg>
+                                <span>Se restauró un borrador no enviado (<span id="wo-update-draft-time" class="font-medium"></span>).</span>
+                            </div>
+                            <button type="button" id="btn-discard-wo-update-draft" class="btn btn-ghost btn-xs text-error hover:bg-error/10 font-bold gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                </svg>
+                                Descartar borrador
+                            </button>
+                        </div>
 
                         <?php $form = \yii\widgets\ActiveForm::begin([
+                            'id' => 'work-order-add-update-form',
                             'action' => ['add-update', 'id' => $model->id],
-                            'options' => ['enctype' => 'multipart/form-data']
+                            'options' => [
+                                'enctype' => 'multipart/form-data',
+                                'data-wo-id' => $model->id,
+                                'data-user-id' => !Yii::$app->user->isGuest ? Yii::$app->user->id : 0,
+                            ]
                         ]); ?>
 
                         <?= $form->field($newUpdate, 'description')->textarea([
@@ -817,15 +1041,39 @@ JS;
                                     </div>
                                 <?php elseif (!in_array($model->status, [\app\models\WorkOrders::STATUS_COMPLETED, \app\models\WorkOrders::STATUS_NOT_COMPLETED])): ?>
                                     <div class="bg-base-200 p-4 rounded-lg border-l-4 border-primary mt-4">
-                                        <div class="text-xs font-bold text-primary mb-2">Este avance requiere tu respuesta:</div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="text-xs font-bold text-primary">Este avance requiere tu respuesta:</div>
+                                            <span class="wo-reply-autosave-status text-[11px] text-base-content/50 font-normal transition-opacity duration-300" data-status-for="<?= $update->id ?>"></span>
+                                        </div>
                                         <div class="text-sm text-justify">
-                                            <?= \yii\helpers\Html::beginForm(['work-orders/add-reply', 'id' => $model->id], 'post', ['enctype' => 'multipart/form-data']) ?>
+                                            <?= \yii\helpers\Html::beginForm(['work-orders/add-reply', 'id' => $model->id], 'post', [
+                                                'enctype' => 'multipart/form-data',
+                                                'class' => 'wo-reply-form',
+                                                'data-update-id' => $update->id,
+                                                'data-wo-id' => $model->id,
+                                                'data-user-id' => !Yii::$app->user->isGuest ? Yii::$app->user->id : 0,
+                                            ]) ?>
                                             <?= \yii\helpers\Html::hiddenInput('update_id', $update->id) ?>
+
+                                            <!-- Aviso de borrador restaurado -->
+                                            <div class="wo-reply-draft-notice hidden alert alert-warning/10 text-xs py-1.5 px-2.5 rounded-lg border border-warning/30 shadow-sm mb-2 flex items-center justify-between" data-notice-for="<?= $update->id ?>">
+                                                <div class="flex items-center gap-1.5">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5 text-warning shrink-0">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                                                    </svg>
+                                                    <span>Borrador restaurado (<span class="wo-reply-draft-time font-medium" data-time-for="<?= $update->id ?>"></span>).</span>
+                                                </div>
+                                                <button type="button" class="btn btn-ghost btn-xs text-error hover:bg-error/10 font-bold gap-1 btn-discard-wo-reply" data-discard-for="<?= $update->id ?>">
+                                                    ✕ Descartar
+                                                </button>
+                                            </div>
+
                                             <?= \yii\helpers\Html::textarea('reply', '', [
-                                                'class' => 'textarea textarea-bordered w-full bg-base-100',
+                                                'class' => 'textarea textarea-bordered w-full bg-base-100 wo-reply-textarea',
                                                 'rows' => 3,
                                                 'placeholder' => 'Tu respuesta (solo podrás enviarla una vez)...',
-                                                'required' => true
+                                                'required' => true,
+                                                'data-textarea-for' => $update->id,
                                             ]) ?>
                                             <div class="mt-3">
                                                 <label class="label p-0 mb-1">
